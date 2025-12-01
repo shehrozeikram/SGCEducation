@@ -22,6 +22,7 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
+app.use('/api/test', require('./routes/test'));
 // TODO: Add your routes here
 // app.use('/api/users', require('./routes/users'));
 // app.use('/api/auth', require('./routes/auth'));
