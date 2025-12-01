@@ -1,0 +1,26 @@
+{
+  "name": "sgc-education",
+  "version": "1.0.0",
+  "description": "SGCEducation MERN stack application",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "cd server && npm start",
+    "client": "cd client && npm start",
+    "server": "cd server && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+  },
+  "keywords": [
+    "mern",
+    "react",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
