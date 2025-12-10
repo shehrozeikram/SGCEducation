@@ -85,14 +85,20 @@ class UserService {
   async getUsers(filters = {}, currentUser) {
     const query = {};
 
-    // If not super admin, only show users from same institution
-    if (currentUser.role !== 'super_admin') {
+    // Institution filtering based on role
+    if (currentUser.role === 'super_admin') {
+      // Super admin can filter by institution if provided
+      if (filters.institution) {
+        query.institution = filters.institution;
+      }
+      // If no institution filter, super admin sees all users
+    } else if (currentUser.institution) {
+      // Regular admin only sees users from their institution
       query.institution = currentUser.institution;
     }
 
     // Apply additional filters
     if (filters.role) query.role = filters.role;
-    if (filters.institution) query.institution = filters.institution;
     if (filters.department) query.department = filters.department;
     if (filters.isActive !== undefined) query.isActive = filters.isActive;
     if (filters.search) {

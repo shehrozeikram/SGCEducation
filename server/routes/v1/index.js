@@ -6,6 +6,15 @@ const authRoutes = require('./auth.routes');
 const userRoutes = require('./user.routes');
 const institutionRoutes = require('./institution.routes');
 const departmentRoutes = require('./department.routes');
+const dashboardRoutes = require('./dashboard.routes');
+const activityLogRoutes = require('./activityLog.routes');
+const notificationRoutes = require('./notification.routes');
+const financialRoutes = require('./financial.routes');
+const reportRoutes = require('./report.routes');
+const systemSettingRoutes = require('./systemSetting.routes');
+const academicCalendarRoutes = require('./academicCalendar.routes');
+const messageRoutes = require('./message.routes');
+const performanceRoutes = require('./performance.routes');
 
 /**
  * API v1 Routes
@@ -16,6 +25,15 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/institutions', institutionRoutes);
 router.use('/departments', departmentRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/activity-logs', activityLogRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/financial', financialRoutes);
+router.use('/reports', reportRoutes);
+router.use('/settings', systemSettingRoutes);
+router.use('/calendar', academicCalendarRoutes);
+router.use('/messages', messageRoutes);
+router.use('/performance', performanceRoutes);
 
 // Health check
 router.get('/health', (req, res) => {
