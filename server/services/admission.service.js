@@ -168,8 +168,7 @@ class AdmissionService {
 
     // Check permissions
     if (currentUser.role !== 'super_admin' &&
-        currentUser.role !== 'admin' &&
-        currentUser.role !== 'school_admin') {
+        currentUser.role !== 'admin') {
       throw new ApiError(403, 'Only admins can update admission status');
     }
 
@@ -215,8 +214,7 @@ class AdmissionService {
 
     // Check permissions
     if (currentUser.role !== 'super_admin' &&
-        currentUser.role !== 'admin' &&
-        currentUser.role !== 'school_admin') {
+        currentUser.role !== 'admin') {
       throw new ApiError(403, 'Only admins can approve admissions');
     }
 
@@ -403,6 +401,206 @@ class AdmissionService {
       .sort({ createdAt: -1 });
 
     return admissions;
+  }
+
+  /**
+   * Get detailed admission analytics for charts
+   */
+  async getAdmissionAnalytics(filters = {}, currentUser) {
+    const query = { isActive: true };
+
+    // Apply institution filter based on role
+    if (currentUser.role !== 'super_admin') {
+      // For non-super-admin users, require institution
+      if (!currentUser.institution) {
+        throw new ApiError(400, 'User institution not set. Please contact administrator.');
+      }
+      query.institution = currentUser.institution;
+    } else if (filters.institution) {
+      query.institution = filters.institution;
+    }
+
+    if (filters.academicYear) {
+      query.academicYear = filters.academicYear;
+    }
+
+    const days = filters.days || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Status breakdown
+    const statusBreakdown = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Department breakdown
+    const departmentBreakdown = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$department',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Populate department names
+    const departmentIds = departmentBreakdown.map(d => d._id);
+    const departments = await Department.find({ _id: { $in: departmentIds } }).select('name');
+    const departmentMap = {};
+    departments.forEach(dept => {
+      departmentMap[dept._id.toString()] = dept.name;
+    });
+
+    const departmentData = departmentBreakdown.map(item => ({
+      name: departmentMap[item._id?.toString()] || 'Unknown',
+      count: item.count
+    }));
+
+    // Gender breakdown
+    const genderBreakdown = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$personalInfo.gender',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Program breakdown
+    const programBreakdown = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$program',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Application trends over time (last N days)
+    const applicationTrends = await Admission.aggregate([
+      {
+        $match: {
+          ...query,
+          createdAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Status trends over time
+    const statusTrends = await Admission.aggregate([
+      {
+        $match: {
+          ...query,
+          createdAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            status: '$status'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.date': 1 } }
+    ]);
+
+    // Monthly application count
+    const monthlyTrends = await Admission.aggregate([
+      {
+        $match: {
+          ...query,
+          createdAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m', date: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Category breakdown
+    const categoryBreakdown = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$personalInfo.category',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Conversion rate (approved + enrolled / total)
+    const totalCount = await Admission.countDocuments(query);
+    const convertedCount = await Admission.countDocuments({
+      ...query,
+      status: { $in: ['approved', 'enrolled'] }
+    });
+    const conversionRate = totalCount > 0 ? ((convertedCount / totalCount) * 100).toFixed(2) : 0;
+
+    return {
+      statusBreakdown: statusBreakdown.map(item => ({
+        status: item._id || 'unknown',
+        count: item.count
+      })),
+      departmentBreakdown: departmentData,
+      genderBreakdown: genderBreakdown.map(item => ({
+        gender: item._id || 'unknown',
+        count: item.count
+      })),
+      programBreakdown: programBreakdown.map(item => ({
+        program: item._id || 'Unknown',
+        count: item.count
+      })),
+      applicationTrends: applicationTrends.map(item => ({
+        date: item._id,
+        count: item.count
+      })),
+      statusTrends: statusTrends.map(item => ({
+        date: item._id.date,
+        status: item._id.status,
+        count: item.count
+      })),
+      monthlyTrends: monthlyTrends.map(item => ({
+        month: item._id,
+        count: item.count
+      })),
+      categoryBreakdown: categoryBreakdown.map(item => ({
+        category: item._id || 'Unknown',
+        count: item.count
+      })),
+      conversionRate: parseFloat(conversionRate),
+      totalApplications: totalCount,
+      convertedApplications: convertedCount
+    };
   }
 }
 

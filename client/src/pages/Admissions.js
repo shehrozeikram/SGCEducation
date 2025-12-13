@@ -21,6 +21,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,6 +29,8 @@ import {
   Grid,
   Card,
   CardContent,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
 import {
   Add,
@@ -39,11 +42,18 @@ import {
   School,
   PendingActions,
   AssignmentTurnedIn,
-  AssignmentLate,
+  Business,
+  Download,
+  Refresh,
+  AccountCircle,
+  Settings,
+  ExitToApp,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
 import axios from 'axios';
+import AdmissionCharts from '../components/admissions/AdmissionCharts';
+import InstitutionSwitcher from '../components/InstitutionSwitcher';
 
 const Admissions = () => {
   const navigate = useNavigate();
@@ -59,44 +69,81 @@ const Admissions = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedAdmission, setSelectedAdmission] = useState(null);
   const [actionDialog, setActionDialog] = useState({ open: false, type: '', remarks: '' });
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [searchType, setSearchType] = useState('all'); // 'all', 'studentId', 'applicationNumber', 'name', 'email'
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'school_admin';
+  const isAdmin = user.role === 'super_admin' || user.role === 'admin';
 
+  // Initialize institution on mount
   useEffect(() => {
-    const institutionData = localStorage.getItem('selectedInstitution');
-    if (institutionData && !selectedInstitution) {
-      try {
-        const institution = JSON.parse(institutionData);
-        setSelectedInstitution(institution._id);
-        return;
-      } catch (e) {
-        console.error('Failed to parse institution data', e);
+    if (!selectedInstitution) {
+      const institutionData = localStorage.getItem('selectedInstitution');
+      if (institutionData) {
+        try {
+          const institution = JSON.parse(institutionData);
+          setSelectedInstitution(institution._id || institution);
+        } catch (e) {
+          console.error('Failed to parse institution data', e);
+        }
+      } else if (!isSuperAdmin && user.institution) {
+        // For admin users, use their own institution from user data
+        setSelectedInstitution(user.institution);
       }
     }
-    fetchData();
+  }, []); // Run only once on mount
+
+  // Fetch data when filters change
+  useEffect(() => {
+    // For admin users, require institution to be set
+    if (!isSuperAdmin && !selectedInstitution) {
+      if (user.institution) {
+        // If user has institution but it's not set yet, wait for it to be set
+        return;
+      } else {
+        // If admin user has no institution, show error and stop loading
+        setError('Your account is not assigned to an institution. Please contact administrator.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Fetch data if super admin or if institution is set
+    if (isSuperAdmin || selectedInstitution) {
+      fetchData();
+    }
   }, [selectedInstitution, selectedDepartment, selectedStatus]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
       // Fetch institutions if super admin
       if (isSuperAdmin) {
         const instResponse = await axios.get('http://localhost:5000/api/v1/institutions', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setInstitutions(instResponse.data.data);
+        setInstitutions(instResponse.data.data || []);
       }
 
       // Fetch departments
       if (selectedInstitution) {
-        const deptResponse = await axios.get(`http://localhost:5000/api/v1/departments?institution=${selectedInstitution}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setDepartments(deptResponse.data.data);
+        try {
+          const deptResponse = await axios.get(`http://localhost:5000/api/v1/departments?institution=${selectedInstitution}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setDepartments(deptResponse.data.data || []);
+        } catch (deptErr) {
+          console.error('Failed to fetch departments:', deptErr);
+          setDepartments([]);
+        }
       }
 
       // Fetch admissions
@@ -107,15 +154,19 @@ const Admissions = () => {
       if (searchTerm) filters.search = searchTerm;
 
       const admissionsData = await getAllAdmissions(filters);
-      setAdmissions(admissionsData.data);
+      setAdmissions(admissionsData.data || []);
 
       // Fetch stats
       const statsFilters = {};
       if (selectedInstitution) statsFilters.institution = selectedInstitution;
       const statsData = await getAdmissionStats(statsFilters);
-      setStats(statsData.data);
+      setStats(statsData.data || {});
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch admissions');
+      console.error('Error fetching admissions data:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch admissions';
+      setError(errorMessage);
+      setAdmissions([]);
+      setStats({});
     } finally {
       setLoading(false);
     }
@@ -158,31 +209,258 @@ const Admissions = () => {
     return colors[status] || 'default';
   };
 
-  const filteredAdmissions = admissions.filter((admission) =>
-    admission.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admission.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admission.contactInfo.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
 
-  if (loading) {
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleProfile = () => {
+    handleClose();
+    navigate('/profile');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('selectedInstitution');
+    navigate('/login');
+  };
+
+  const handleRefresh = () => {
+    fetchData();
+  };
+
+  const handleExport = () => {
+    // TODO: Implement export functionality
+    alert('Export functionality coming soon!');
+  };
+
+  const filteredAdmissions = admissions.filter((admission) => {
+    // Apply status filter first
+    if (selectedStatus && admission.status !== selectedStatus) {
+      return false;
+    }
+
+    // Apply department filter
+    if (selectedDepartment && admission.department?._id?.toString() !== selectedDepartment) {
+      return false;
+    }
+
+    // Apply search filter
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    
+    switch (searchType) {
+      case 'studentId':
+        // Search in applicationNumber (primary identifier) or studentId if enrolled
+        // For enrolled students, studentId is populated with student object
+        const studentIdMatch = admission.studentId 
+          ? (typeof admission.studentId === 'object' 
+              ? admission.studentId.enrollmentNumber?.toLowerCase().includes(searchLower) ||
+                admission.studentId._id?.toString().toLowerCase().includes(searchLower)
+              : admission.studentId.toString().toLowerCase().includes(searchLower))
+          : false;
+        return studentIdMatch || admission.applicationNumber?.toLowerCase().includes(searchLower);
+      case 'applicationNumber':
+        return admission.applicationNumber?.toLowerCase().includes(searchLower);
+      case 'name':
+        return admission.fullName?.toLowerCase().includes(searchLower);
+      case 'email':
+        return admission.contactInfo?.email?.toLowerCase().includes(searchLower);
+      default:
+        return (
+          admission.applicationNumber?.toLowerCase().includes(searchLower) ||
+          admission.fullName?.toLowerCase().includes(searchLower) ||
+          admission.contactInfo?.email?.toLowerCase().includes(searchLower) ||
+          admission.studentId?.toString().toLowerCase().includes(searchLower) ||
+          admission.contactInfo?.phone?.toLowerCase().includes(searchLower)
+        );
+    }
+  });
+
+  if (loading && admissions.length === 0 && !error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+          <Toolbar sx={{ px: { xs: 2, sm: 3 } }}>
+            <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
+              SGC Education - Admissions
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+      {/* Top Navigation Bar */}
+      <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <Toolbar sx={{ px: { xs: 2, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
+          <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
+          <Typography variant="h6" component="div" sx={{ flexGrow: { xs: 1, sm: 0 }, fontSize: { xs: '0.9rem', sm: '1.25rem' }, mr: { xs: 0, sm: 3 } }}>
+            Admissions Management
+          </Typography>
+
+          {/* Institution Selector (for Super Admin) */}
+          {isSuperAdmin && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+              <InstitutionSwitcher />
+            </Box>
+          )}
+
+          {/* Search Bar */}
+          <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: '300px' }, maxWidth: { xs: '100%', sm: '500px' } }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder={`Search by ${searchType === 'all' ? 'student ID, application number, name, or email' : searchType}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: 'white' }} />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchTerm('')}
+                      sx={{ color: 'white' }}
+                    >
+                      <Cancel fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                sx: {
+                  bgcolor: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: 1,
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.25)',
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                  '& .MuiInputBase-input': {
+                    color: 'white',
+                    '&::placeholder': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    },
+                  },
+                },
+              }}
+            />
+          </Box>
+
+          {/* Search Type Selector */}
+          <FormControl size="small" sx={{ minWidth: 120, bgcolor: 'rgba(255, 255, 255, 0.15)', borderRadius: 1 }}>
+            <Select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value)}
+              sx={{
+                color: 'white',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: 'white',
+                },
+              }}
+            >
+              <MenuItem value="all">All Fields</MenuItem>
+              <MenuItem value="studentId">Student ID</MenuItem>
+              <MenuItem value="applicationNumber">App Number</MenuItem>
+              <MenuItem value="name">Name</MenuItem>
+              <MenuItem value="email">Email</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={handleRefresh}
+              sx={{ color: 'white', bgcolor: 'rgba(255, 255, 255, 0.15)', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)' } }}
+              title="Refresh"
+            >
+              <Refresh />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={handleExport}
+              sx={{ color: 'white', bgcolor: 'rgba(255, 255, 255, 0.15)', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)' } }}
+              title="Export Data"
+            >
+              <Download />
+            </IconButton>
+            {isAdmin && (
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => navigate('/admissions/new')}
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                }}
+              >
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>New Application</Box>
+                <Box sx={{ display: { xs: 'block', sm: 'none' } }}>New</Box>
+              </Button>
+            )}
+            <IconButton
+              size="large"
+              onClick={handleMenu}
+              color="inherit"
+            >
+              <AccountCircle />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+            >
+              <MenuItem onClick={handleProfile}>
+                <Settings sx={{ mr: 1 }} fontSize="small" />
+                Profile Settings
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <ExitToApp sx={{ mr: 1 }} fontSize="small" />
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card
+            elevation={0}
+            sx={{
+              background: 'linear-gradient(135deg, #667eea15 0%, #764ba205 100%)',
+              border: '1px solid #667eea30',
+              borderRadius: 2,
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" variant="body2">Total Applications</Typography>
-                  <Typography variant="h4" fontWeight="bold">{stats.totalApplications || 0}</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="#667eea">{stats.totalApplications || 0}</Typography>
                 </Box>
                 <School sx={{ fontSize: 40, color: '#667eea', opacity: 0.7 }} />
               </Box>
@@ -190,12 +468,19 @@ const Admissions = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card
+            elevation={0}
+            sx={{
+              background: 'linear-gradient(135deg, #ff980015 0%, #ff980005 100%)',
+              border: '1px solid #ff980030',
+              borderRadius: 2,
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" variant="body2">Pending</Typography>
-                  <Typography variant="h4" fontWeight="bold">{stats.pendingApplications || 0}</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="#ff9800">{stats.pendingApplications || 0}</Typography>
                 </Box>
                 <PendingActions sx={{ fontSize: 40, color: '#ff9800', opacity: 0.7 }} />
               </Box>
@@ -203,12 +488,19 @@ const Admissions = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card
+            elevation={0}
+            sx={{
+              background: 'linear-gradient(135deg, #4caf5015 0%, #4caf5005 100%)',
+              border: '1px solid #4caf5030',
+              borderRadius: 2,
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" variant="body2">Approved</Typography>
-                  <Typography variant="h4" fontWeight="bold">{stats.approvedApplications || 0}</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="#4caf50">{stats.approvedApplications || 0}</Typography>
                 </Box>
                 <AssignmentTurnedIn sx={{ fontSize: 40, color: '#4caf50', opacity: 0.7 }} />
               </Box>
@@ -216,12 +508,19 @@ const Admissions = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card
+            elevation={0}
+            sx={{
+              background: 'linear-gradient(135deg, #2196f315 0%, #2196f305 100%)',
+              border: '1px solid #2196f330',
+              borderRadius: 2,
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" variant="body2">Enrolled</Typography>
-                  <Typography variant="h4" fontWeight="bold">{stats.enrolledApplications || 0}</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="#2196f3">{stats.enrolledApplications || 0}</Typography>
                 </Box>
                 <PersonAdd sx={{ fontSize: 40, color: '#2196f3', opacity: 0.7 }} />
               </Box>
@@ -230,69 +529,69 @@ const Admissions = () => {
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 4 }}>
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3, mx: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      <Paper sx={{ p: 4, mx: 2 }}>
+        {/* Header with Quick Stats */}
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
           <Box>
             <Typography variant="h4" gutterBottom fontWeight="bold">
-              Admissions
+              Admission Applications
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Manage student admission applications
+              {filteredAdmissions.length} of {admissions.length} applications
             </Typography>
           </Box>
-          {isAdmin && (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => navigate('/admissions/new')}
-              sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              }}
-            >
-              New Application
-            </Button>
-          )}
+          <Box display="flex" gap={1} flexWrap="wrap">
+            <Chip
+              label={`Total: ${stats.totalApplications || 0}`}
+              color="primary"
+              variant="outlined"
+            />
+            <Chip
+              label={`Pending: ${stats.pendingApplications || 0}`}
+              color="warning"
+              variant="outlined"
+            />
+            <Chip
+              label={`Approved: ${stats.approvedApplications || 0}`}
+              color="success"
+              variant="outlined"
+            />
+            <Chip
+              label={`Enrolled: ${stats.enrolledApplications || 0}`}
+              color="info"
+              variant="outlined"
+            />
+          </Box>
         </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
 
         {/* Filters */}
         <Box display="flex" gap={2} mb={3} flexWrap="wrap">
-          <TextField
-            fullWidth
-            placeholder="Search by application number, name, or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ flex: 1, minWidth: '200px' }}
-          />
-
           {isSuperAdmin && (
             <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Institution</InputLabel>
+              <InputLabel>Institution/Campus</InputLabel>
               <Select
                 value={selectedInstitution}
                 onChange={(e) => {
                   setSelectedInstitution(e.target.value);
                   setSelectedDepartment('');
                 }}
-                label="Institution"
+                label="Institution/Campus"
+                startAdornment={
+                  <InputAdornment position="start">
+                    <Business sx={{ ml: 1, color: 'text.secondary' }} />
+                  </InputAdornment>
+                }
               >
                 <MenuItem value="">All Institutions</MenuItem>
                 {institutions.map((inst) => (
                   <MenuItem key={inst._id} value={inst._id}>
-                    {inst.name}
+                    {inst.name} ({inst.code})
                   </MenuItem>
                 ))}
               </Select>
@@ -452,6 +751,11 @@ const Admissions = () => {
         </TableContainer>
       </Paper>
 
+      {/* Analytics Charts Section */}
+      <Box sx={{ mb: 4, mt: 4 }}>
+        <AdmissionCharts filters={{ institution: selectedInstitution || user.institution }} />
+      </Box>
+
       {/* Action Dialog */}
       <Dialog open={actionDialog.open} onClose={() => setActionDialog({ open: false, type: '', remarks: '' })}>
         <DialogTitle>
@@ -480,7 +784,8 @@ const Admissions = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

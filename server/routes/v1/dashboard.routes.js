@@ -9,7 +9,7 @@ const { isAdmin } = require('../../middleware/rbac.middleware');
  * Base path: /api/v1/dashboard
  */
 
-// All routes require authentication and admin role (super_admin, admin, school_admin)
+// All routes require authentication and admin role (super_admin, admin)
 router.use(authenticate);
 router.use(isAdmin);
 

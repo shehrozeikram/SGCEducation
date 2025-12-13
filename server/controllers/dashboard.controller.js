@@ -27,8 +27,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     userQuery = { institution: req.query.institution };
     departmentQuery = { institution: req.query.institution };
   }
-  // For regular admin or school_admin (scoped to their institution)
-  else if ((req.user.role === 'admin' || req.user.role === 'school_admin') && req.user.institution) {
+  // For regular admin (scoped to their institution)
+  else if (req.user.role === 'admin' && req.user.institution) {
     institutionQuery = { _id: req.user.institution };
     userQuery = { institution: req.user.institution };
     departmentQuery = { institution: req.user.institution };
@@ -157,8 +157,8 @@ const getAnalytics = asyncHandler(async (req, res) => {
     userMatch.institution = req.query.institution;
     departmentMatch.institution = req.query.institution;
   }
-  // For regular admin or school_admin (scoped to their institution)
-  else if ((req.user.role === 'admin' || req.user.role === 'school_admin') && req.user.institution) {
+  // For regular admin (scoped to their institution)
+  else if (req.user.role === 'admin' && req.user.institution) {
     institutionMatch._id = req.user.institution;
     userMatch.institution = req.user.institution;
     departmentMatch.institution = req.user.institution;

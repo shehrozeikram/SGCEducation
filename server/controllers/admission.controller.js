@@ -194,6 +194,31 @@ const getAdmissionsByDepartment = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/v1/admissions/analytics/charts
+ * @desc    Get detailed admission analytics for charts
+ * @access  Private
+ */
+const getAdmissionAnalytics = asyncHandler(async (req, res) => {
+  const { institution, academicYear, days } = req.query;
+
+  try {
+    const analytics = await admissionService.getAdmissionAnalytics(
+      { institution, academicYear, days: parseInt(days) },
+      req.user
+    );
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    // Log error for debugging
+    console.error('Admission analytics error:', error);
+    throw error; // Let asyncHandler handle it
+  }
+});
+
 module.exports = {
   getAdmissions,
   getAdmissionById,
@@ -204,5 +229,6 @@ module.exports = {
   rejectAdmission,
   deleteAdmission,
   getAdmissionStats,
-  getAdmissionsByDepartment
+  getAdmissionsByDepartment,
+  getAdmissionAnalytics
 };

@@ -108,6 +108,19 @@ export const getAdmissionsByDepartment = async (departmentId) => {
   return response.data;
 };
 
+// Get admission analytics for charts
+export const getAdmissionAnalytics = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.institution) params.append('institution', filters.institution);
+  if (filters.academicYear) params.append('academicYear', filters.academicYear);
+  if (filters.days) params.append('days', filters.days);
+
+  const response = await axios.get(`${API_URL}/admissions/analytics/charts?${params.toString()}`, {
+    headers: getAuthHeader()
+  });
+  return response.data;
+};
+
 export default {
   getAllAdmissions,
   getAdmissionById,
@@ -118,5 +131,6 @@ export default {
   rejectAdmission,
   deleteAdmission,
   getAdmissionStats,
-  getAdmissionsByDepartment
+  getAdmissionsByDepartment,
+  getAdmissionAnalytics
 };

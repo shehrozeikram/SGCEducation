@@ -48,7 +48,7 @@ const validateRegistration = (req, res, next) => {
   }
 
   // Validate role
-  const validRoles = ['super_admin', 'admin', 'school_admin', 'teacher', 'student'];
+  const validRoles = ['super_admin', 'admin', 'teacher', 'student'];
   if (role && !validRoles.includes(role)) {
     return res.status(400).json({
       success: false,

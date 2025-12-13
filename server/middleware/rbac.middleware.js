@@ -43,10 +43,10 @@ const isSuperAdmin = (req, res, next) => {
 };
 
 /**
- * Check if user is admin (school/college admin or super admin)
+ * Check if user is admin (institution admin or super admin)
  */
 const isAdmin = (req, res, next) => {
-  if (!req.user || !['super_admin', 'admin', 'school_admin'].includes(req.user.role)) {
+  if (!req.user || !['super_admin', 'admin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Admin access required.'

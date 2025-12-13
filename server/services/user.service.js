@@ -130,11 +130,11 @@ class UserService {
     }
 
     // Validate permissions
-    if ((createdBy.role === 'admin' || createdBy.role === 'school_admin') && role === 'super_admin') {
+    if (createdBy.role === 'admin' && role === 'super_admin') {
       throw new ApiError(403, 'You cannot create super admin users');
     }
 
-    if ((createdBy.role === 'admin' || createdBy.role === 'school_admin') && institution.toString() !== createdBy.institution.toString()) {
+    if (createdBy.role === 'admin' && institution.toString() !== createdBy.institution.toString()) {
       throw new ApiError(403, 'You can only create users for your institution');
     }
 

@@ -168,7 +168,6 @@ const Users = () => {
       case 'super_admin':
         return 'error';
       case 'admin':
-      case 'school_admin':
         return 'primary';
       case 'teacher':
         return 'info';
@@ -184,7 +183,6 @@ const Users = () => {
       case 'super_admin':
         return 'Super Admin';
       case 'admin':
-      case 'school_admin':
         return 'Admin';
       case 'teacher':
         return 'Teacher';
