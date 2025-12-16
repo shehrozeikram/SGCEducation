@@ -32,10 +32,16 @@ const DepartmentForm = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
 
+  // Extract institution ID if it's an object
+  const getUserInstitutionId = () => {
+    if (!user.institution) return '';
+    return typeof user.institution === 'object' ? user.institution._id : user.institution;
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    institution: user.institution || '',
+    institution: getUserInstitutionId(),
     description: '',
     head: {
       name: '',

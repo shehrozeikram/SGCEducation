@@ -38,7 +38,7 @@ const InstitutionForm = () => {
       street: '',
       city: '',
       state: '',
-      country: 'India',
+      country: 'Pakistan',
       zipCode: ''
     },
     principal: {

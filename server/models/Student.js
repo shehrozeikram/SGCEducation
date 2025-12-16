@@ -76,7 +76,7 @@ const studentSchema = new mongoose.Schema({
     },
     nationality: {
       type: String,
-      default: 'Indian',
+      default: 'Pakistani',
       trim: true
     },
     religion: {

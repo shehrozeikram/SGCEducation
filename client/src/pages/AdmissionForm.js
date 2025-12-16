@@ -11,133 +11,216 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Stepper,
-  Step,
-  StepLabel,
   Alert,
   CircularProgress,
-  Divider,
   Checkbox,
   FormControlLabel,
+  Radio,
+  RadioGroup,
+  Tabs,
+  Tab,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
-import { ArrowBack, Save, ArrowForward } from '@mui/icons-material';
+import {
+  ArrowBack,
+  Save,
+  Add,
+  Search,
+  Close,
+  Print,
+} from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createAdmission, updateAdmission, getAdmissionById } from '../services/admissionService';
 import axios from 'axios';
+import TopBar from '../components/layout/TopBar';
 
-const steps = ['Personal Information', 'Contact Details', 'Guardian Information', 'Academic Background'];
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+const createInitialFormData = (userCtx) => ({
+  // Basic Info
+  class: '',
+  section: '',
+  group: '',
+  admissionDate: new Date().toISOString().split('T')[0],
+  admissionNumber: '',
+  studentName: '',
+  fatherName: '',
+  dateOfBirth: '',
+  rollNumber: '',
+  studentCategory: 'Default',
+  religion: 'Islam',
+  gender: 'Male',
+  bloodGroup: 'NA',
+  admEffectNo: new Date().toISOString().split('T')[0],
+  familyNumber: '',
+  markAsEnrolled: false,
+  orphan: 'NO',
+  studentPicture: null,
+  hobbies: '',
+  notes1: '',
+  notes2: '',
+
+  // Address - Present
+  presentAddress: {
+    address: '',
+    country: 'Pakistan',
+    city: 'Sialkot',
+    cityRegion: '',
+  },
+  // Address - Permanent
+  permanentAddress: {
+    address: '',
+    country: 'Pakistan',
+    city: 'Sialkot',
+    cityRegion: '',
+  },
+
+  // Guardian - Father
+  father: {
+    name: '',
+    cnic: '',
+    mobileNumber: '',
+    mobileOperator: 'Jazz',
+    forApplicationLogin: false,
+    forSMS: false,
+    forWhatsappSMS: false,
+    phoneNumberOffice: '',
+    whatsappMobileNumber: '',
+    occupation: '',
+    emailAddress: '',
+  },
+  // Guardian - Mother
+  mother: {
+    name: '',
+    cnic: '',
+    mobileNumber: '',
+    mobileOperator: 'Jazz',
+    forApplicationLogin: false,
+    forSMS: false,
+    forWhatsappSMS: false,
+    phoneNumberOffice: '',
+    whatsappMobileNumber: '',
+    occupation: '',
+    emailAddress: '',
+  },
+  // Guardian - Guardian
+  guardian: {
+    name: '',
+    cnic: '',
+    mobileNumber: '',
+    mobileOperator: 'Jazz',
+    forApplicationLogin: false,
+    forSMS: false,
+    forWhatsappSMS: false,
+    phoneNumberOffice: '',
+    whatsappMobileNumber: '',
+    occupation: '',
+    emailAddress: '',
+    relation: '',
+  },
+
+  // Backend required fields (hidden)
+  institution: userCtx.institution || '',
+  department: '',
+  academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+  program: '',
+});
 
 const AdmissionForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [institutions, setInstitutions] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  
+  // Address tab state
+  const [addressTab, setAddressTab] = useState(0);
+  // Guardian tab state
+  const [guardianTab, setGuardianTab] = useState(0);
+  
+  // Dropdown data
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [studentCategories, setStudentCategories] = useState(['Default', 'General', 'OBC', 'SC', 'ST', 'Other']);
+  const [religions, setReligions] = useState(['Islam', 'Christianity', 'Hinduism', 'Sikhism', 'Buddhism', 'Other']);
+  const [countries, setCountries] = useState(['Pakistan', 'Bangladesh', 'Other']);
+  const [cities, setCities] = useState(['Sialkot', 'Lahore', 'Karachi', 'Islamabad', 'Other']);
+  const [mobileOperators, setMobileOperators] = useState(['Jazz', 'Telenor', 'Ufone', 'Zong', 'Warid']);
+  
+  // Dialog states for adding new items
+  const [classDialogOpen, setClassDialogOpen] = useState(false);
+  const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newClass, setNewClass] = useState({ name: '', code: '' });
+  const [newSection, setNewSection] = useState({ name: '', code: '' });
+  const [newGroup, setNewGroup] = useState({ name: '' });
+  const [newCategory, setNewCategory] = useState({ name: '' });
 
-  const [formData, setFormData] = useState({
-    institution: '',
-    department: '',
-    academicYear: new Date().getFullYear().toString(),
-    program: '',
-    personalInfo: {
-      firstName: '',
-      middleName: '',
-      lastName: '',
-      dateOfBirth: '',
-      gender: '',
-      bloodGroup: '',
-      nationality: 'Indian',
-      religion: '',
-      category: 'General',
-    },
-    contactInfo: {
-      email: '',
-      phone: '',
-      alternatePhone: '',
-      currentAddress: {
-        street: '',
-        city: '',
-        state: '',
-        country: 'India',
-        pincode: '',
-      },
-      permanentAddress: {
-        street: '',
-        city: '',
-        state: '',
-        country: 'India',
-        pincode: '',
-      },
-      sameAsCurrent: false,
-    },
-    guardianInfo: {
-      fatherName: '',
-      fatherOccupation: '',
-      fatherPhone: '',
-      motherName: '',
-      motherOccupation: '',
-      motherPhone: '',
-      guardianName: '',
-      guardianRelation: '',
-      guardianPhone: '',
-      guardianEmail: '',
-      annualIncome: '',
-    },
-    academicBackground: {
-      previousSchool: '',
-      previousBoard: '',
-      previousClass: '',
-      previousPercentage: '',
-      yearOfPassing: '',
-    },
-  });
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isSuperAdmin = user.role === 'super_admin';
+
+  const [formData, setFormData] = useState(() => createInitialFormData(user));
 
   useEffect(() => {
-    fetchInstitutions();
+    fetchClasses();
+    fetchSections();
+    fetchGroups();
     if (isEditMode) {
       fetchAdmissionData();
     }
   }, [id]);
 
-  useEffect(() => {
-    if (formData.institution) {
-      fetchDepartments(formData.institution);
-    }
-  }, [formData.institution]);
-
-  const fetchInstitutions = async () => {
+  const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/v1/institutions', {
+      const response = await axios.get('http://localhost:5000/api/v1/classes', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setInstitutions(response.data.data);
-
-      // Auto-select institution if not super admin
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user.role !== 'super_admin' && user.institution) {
-        setFormData(prev => ({ ...prev, institution: user.institution }));
-      }
+      setClasses(response.data.data || []);
     } catch (err) {
-      setError('Failed to fetch institutions');
+      console.error('Error fetching classes:', err);
     }
   };
 
-  const fetchDepartments = async (institutionId) => {
+  const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/v1/departments?institution=${institutionId}`, {
+      const response = await axios.get('http://localhost:5000/api/v1/sections', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setDepartments(response.data.data);
+      setSections(response.data.data || []);
     } catch (err) {
-      setError('Failed to fetch departments');
+      console.error('Error fetching sections:', err);
     }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/v1/groups', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setGroups(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+    }
+  };
+
+  const handlePrintBlankForm = () => {
+    const saved = formData;
+    setFormData(createInitialFormData(user));
+    setTimeout(() => {
+      window.print();
+      setFormData(saved);
+    }, 150);
   };
 
   const fetchAdmissionData = async () => {
@@ -145,16 +228,27 @@ const AdmissionForm = () => {
       setLoading(true);
       const response = await getAdmissionById(id);
       const admission = response.data;
-      setFormData({
+      // Map backend data to form structure
+      setFormData(prev => ({
+        ...prev,
+        class: admission.class?._id || '',
+        section: admission.section?._id || '',
+        group: admission.group?._id || '',
+        admissionDate: admission.admissionDate || prev.admissionDate,
+        admissionNumber: admission.applicationNumber || '',
+        studentName: `${admission.personalInfo.firstName} ${admission.personalInfo.middleName || ''} ${admission.personalInfo.lastName}`.trim(),
+        fatherName: admission.guardianInfo?.fatherName || '',
+        dateOfBirth: admission.personalInfo.dateOfBirth ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
+        rollNumber: admission.rollNumber || '',
+        studentCategory: admission.personalInfo.category || 'Default',
+        religion: admission.personalInfo.religion || 'Islam',
+        gender: admission.personalInfo.gender || 'Male',
+        bloodGroup: admission.personalInfo.bloodGroup || 'NA',
         institution: admission.institution._id,
         department: admission.department._id,
         academicYear: admission.academicYear,
         program: admission.program,
-        personalInfo: admission.personalInfo,
-        contactInfo: admission.contactInfo,
-        guardianInfo: admission.guardianInfo,
-        academicBackground: admission.academicBackground,
-      });
+      }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch admission data');
     } finally {
@@ -162,62 +256,178 @@ const AdmissionForm = () => {
     }
   };
 
-  const handleChange = (section, field, value) => {
-    if (section) {
-      setFormData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: value,
-        },
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNestedChange = (section, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, studentPicture: file }));
     }
   };
 
-  const handleAddressChange = (addressType, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      contactInfo: {
-        ...prev.contactInfo,
-        [addressType]: {
-          ...prev.contactInfo[addressType],
-          [field]: value,
+  const handleAddClass = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Build payload without empty/invalid fields
+      const payload = {
+        name: newClass.name,
+        code: newClass.code,
+        institution: user.institution || undefined,
+        academicYear: formData.academicYear,
+        // Note: grade, group, and feeType are required by the backend
+        // For now, we'll use placeholder values or require the user to add them via the Classes page
+      };
+      
+      // Only include department if it has a valid value
+      if (formData.department && formData.department.length === 24) {
+        payload.department = formData.department;
+      }
+      
+      const response = await axios.post(
+        'http://localhost:5000/api/v1/classes',
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setClasses([...classes, response.data.data]);
+      setFormData(prev => ({ ...prev, class: response.data.data._id }));
+      setClassDialogOpen(false);
+      setNewClass({ name: '', code: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add class');
+    }
+  };
+
+  const handleAddSection = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/v1/sections',
+        {
+          name: newSection.name,
+          code: newSection.code,
+          class: formData.class,
+          institution: user.institution || undefined,
+          department: formData.department || undefined,
+          academicYear: formData.academicYear,
         },
-      },
-    }));
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSections([...sections, response.data.data]);
+      setFormData(prev => ({ ...prev, section: response.data.data._id }));
+      setSectionDialogOpen(false);
+      setNewSection({ name: '', code: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add section');
+    }
   };
 
-  const handleSameAsCurrentChange = (checked) => {
-    setFormData(prev => ({
-      ...prev,
-      contactInfo: {
-        ...prev.contactInfo,
-        sameAsCurrent: checked,
-        permanentAddress: checked ? { ...prev.contactInfo.currentAddress } : prev.contactInfo.permanentAddress,
-      },
-    }));
+  const handleAddGroup = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/v1/groups',
+        {
+          name: newGroup.name,
+          institution: user.institution || undefined,
+          department: formData.department || undefined,
+          academicYear: formData.academicYear,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setGroups([...groups, response.data.data]);
+      setFormData(prev => ({ ...prev, group: response.data.data._id }));
+      setGroupDialogOpen(false);
+      setNewGroup({ name: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add group');
+    }
   };
 
-  const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  const handleAddCategory = () => {
+    if (newCategory.name && !studentCategories.includes(newCategory.name)) {
+      setStudentCategories([...studentCategories, newCategory.name]);
+      setFormData(prev => ({ ...prev, studentCategory: newCategory.name }));
+      setCategoryDialogOpen(false);
+      setNewCategory({ name: '' });
+    }
   };
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       setLoading(true);
       setError('');
 
+      // Map form data to backend structure
+      const [firstName, ...nameParts] = formData.studentName.split(' ');
+      const lastName = nameParts.pop() || '';
+      const middleName = nameParts.join(' ') || '';
+
+      const admissionData = {
+        institution: formData.institution,
+        department: formData.department,
+        academicYear: formData.academicYear,
+        program: formData.program || 'General',
+        personalInfo: {
+          firstName,
+          middleName,
+          lastName,
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender.toLowerCase(),
+          bloodGroup: formData.bloodGroup !== 'NA' ? formData.bloodGroup : '',
+          nationality: 'Pakistani',
+          religion: formData.religion,
+          category: formData.studentCategory,
+        },
+        contactInfo: {
+          email: formData.father.emailAddress || formData.mother.emailAddress || '',
+          phone: formData.father.mobileNumber || formData.mother.mobileNumber || '',
+          alternatePhone: formData.father.whatsappMobileNumber || '',
+          currentAddress: {
+            street: formData.presentAddress.address,
+            city: formData.presentAddress.city,
+            state: formData.presentAddress.cityRegion,
+            country: formData.presentAddress.country,
+          },
+          permanentAddress: {
+            street: formData.permanentAddress.address,
+            city: formData.permanentAddress.city,
+            state: formData.permanentAddress.cityRegion,
+            country: formData.permanentAddress.country,
+          },
+        },
+        guardianInfo: {
+          fatherName: formData.father.name,
+          fatherOccupation: formData.father.occupation,
+          fatherPhone: formData.father.mobileNumber,
+          motherName: formData.mother.name,
+          motherOccupation: formData.mother.occupation,
+          motherPhone: formData.mother.mobileNumber,
+          guardianName: formData.guardian.name,
+          guardianRelation: formData.guardian.relation,
+          guardianPhone: formData.guardian.mobileNumber,
+          guardianEmail: formData.guardian.emailAddress,
+        },
+      };
+
       if (isEditMode) {
-        await updateAdmission(id, formData);
+        await updateAdmission(id, admissionData);
         setSuccess('Admission updated successfully');
       } else {
-        await createAdmission(formData);
+        await createAdmission(admissionData);
         setSuccess('Admission application submitted successfully');
       }
 
@@ -231,540 +441,1057 @@ const AdmissionForm = () => {
     }
   };
 
-  const renderStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Institution</InputLabel>
-                <Select
-                  value={formData.institution}
-                  onChange={(e) => handleChange(null, 'institution', e.target.value)}
-                  label="Institution"
-                >
-                  {institutions.map((inst) => (
-                    <MenuItem key={inst._id} value={inst._id}>
-                      {inst.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Department</InputLabel>
-                <Select
-                  value={formData.department}
-                  onChange={(e) => handleChange(null, 'department', e.target.value)}
-                  label="Department"
-                  disabled={!formData.institution}
-                >
-                  {departments.map((dept) => (
-                    <MenuItem key={dept._id} value={dept._id}>
-                      {dept.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Academic Year"
-                required
-                value={formData.academicYear}
-                onChange={(e) => handleChange(null, 'academicYear', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Program"
-                required
-                value={formData.program}
-                onChange={(e) => handleChange(null, 'program', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }}>Personal Details</Divider>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="First Name"
-                required
-                value={formData.personalInfo.firstName}
-                onChange={(e) => handleChange('personalInfo', 'firstName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Middle Name"
-                value={formData.personalInfo.middleName}
-                onChange={(e) => handleChange('personalInfo', 'middleName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Last Name"
-                required
-                value={formData.personalInfo.lastName}
-                onChange={(e) => handleChange('personalInfo', 'lastName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Date of Birth"
-                type="date"
-                required
-                InputLabelProps={{ shrink: true }}
-                value={formData.personalInfo.dateOfBirth}
-                onChange={(e) => handleChange('personalInfo', 'dateOfBirth', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Gender</InputLabel>
-                <Select
-                  value={formData.personalInfo.gender}
-                  onChange={(e) => handleChange('personalInfo', 'gender', e.target.value)}
-                  label="Gender"
-                >
-                  <MenuItem value="male">Male</MenuItem>
-                  <MenuItem value="female">Female</MenuItem>
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Blood Group</InputLabel>
-                <Select
-                  value={formData.personalInfo.bloodGroup}
-                  onChange={(e) => handleChange('personalInfo', 'bloodGroup', e.target.value)}
-                  label="Blood Group"
-                >
-                  <MenuItem value="A+">A+</MenuItem>
-                  <MenuItem value="A-">A-</MenuItem>
-                  <MenuItem value="B+">B+</MenuItem>
-                  <MenuItem value="B-">B-</MenuItem>
-                  <MenuItem value="AB+">AB+</MenuItem>
-                  <MenuItem value="AB-">AB-</MenuItem>
-                  <MenuItem value="O+">O+</MenuItem>
-                  <MenuItem value="O-">O-</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Nationality"
-                required
-                value={formData.personalInfo.nationality}
-                onChange={(e) => handleChange('personalInfo', 'nationality', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={formData.personalInfo.category}
-                  onChange={(e) => handleChange('personalInfo', 'category', e.target.value)}
-                  label="Category"
-                >
-                  <MenuItem value="General">General</MenuItem>
-                  <MenuItem value="OBC">OBC</MenuItem>
-                  <MenuItem value="SC">SC</MenuItem>
-                  <MenuItem value="ST">ST</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        );
-
-      case 1:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                required
-                value={formData.contactInfo.email}
-                onChange={(e) => handleChange('contactInfo', 'email', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Phone"
-                required
-                value={formData.contactInfo.phone}
-                onChange={(e) => handleChange('contactInfo', 'phone', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Alternate Phone"
-                value={formData.contactInfo.alternatePhone}
-                onChange={(e) => handleChange('contactInfo', 'alternatePhone', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }}>Current Address</Divider>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Street Address"
-                value={formData.contactInfo.currentAddress.street}
-                onChange={(e) => handleAddressChange('currentAddress', 'street', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="City"
-                value={formData.contactInfo.currentAddress.city}
-                onChange={(e) => handleAddressChange('currentAddress', 'city', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="State"
-                value={formData.contactInfo.currentAddress.state}
-                onChange={(e) => handleAddressChange('currentAddress', 'state', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Country"
-                value={formData.contactInfo.currentAddress.country}
-                onChange={(e) => handleAddressChange('currentAddress', 'country', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Pincode"
-                value={formData.contactInfo.currentAddress.pincode}
-                onChange={(e) => handleAddressChange('currentAddress', 'pincode', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.contactInfo.sameAsCurrent}
-                    onChange={(e) => handleSameAsCurrentChange(e.target.checked)}
-                  />
-                }
-                label="Permanent address same as current address"
-              />
-            </Grid>
-            {!formData.contactInfo.sameAsCurrent && (
-              <>
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }}>Permanent Address</Divider>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Street Address"
-                    value={formData.contactInfo.permanentAddress.street}
-                    onChange={(e) => handleAddressChange('permanentAddress', 'street', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="City"
-                    value={formData.contactInfo.permanentAddress.city}
-                    onChange={(e) => handleAddressChange('permanentAddress', 'city', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="State"
-                    value={formData.contactInfo.permanentAddress.state}
-                    onChange={(e) => handleAddressChange('permanentAddress', 'state', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Country"
-                    value={formData.contactInfo.permanentAddress.country}
-                    onChange={(e) => handleAddressChange('permanentAddress', 'country', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Pincode"
-                    value={formData.contactInfo.permanentAddress.pincode}
-                    onChange={(e) => handleAddressChange('permanentAddress', 'pincode', e.target.value)}
-                  />
-                </Grid>
-              </>
-            )}
-          </Grid>
-        );
-
-      case 2:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Father's Information</Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Father's Name"
-                value={formData.guardianInfo.fatherName}
-                onChange={(e) => handleChange('guardianInfo', 'fatherName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Father's Occupation"
-                value={formData.guardianInfo.fatherOccupation}
-                onChange={(e) => handleChange('guardianInfo', 'fatherOccupation', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Father's Phone"
-                value={formData.guardianInfo.fatherPhone}
-                onChange={(e) => handleChange('guardianInfo', 'fatherPhone', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="h6" gutterBottom>Mother's Information</Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Mother's Name"
-                value={formData.guardianInfo.motherName}
-                onChange={(e) => handleChange('guardianInfo', 'motherName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Mother's Occupation"
-                value={formData.guardianInfo.motherOccupation}
-                onChange={(e) => handleChange('guardianInfo', 'motherOccupation', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Mother's Phone"
-                value={formData.guardianInfo.motherPhone}
-                onChange={(e) => handleChange('guardianInfo', 'motherPhone', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="h6" gutterBottom>Guardian Information</Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Guardian Name"
-                value={formData.guardianInfo.guardianName}
-                onChange={(e) => handleChange('guardianInfo', 'guardianName', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Guardian Relation"
-                value={formData.guardianInfo.guardianRelation}
-                onChange={(e) => handleChange('guardianInfo', 'guardianRelation', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Guardian Phone"
-                value={formData.guardianInfo.guardianPhone}
-                onChange={(e) => handleChange('guardianInfo', 'guardianPhone', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Guardian Email"
-                type="email"
-                value={formData.guardianInfo.guardianEmail}
-                onChange={(e) => handleChange('guardianInfo', 'guardianEmail', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Annual Income"
-                type="number"
-                value={formData.guardianInfo.annualIncome}
-                onChange={(e) => handleChange('guardianInfo', 'annualIncome', e.target.value)}
-              />
-            </Grid>
-          </Grid>
-        );
-
-      case 3:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Previous School"
-                value={formData.academicBackground.previousSchool}
-                onChange={(e) => handleChange('academicBackground', 'previousSchool', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Previous Board"
-                value={formData.academicBackground.previousBoard}
-                onChange={(e) => handleChange('academicBackground', 'previousBoard', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Previous Class"
-                value={formData.academicBackground.previousClass}
-                onChange={(e) => handleChange('academicBackground', 'previousClass', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Previous Percentage"
-                type="number"
-                value={formData.academicBackground.previousPercentage}
-                onChange={(e) => handleChange('academicBackground', 'previousPercentage', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Year of Passing"
-                type="number"
-                value={formData.academicBackground.yearOfPassing}
-                onChange={(e) => handleChange('academicBackground', 'yearOfPassing', e.target.value)}
-              />
-            </Grid>
-          </Grid>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   if (loading && isEditMode) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <TopBar title={isEditMode ? 'Edit Admission' : 'New Admission'} />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 4 }}>
-        <Box display="flex" alignItems="center" mb={3}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/admissions')} sx={{ mr: 2 }}>
-            Back
-          </Button>
-          <Box>
-            <Typography variant="h4" fontWeight="bold">
-              {isEditMode ? 'Edit Admission' : 'New Admission Application'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {isEditMode ? 'Update admission application details' : 'Fill in the application details'}
-            </Typography>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+      <TopBar title={isEditMode ? 'Edit Admission' : 'New Admission'} />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Paper sx={{ p: 4 }}>
+          {/* Header */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Button startIcon={<ArrowBack />} onClick={() => navigate('/admissions')} sx={{ mr: 2 }}>
+                Back
+              </Button>
+              <Typography variant="h4" fontWeight="bold">
+                {isEditMode ? 'Edit Admission' : 'New Admission'}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<Print />}
+              onClick={handlePrintBlankForm}
+            >
+              Print Blank Form
+            </Button>
           </Box>
-        </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
 
-        {success && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            {success}
-          </Alert>
-        )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {success}
+            </Alert>
+          )}
 
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+          <Box component="form" onSubmit={handleSubmit}>
+            {/* BASIC INFO Section */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+                BASIC INFO
+              </Typography>
+              
+              <Grid container spacing={2}>
+                {/* Row 1 */}
+                <Grid item xs={12} md={3}>
+                  <Box display="flex" gap={1}>
+                    <FormControl fullWidth required>
+                      <InputLabel>CLASS*</InputLabel>
+                      <Select
+                        value={formData.class}
+                        onChange={(e) => handleChange('class', e.target.value)}
+                        label="CLASS*"
+                      >
+                        <MenuItem value="">Select Class</MenuItem>
+                        {classes.map((cls) => (
+                          <MenuItem key={cls._id} value={cls._id}>
+                            {cls.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    {/* Add Class button removed - classes must be created via Classes page with all required fields (grade, group, feeType) */}
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <Box display="flex" gap={1}>
+                    <FormControl fullWidth required>
+                      <InputLabel>SECTION*</InputLabel>
+                      <Select
+                        value={formData.section}
+                        onChange={(e) => handleChange('section', e.target.value)}
+                        label="SECTION*"
+                        disabled={!formData.class}
+                      >
+                        <MenuItem value="">Select Section</MenuItem>
+                        {sections
+                          .filter(sec => !formData.class || sec.class === formData.class)
+                          .map((section) => (
+                            <MenuItem key={section._id} value={section._id}>
+                              {section.name} ({section.academicYear}) (Stds: {section.stats?.totalStudents || 0}) {section.isActive ? 'Active' : 'Inactive'}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                    {/* Add Section button removed - sections must be created via Sections page */}
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <Box display="flex" gap={1}>
+                    <FormControl fullWidth required>
+                      <InputLabel>GROUP*</InputLabel>
+                      <Select
+                        value={formData.group}
+                        onChange={(e) => handleChange('group', e.target.value)}
+                        label="GROUP*"
+                      >
+                        <MenuItem value="">Select Groups</MenuItem>
+                        {groups.map((group) => (
+                          <MenuItem key={group._id} value={group._id}>
+                            {group.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    {/* Add Group button removed - groups must be created via Groups page */}
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="ADMISSION DATE*"
+                    type="date"
+                    value={formData.admissionDate}
+                    onChange={(e) => handleChange('admissionDate', e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
 
-        <Box sx={{ mt: 4, mb: 4 }}>
-          {renderStepContent(activeStep)}
-        </Box>
+                {/* Row 2 */}
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    label="ADMISSION NUMBER"
+                    value={formData.admissionNumber}
+                    onChange={(e) => handleChange('admissionNumber', e.target.value)}
+                    placeholder="Admission Number"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="STUDENT NAME*"
+                    value={formData.studentName}
+                    onChange={(e) => handleChange('studentName', e.target.value)}
+                    placeholder="Student Name"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="FATHER NAME*"
+                    value={formData.fatherName}
+                    onChange={(e) => handleChange('fatherName', e.target.value)}
+                    placeholder="Father Name"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="DATE OF BIRTH*"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-            startIcon={<ArrowBack />}
-          >
-            Back
-          </Button>
-          <Box>
-            {activeStep === steps.length - 1 ? (
+                {/* Row 3 */}
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    label="ROLL NUMBER"
+                    value={formData.rollNumber}
+                    onChange={(e) => handleChange('rollNumber', e.target.value)}
+                    placeholder="Roll Number"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <Box display="flex" gap={1}>
+                    <FormControl fullWidth required>
+                      <InputLabel>STUDENT CATEGORY*</InputLabel>
+                      <Select
+                        value={formData.studentCategory}
+                        onChange={(e) => handleChange('studentCategory', e.target.value)}
+                        label="STUDENT CATEGORY*"
+                      >
+                        {studentCategories.map((cat) => (
+                          <MenuItem key={cat} value={cat}>
+                            {cat}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add />}
+                      onClick={() => setCategoryDialogOpen(true)}
+                      sx={{ minWidth: 'auto', px: 1 }}
+                    >
+                      +Add Student Category
+                    </Button>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth required>
+                    <InputLabel>RELIGION*</InputLabel>
+                    <Select
+                      value={formData.religion}
+                      onChange={(e) => handleChange('religion', e.target.value)}
+                      label="RELIGION*"
+                    >
+                      {religions.map((rel) => (
+                        <MenuItem key={rel} value={rel}>
+                          {rel}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth required>
+                    <InputLabel>GENDER*</InputLabel>
+                    <Select
+                      value={formData.gender}
+                      onChange={(e) => handleChange('gender', e.target.value)}
+                      label="GENDER*"
+                    >
+                      <MenuItem value="Male">Male</MenuItem>
+                      <MenuItem value="Female">Female</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Row 4 */}
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>BLOOD GROUP</InputLabel>
+                    <Select
+                      value={formData.bloodGroup}
+                      onChange={(e) => handleChange('bloodGroup', e.target.value)}
+                      label="BLOOD GROUP"
+                    >
+                      <MenuItem value="NA">NA</MenuItem>
+                      <MenuItem value="A+">A+</MenuItem>
+                      <MenuItem value="A-">A-</MenuItem>
+                      <MenuItem value="B+">B+</MenuItem>
+                      <MenuItem value="B-">B-</MenuItem>
+                      <MenuItem value="AB+">AB+</MenuItem>
+                      <MenuItem value="AB-">AB-</MenuItem>
+                      <MenuItem value="O+">O+</MenuItem>
+                      <MenuItem value="O-">O-</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="ADM EFFCT NO*"
+                    type="date"
+                    value={formData.admEffectNo}
+                    onChange={(e) => handleChange('admEffectNo', e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <Box display="flex" gap={1}>
+                    <TextField
+                      fullWidth
+                      label="FAMILY NUMBER"
+                      value={formData.familyNumber}
+                      onChange={(e) => handleChange('familyNumber', e.target.value)}
+                      placeholder="Family Number"
+                    />
+                    <IconButton color="primary">
+                      <Search />
+                    </IconButton>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.markAsEnrolled}
+                        onChange={(e) => handleChange('markAsEnrolled', e.target.checked)}
+                      />
+                    }
+                    label="MARK AS ENROLLED"
+                  />
+                </Grid>
+
+                {/* Row 5 */}
+                <Grid item xs={12} md={3}>
+                  <FormControl component="fieldset">
+                    <Typography variant="body2" sx={{ mb: 1 }}>ORPHAN</Typography>
+                    <RadioGroup
+                      row
+                      value={formData.orphan}
+                      onChange={(e) => handleChange('orphan', e.target.value)}
+                    >
+                      <FormControlLabel value="YES" control={<Radio />} label="YES" />
+                      <FormControlLabel value="NO" control={<Radio />} label="NO" />
+                    </RadioGroup>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1 }}>STUDENT PICTURE</Typography>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      fullWidth
+                    >
+                      Choose File
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={handleFileChange}
+                      />
+                    </Button>
+                    {formData.studentPicture && (
+                      <Typography variant="caption" color="text.secondary">
+                        {formData.studentPicture.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    label="HOBBIES"
+                    value={formData.hobbies}
+                    onChange={(e) => handleChange('hobbies', e.target.value)}
+                    placeholder="Hobbies"
+                  />
+                </Grid>
+
+                {/* Notes areas */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={formData.notes1}
+                    onChange={(e) => handleChange('notes1', e.target.value)}
+                    sx={{ border: '2px solid #ffeb3b', borderRadius: 1 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={formData.notes2}
+                    onChange={(e) => handleChange('notes2', e.target.value)}
+                    sx={{ border: '2px solid #ffeb3b', borderRadius: 1 }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* ADDRESS Section */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                ADDRESS
+              </Typography>
+              
+              <Tabs value={addressTab} onChange={(e, newValue) => setAddressTab(newValue)} sx={{ mb: 2 }}>
+                <Tab label="Present" />
+                <Tab label="Permanent" />
+              </Tabs>
+              
+              {addressTab === 0 && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="STUDENT ADDRESS"
+                      value={formData.presentAddress.address}
+                      onChange={(e) => handleNestedChange('presentAddress', 'address', e.target.value)}
+                      placeholder="Student Address"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>COUNTRY</InputLabel>
+                      <Select
+                        value={formData.presentAddress.country}
+                        onChange={(e) => handleNestedChange('presentAddress', 'country', e.target.value)}
+                        label="COUNTRY"
+                      >
+                        {countries.map((country) => (
+                          <MenuItem key={country} value={country}>
+                            {country}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>CITY</InputLabel>
+                      <Select
+                        value={formData.presentAddress.city}
+                        onChange={(e) => handleNestedChange('presentAddress', 'city', e.target.value)}
+                        label="CITY"
+                      >
+                        {cities.map((city) => (
+                          <MenuItem key={city} value={city}>
+                            {city}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>CITY REGION</InputLabel>
+                      <Select
+                        value={formData.presentAddress.cityRegion}
+                        onChange={(e) => handleNestedChange('presentAddress', 'cityRegion', e.target.value)}
+                        label="CITY REGION"
+                      >
+                        <MenuItem value="">Select Region</MenuItem>
+                        <MenuItem value="Region 1">Region 1</MenuItem>
+                        <MenuItem value="Region 2">Region 2</MenuItem>
+                        <MenuItem value="Region 3">Region 3</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              )}
+              
+              {addressTab === 1 && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="STUDENT ADDRESS"
+                      value={formData.permanentAddress.address}
+                      onChange={(e) => handleNestedChange('permanentAddress', 'address', e.target.value)}
+                      placeholder="Student Address"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>COUNTRY</InputLabel>
+                      <Select
+                        value={formData.permanentAddress.country}
+                        onChange={(e) => handleNestedChange('permanentAddress', 'country', e.target.value)}
+                        label="COUNTRY"
+                      >
+                        {countries.map((country) => (
+                          <MenuItem key={country} value={country}>
+                            {country}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>CITY</InputLabel>
+                      <Select
+                        value={formData.permanentAddress.city}
+                        onChange={(e) => handleNestedChange('permanentAddress', 'city', e.target.value)}
+                        label="CITY"
+                      >
+                        {cities.map((city) => (
+                          <MenuItem key={city} value={city}>
+                            {city}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>CITY REGION</InputLabel>
+                      <Select
+                        value={formData.permanentAddress.cityRegion}
+                        onChange={(e) => handleNestedChange('permanentAddress', 'cityRegion', e.target.value)}
+                        label="CITY REGION"
+                      >
+                        <MenuItem value="">Select Region</MenuItem>
+                        <MenuItem value="Region 1">Region 1</MenuItem>
+                        <MenuItem value="Region 2">Region 2</MenuItem>
+                        <MenuItem value="Region 3">Region 3</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+
+            {/* GUARDIAN Section */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                GUARDIAN
+              </Typography>
+              
+              <Tabs value={guardianTab} onChange={(e, newValue) => setGuardianTab(newValue)} sx={{ mb: 2 }}>
+                <Tab label="Father" />
+                <Tab label="Mother" />
+                <Tab label="Guardian" />
+              </Tabs>
+              
+              {guardianTab === 0 && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      required
+                      label="FATHER NAME*"
+                      value={formData.father.name}
+                      onChange={(e) => handleNestedChange('father', 'name', e.target.value)}
+                      placeholder="Father Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="FATHER CNIC"
+                      value={formData.father.cnic}
+                      onChange={(e) => handleNestedChange('father', 'cnic', e.target.value)}
+                      placeholder="XXXXX-XXXXXXX-X"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOBILE NUMBER"
+                      value={formData.father.mobileNumber}
+                      onChange={(e) => handleNestedChange('father', 'mobileNumber', e.target.value)}
+                      placeholder="e.g: 923001234567"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>MOBILE OPERATOR</InputLabel>
+                      <Select
+                        value={formData.father.mobileOperator}
+                        onChange={(e) => handleNestedChange('father', 'mobileOperator', e.target.value)}
+                        label="MOBILE OPERATOR"
+                      >
+                        {mobileOperators.map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box display="flex" gap={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.father.forApplicationLogin}
+                            onChange={(e) => handleNestedChange('father', 'forApplicationLogin', e.target.checked)}
+                          />
+                        }
+                        label="FOR APPLICATION LOGIN"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.father.forSMS}
+                            onChange={(e) => handleNestedChange('father', 'forSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR SMS"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.father.forWhatsappSMS}
+                            onChange={(e) => handleNestedChange('father', 'forWhatsappSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR WHATSAPP SMS"
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="PHONE NUMBER OFFICE"
+                      value={formData.father.phoneNumberOffice}
+                      onChange={(e) => handleNestedChange('father', 'phoneNumberOffice', e.target.value)}
+                      placeholder="Phone Number Office"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="WHATSAPP MOBILE NUMBER"
+                      value={formData.father.whatsappMobileNumber}
+                      onChange={(e) => handleNestedChange('father', 'whatsappMobileNumber', e.target.value)}
+                      placeholder="Whatsapp Mobile Number"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="FATHER OCCUPATION"
+                      value={formData.father.occupation}
+                      onChange={(e) => handleNestedChange('father', 'occupation', e.target.value)}
+                      placeholder="Father Occupation"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="EMAIL ADDRESS"
+                      type="email"
+                      value={formData.father.emailAddress}
+                      onChange={(e) => handleNestedChange('father', 'emailAddress', e.target.value)}
+                      placeholder="abc@example.com"
+                    />
+                  </Grid>
+                </Grid>
+              )}
+              
+              {guardianTab === 1 && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOTHER NAME"
+                      value={formData.mother.name}
+                      onChange={(e) => handleNestedChange('mother', 'name', e.target.value)}
+                      placeholder="Mother Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOTHER CNIC"
+                      value={formData.mother.cnic}
+                      onChange={(e) => handleNestedChange('mother', 'cnic', e.target.value)}
+                      placeholder="XXXXX-XXXXXXX-X"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOBILE NUMBER"
+                      value={formData.mother.mobileNumber}
+                      onChange={(e) => handleNestedChange('mother', 'mobileNumber', e.target.value)}
+                      placeholder="e.g: 923001234567"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>MOBILE OPERATOR</InputLabel>
+                      <Select
+                        value={formData.mother.mobileOperator}
+                        onChange={(e) => handleNestedChange('mother', 'mobileOperator', e.target.value)}
+                        label="MOBILE OPERATOR"
+                      >
+                        {mobileOperators.map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box display="flex" gap={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.mother.forApplicationLogin}
+                            onChange={(e) => handleNestedChange('mother', 'forApplicationLogin', e.target.checked)}
+                          />
+                        }
+                        label="FOR APPLICATION LOGIN"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.mother.forSMS}
+                            onChange={(e) => handleNestedChange('mother', 'forSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR SMS"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.mother.forWhatsappSMS}
+                            onChange={(e) => handleNestedChange('mother', 'forWhatsappSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR WHATSAPP SMS"
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="PHONE NUMBER OFFICE"
+                      value={formData.mother.phoneNumberOffice}
+                      onChange={(e) => handleNestedChange('mother', 'phoneNumberOffice', e.target.value)}
+                      placeholder="Phone Number Office"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="WHATSAPP MOBILE NUMBER"
+                      value={formData.mother.whatsappMobileNumber}
+                      onChange={(e) => handleNestedChange('mother', 'whatsappMobileNumber', e.target.value)}
+                      placeholder="Whatsapp Mobile Number"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOTHER OCCUPATION"
+                      value={formData.mother.occupation}
+                      onChange={(e) => handleNestedChange('mother', 'occupation', e.target.value)}
+                      placeholder="Mother Occupation"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="EMAIL ADDRESS"
+                      type="email"
+                      value={formData.mother.emailAddress}
+                      onChange={(e) => handleNestedChange('mother', 'emailAddress', e.target.value)}
+                      placeholder="abc@example.com"
+                    />
+                  </Grid>
+                </Grid>
+              )}
+              
+              {guardianTab === 2 && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="GUARDIAN NAME"
+                      value={formData.guardian.name}
+                      onChange={(e) => handleNestedChange('guardian', 'name', e.target.value)}
+                      placeholder="Guardian Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="RELATION"
+                      value={formData.guardian.relation}
+                      onChange={(e) => handleNestedChange('guardian', 'relation', e.target.value)}
+                      placeholder="Relation"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="GUARDIAN CNIC"
+                      value={formData.guardian.cnic}
+                      onChange={(e) => handleNestedChange('guardian', 'cnic', e.target.value)}
+                      placeholder="XXXXX-XXXXXXX-X"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="MOBILE NUMBER"
+                      value={formData.guardian.mobileNumber}
+                      onChange={(e) => handleNestedChange('guardian', 'mobileNumber', e.target.value)}
+                      placeholder="e.g: 923001234567"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>MOBILE OPERATOR</InputLabel>
+                      <Select
+                        value={formData.guardian.mobileOperator}
+                        onChange={(e) => handleNestedChange('guardian', 'mobileOperator', e.target.value)}
+                        label="MOBILE OPERATOR"
+                      >
+                        {mobileOperators.map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box display="flex" gap={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.guardian.forApplicationLogin}
+                            onChange={(e) => handleNestedChange('guardian', 'forApplicationLogin', e.target.checked)}
+                          />
+                        }
+                        label="FOR APPLICATION LOGIN"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.guardian.forSMS}
+                            onChange={(e) => handleNestedChange('guardian', 'forSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR SMS"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.guardian.forWhatsappSMS}
+                            onChange={(e) => handleNestedChange('guardian', 'forWhatsappSMS', e.target.checked)}
+                          />
+                        }
+                        label="FOR WHATSAPP SMS"
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="PHONE NUMBER OFFICE"
+                      value={formData.guardian.phoneNumberOffice}
+                      onChange={(e) => handleNestedChange('guardian', 'phoneNumberOffice', e.target.value)}
+                      placeholder="Phone Number Office"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="WHATSAPP MOBILE NUMBER"
+                      value={formData.guardian.whatsappMobileNumber}
+                      onChange={(e) => handleNestedChange('guardian', 'whatsappMobileNumber', e.target.value)}
+                      placeholder="Whatsapp Mobile Number"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="GUARDIAN OCCUPATION"
+                      value={formData.guardian.occupation}
+                      onChange={(e) => handleNestedChange('guardian', 'occupation', e.target.value)}
+                      placeholder="Guardian Occupation"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="EMAIL ADDRESS"
+                      type="email"
+                      value={formData.guardian.emailAddress}
+                      onChange={(e) => handleNestedChange('guardian', 'emailAddress', e.target.value)}
+                      placeholder="abc@example.com"
+                    />
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+
+            {/* Save Button */}
+            <Box display="flex" justifyContent="flex-end" mt={4}>
               <Button
+                type="submit"
                 variant="contained"
-                onClick={handleSubmit}
-                disabled={loading}
+                size="large"
                 startIcon={loading ? <CircularProgress size={20} /> : <Save />}
+                disabled={loading}
                 sx={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  px: 4,
                 }}
               >
-                {loading ? 'Submitting...' : isEditMode ? 'Update Application' : 'Submit Application'}
+                {loading ? 'Saving...' : 'Save'}
               </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                endIcon={<ArrowForward />}
-              >
-                Next
-              </Button>
-            )}
+            </Box>
           </Box>
-        </Box>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+
+      {/* Add Class Dialog */}
+      <Dialog open={classDialogOpen} onClose={() => setClassDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Add New Class</Typography>
+            <IconButton onClick={() => setClassDialogOpen(false)} size="small">
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Class Name"
+                value={newClass.name}
+                onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Class Code"
+                value={newClass.code}
+                onChange={(e) => setNewClass({ ...newClass, code: e.target.value.toUpperCase() })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClassDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddClass} variant="contained">Add Class</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Section Dialog */}
+      <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Add New Section</Typography>
+            <IconButton onClick={() => setSectionDialogOpen(false)} size="small">
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Section Name"
+                value={newSection.name}
+                onChange={(e) => setNewSection({ ...newSection, name: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Section Code"
+                value={newSection.code}
+                onChange={(e) => setNewSection({ ...newSection, code: e.target.value.toUpperCase() })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSectionDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddSection} variant="contained" disabled={!formData.class}>Add Section</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Group Dialog */}
+      <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Add New Group</Typography>
+            <IconButton onClick={() => setGroupDialogOpen(false)} size="small">
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Group Name"
+                value={newGroup.name}
+                onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGroupDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddGroup} variant="contained">Add Group</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Student Category Dialog */}
+      <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Add New Student Category</Typography>
+            <IconButton onClick={() => setCategoryDialogOpen(false)} size="small">
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Category Name"
+                value={newCategory.name}
+                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddCategory} variant="contained">Add Category</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

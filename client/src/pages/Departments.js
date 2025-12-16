@@ -29,9 +29,11 @@ import {
   ToggleOn,
   ToggleOff,
   AccountBalance,
+  Class as ClassIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import TopBar from '../components/layout/TopBar';
 
 const Departments = () => {
   const navigate = useNavigate();
@@ -45,33 +47,66 @@ const Departments = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
 
+  // Initialize institution on mount
   useEffect(() => {
-    // Auto-set institution filter from selected institution
-    const institutionData = localStorage.getItem('selectedInstitution');
-    if (institutionData && !selectedInstitution) {
-      try {
-        const institution = JSON.parse(institutionData);
-        setSelectedInstitution(institution._id);
-        return; // Return early to avoid duplicate fetch
-      } catch (e) {
-        console.error('Failed to parse institution data', e);
+    if (!selectedInstitution) {
+      const institutionData = localStorage.getItem('selectedInstitution');
+      if (institutionData) {
+        try {
+          const institution = JSON.parse(institutionData);
+          setSelectedInstitution(institution._id || institution);
+        } catch (e) {
+          console.error('Failed to parse institution data', e);
+        }
+      } else if (!isSuperAdmin && user.institution) {
+        // For admin users, use their own institution from user data
+        setSelectedInstitution(user.institution);
+      }
+    }
+  }, []); // Run only once on mount
+
+  // Fetch data when filters change
+  useEffect(() => {
+    // For admin users, require institution to be set
+    if (!isSuperAdmin && !selectedInstitution) {
+      if (user.institution) {
+        // If user has institution but it's not set yet, wait for it to be set
+        return;
+      } else {
+        // If admin user has no institution, show error and stop loading
+        setError('Your account is not assigned to an institution. Please contact administrator.');
+        setLoading(false);
+        return;
       }
     }
 
-    fetchData();
+    // Fetch data if super admin or if institution is set
+    if (isSuperAdmin || selectedInstitution) {
+      fetchData();
+    }
   }, [selectedInstitution]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
       // Fetch institutions if super admin
       if (isSuperAdmin) {
-        const instResponse = await axios.get('http://localhost:5000/api/v1/institutions', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setInstitutions(instResponse.data.data);
+        try {
+          const instResponse = await axios.get('http://localhost:5000/api/v1/institutions', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setInstitutions(instResponse.data.data || []);
+        } catch (instErr) {
+          console.error('Failed to fetch institutions:', instErr);
+          setInstitutions([]);
+        }
       }
 
       // Fetch departments
@@ -84,9 +119,12 @@ const Departments = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setDepartments(deptResponse.data.data);
+      setDepartments(deptResponse.data.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch departments');
+      console.error('Error fetching departments data:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch departments';
+      setError(errorMessage);
+      setDepartments([]);
     } finally {
       setLoading(false);
     }
@@ -115,16 +153,21 @@ const Departments = () => {
     dept.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  if (loading && departments.length === 0 && !error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <TopBar title="Departments Management" />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+      <TopBar title="Departments Management" />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4 }}>
         {/* Header */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -203,12 +246,13 @@ const Departments = () => {
                 <TableCell><strong>Students</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell align="center"><strong>Actions</strong></TableCell>
+                <TableCell align="center"><strong>Quick Links</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredDepartments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isSuperAdmin ? 9 : 8} align="center">
+                  <TableCell colSpan={isSuperAdmin ? 11 : 10} align="center">
                     <Box py={4}>
                       <Typography variant="body2" color="text.secondary">
                         No departments found
@@ -255,24 +299,64 @@ const Departments = () => {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => navigate(`/departments/edit/${department._id}`)}
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color={department.isActive ? 'warning' : 'success'}
-                        onClick={() => handleToggleStatus(department._id)}
-                      >
-                        {department.isActive ? (
-                          <ToggleOff fontSize="small" />
-                        ) : (
-                          <ToggleOn fontSize="small" />
-                        )}
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <IconButton
+                          size="small"
+                          color="info"
+                          onClick={() => navigate(`/classes?department=${department._id}`)}
+                          title="View Classes"
+                        >
+                          <ClassIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => navigate(`/departments/edit/${department._id}`)}
+                          title="Edit Department"
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color={department.isActive ? 'warning' : 'success'}
+                          onClick={() => handleToggleStatus(department._id)}
+                          title={department.isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          {department.isActive ? (
+                            <ToggleOff fontSize="small" />
+                          ) : (
+                            <ToggleOn fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => navigate(`/classes?department=${department._id}`)}
+                          sx={{ textTransform: 'none', fontSize: '0.7rem', minWidth: '70px' }}
+                        >
+                          Classes
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => navigate(`/sections?department=${department._id}`)}
+                          sx={{ textTransform: 'none', fontSize: '0.7rem', minWidth: '70px' }}
+                        >
+                          Sections
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => navigate(`/groups?department=${department._id}`)}
+                          sx={{ textTransform: 'none', fontSize: '0.7rem', minWidth: '70px' }}
+                        >
+                          Groups
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -281,7 +365,8 @@ const Departments = () => {
           </Table>
         </TableContainer>
       </Paper>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

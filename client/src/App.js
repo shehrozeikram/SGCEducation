@@ -8,6 +8,12 @@ import Institutions from './pages/Institutions';
 import InstitutionForm from './pages/InstitutionForm';
 import Departments from './pages/Departments';
 import DepartmentForm from './pages/DepartmentForm';
+import Classes from './pages/Classes';
+import ClassForm from './pages/ClassForm';
+import Sections from './pages/Sections';
+import SectionForm from './pages/SectionForm';
+import Groups from './pages/Groups';
+import GroupForm from './pages/GroupForm';
 import Admissions from './pages/Admissions';
 import AdmissionForm from './pages/AdmissionForm';
 import Users from './pages/Users';
@@ -107,6 +113,78 @@ function App() {
             element={
               <ProtectedRoute>
                 <DepartmentForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/classes"
+            element={
+              <ProtectedRoute>
+                <Classes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/classes/new"
+            element={
+              <ProtectedRoute>
+                <ClassForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/classes/edit/:id"
+            element={
+              <ProtectedRoute>
+                <ClassForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sections"
+            element={
+              <ProtectedRoute>
+                <Sections />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sections/new"
+            element={
+              <ProtectedRoute>
+                <SectionForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sections/edit/:id"
+            element={
+              <ProtectedRoute>
+                <SectionForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute>
+                <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups/new"
+            element={
+              <ProtectedRoute>
+                <GroupForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups/edit/:id"
+            element={
+              <ProtectedRoute>
+                <GroupForm />
               </ProtectedRoute>
             }
           />

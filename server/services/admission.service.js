@@ -3,7 +3,10 @@ const Student = require('../models/Student');
 const User = require('../models/User');
 const Institution = require('../models/Institution');
 const Department = require('../models/Department');
+const Class = require('../models/Class');
+const Section = require('../models/Section');
 const { ApiError } = require('../middleware/error.middleware');
+const mongoose = require('mongoose');
 
 /**
  * Admission Service - Handles admission-related business logic
@@ -407,7 +410,11 @@ class AdmissionService {
    * Get detailed admission analytics for charts
    */
   async getAdmissionAnalytics(filters = {}, currentUser) {
-    const query = { isActive: true };
+    // Include active admissions by default but allow overriding via filters
+    const query = {};
+    if (filters.isActive !== undefined) {
+      query.isActive = filters.isActive;
+    }
 
     // Apply institution filter based on role
     if (currentUser.role !== 'super_admin') {
@@ -417,7 +424,12 @@ class AdmissionService {
       }
       query.institution = currentUser.institution;
     } else if (filters.institution) {
-      query.institution = filters.institution;
+      // Convert string to ObjectId for superadmin queries
+      if (mongoose.Types.ObjectId.isValid(filters.institution)) {
+        query.institution = new mongoose.Types.ObjectId(filters.institution);
+      } else {
+        query.institution = filters.institution;
+      }
     }
 
     if (filters.academicYear) {
@@ -566,6 +578,90 @@ class AdmissionService {
     });
     const conversionRate = totalCount > 0 ? ((convertedCount / totalCount) * 100).toFixed(2) : 0;
 
+    // Build institution filter for class/section queries
+    const institutionFilter = {};
+    if (currentUser.role !== 'super_admin') {
+      institutionFilter.institution = currentUser.institution;
+    } else if (filters.institution) {
+      institutionFilter.institution = new mongoose.Types.ObjectId(filters.institution);
+    }
+
+    // Student Strength Class Wise - Current School
+    const classWiseStrength = await Student.aggregate([
+      { $match: { ...institutionFilter, isActive: true } },
+      {
+        $lookup: {
+          from: 'classes',
+          localField: 'class',
+          foreignField: '_id',
+          as: 'classInfo'
+        }
+      },
+      { $unwind: { path: '$classInfo', preserveNullAndEmptyArrays: false } },
+      {
+        $group: {
+          _id: '$class',
+          className: { $first: '$classInfo.name' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { className: 1 } }
+    ]);
+
+    // Total Seats Available and Strength in Sections
+    const sectionStats = await Section.aggregate([
+      { $match: institutionFilter },
+      {
+        $lookup: {
+          from: 'students',
+          let: { sectionId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$section', '$$sectionId'] },
+                    { $eq: ['$isActive', true] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'students'
+        }
+      },
+      {
+        $lookup: {
+          from: 'classes',
+          localField: 'class',
+          foreignField: '_id',
+          as: 'classInfo'
+        }
+      },
+      { $unwind: { path: '$classInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: 1,
+          code: 1,
+          className: '$classInfo.name',
+          capacity: { $ifNull: ['$capacity', 0] },
+          currentStrength: { $size: '$students' },
+          availableSeats: {
+            $subtract: [
+              { $ifNull: ['$capacity', 0] },
+              { $size: '$students' }
+            ]
+          }
+        }
+      },
+      { $sort: { className: 1, name: 1 } }
+    ]);
+
+    // Aggregate totals for sections
+    const totalSeatsAvailable = sectionStats.reduce((sum, section) => sum + Math.max(0, section.availableSeats), 0);
+    const totalSectionCapacity = sectionStats.reduce((sum, section) => sum + section.capacity, 0);
+    const totalSectionStrength = sectionStats.reduce((sum, section) => sum + section.currentStrength, 0);
+
     return {
       statusBreakdown: statusBreakdown.map(item => ({
         status: item._id || 'unknown',
@@ -599,7 +695,22 @@ class AdmissionService {
       })),
       conversionRate: parseFloat(conversionRate),
       totalApplications: totalCount,
-      convertedApplications: convertedCount
+      convertedApplications: convertedCount,
+      classWiseStrength: classWiseStrength.map(item => ({
+        className: item.className || 'Unknown',
+        count: item.count
+      })),
+      sectionStats: sectionStats.map(item => ({
+        name: item.name,
+        code: item.code,
+        className: item.className || 'Unknown',
+        capacity: item.capacity,
+        currentStrength: item.currentStrength,
+        availableSeats: item.availableSeats
+      })),
+      totalSeatsAvailable,
+      totalSectionCapacity,
+      totalSectionStrength
     };
   }
 }

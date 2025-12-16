@@ -34,7 +34,7 @@ const institutionSchema = new mongoose.Schema({
     street: { type: String, trim: true },
     city: { type: String, required: true, trim: true },
     state: { type: String, required: true, trim: true },
-    country: { type: String, required: true, trim: true, default: 'India' },
+    country: { type: String, required: true, trim: true, default: 'Pakistan' },
     zipCode: { type: String, trim: true }
   },
   principal: {

@@ -31,6 +31,12 @@ import {
   CardContent,
   AppBar,
   Toolbar,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Drawer,
 } from '@mui/material';
 import {
   Add,
@@ -48,6 +54,22 @@ import {
   AccountCircle,
   Settings,
   ExitToApp,
+  Home,
+  ArrowBack,
+  List as ListIcon,
+  Assessment,
+  MenuBook,
+  BarChart,
+  ExpandMore,
+  ExpandLess,
+  ArrowForward,
+  Dashboard as DashboardIcon,
+  Assignment,
+  People,
+  FamilyRestroom,
+  DateRange,
+  CloudUpload,
+  GroupAdd,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
@@ -71,26 +93,45 @@ const Admissions = () => {
   const [actionDialog, setActionDialog] = useState({ open: false, type: '', remarks: '' });
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchType, setSearchType] = useState('all'); // 'all', 'studentId', 'applicationNumber', 'name', 'email'
+  const [activeSection, setActiveSection] = useState('list'); // 'list', 'new', 'reports', 'register', 'analytics'
+  const [admissionMenuOpen, setAdmissionMenuOpen] = useState(true);
+  const [studentMenuOpen, setStudentMenuOpen] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
   const isAdmin = user.role === 'super_admin' || user.role === 'admin';
 
+  // Helper to get the correct institution ID
+  const getInstitutionId = () => {
+    // First priority: selectedInstitution from state
+    if (selectedInstitution) {
+      return selectedInstitution;
+    }
+    
+    // Second priority: user.institution (extract _id if it's an object)
+    if (user.institution) {
+      const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+      return institutionId;
+    }
+    
+    return null;
+  };
+
   // Initialize institution on mount
   useEffect(() => {
-    if (!selectedInstitution) {
-      const institutionData = localStorage.getItem('selectedInstitution');
-      if (institutionData) {
-        try {
-          const institution = JSON.parse(institutionData);
-          setSelectedInstitution(institution._id || institution);
-        } catch (e) {
-          console.error('Failed to parse institution data', e);
-        }
-      } else if (!isSuperAdmin && user.institution) {
-        // For admin users, use their own institution from user data
-        setSelectedInstitution(user.institution);
+    const institutionData = localStorage.getItem('selectedInstitution');
+    if (institutionData) {
+      try {
+        const institution = JSON.parse(institutionData);
+        const institutionId = institution._id || institution;
+        setSelectedInstitution(institutionId);
+      } catch (e) {
+        console.error('Failed to parse institution data', e);
       }
+    } else if (!isSuperAdmin && user.institution) {
+      // For admin users, use their own institution from user data
+      const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+      setSelectedInstitution(institutionId);
     }
   }, []); // Run only once on mount
 
@@ -299,13 +340,15 @@ const Admissions = () => {
     );
   }
 
+  const sidebarWidth = 280;
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       {/* Top Navigation Bar */}
-      <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <AppBar position="fixed" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', zIndex: 1300 }}>
         <Toolbar sx={{ px: { xs: 2, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
           <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: { xs: 1, sm: 0 }, fontSize: { xs: '0.9rem', sm: '1.25rem' }, mr: { xs: 0, sm: 3 } }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
             Admissions Management
           </Typography>
 
@@ -385,7 +428,23 @@ const Admissions = () => {
           </FormControl>
 
           {/* Action Buttons */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              startIcon={<Home />}
+              onClick={() => navigate('/dashboard')}
+              sx={{
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+                color: 'white',
+                '&:hover': {
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+            >
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>Back to Home</Box>
+              <Box sx={{ display: { xs: 'block', sm: 'none' } }}>Home</Box>
+            </Button>
             <IconButton
               size="small"
               onClick={handleRefresh}
@@ -444,9 +503,346 @@ const Admissions = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      {/* Sidebar + Content Layout */}
+      <Box sx={{ display: 'flex' }}>
+        {/* Sidebar */}
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: sidebarWidth,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: sidebarWidth,
+              boxSizing: 'border-box',
+              position: 'fixed',
+              top: 64,
+              left: 0,
+              height: 'calc(100vh - 64px)',
+              borderRight: '1px solid #e0e0e0',
+              overflowY: 'auto',
+              bgcolor: 'white',
+            },
+          }}
+        >
+          <List sx={{ pt: 0 }}>
+            {/* Dashboard */}
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => navigate('/dashboard')}>
+                <ListItemIcon>
+                  <DashboardIcon />
+                </ListItemIcon>
+                <ListItemText primary="Dashboard" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* Admission - Collapsible */}
+            <ListItem disablePadding>
+              <ListItemButton 
+                onClick={() => setAdmissionMenuOpen(!admissionMenuOpen)}
+                sx={{
+                  bgcolor: admissionMenuOpen ? '#667eea15' : 'transparent',
+                }}
+              >
+                <ListItemIcon>
+                  <Assignment sx={{ color: admissionMenuOpen ? '#667eea' : 'inherit' }} />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Admission" 
+                  primaryTypographyProps={{
+                    fontWeight: admissionMenuOpen ? 600 : 400,
+                    color: admissionMenuOpen ? '#667eea' : 'inherit',
+                  }}
+                />
+                {admissionMenuOpen ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+            </ListItem>
+
+            {/* Admission Sub-menu */}
+            {admissionMenuOpen && (
+              <List component="div" disablePadding>
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'list'}
+                  onClick={() => setActiveSection('list')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'list' ? '#667eea' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="All Admissions"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'list' ? '#667eea' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'new'}
+                  onClick={() => setActiveSection('new')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'new' ? '#667eea' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="New Admission"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'new' ? '#667eea' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'reports'}
+                  onClick={() => setActiveSection('reports')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'reports' ? '#667eea' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Reports"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'reports' ? '#667eea' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'register'}
+                  onClick={() => setActiveSection('register')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'register' ? '#667eea' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Admission Register"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'register' ? '#667eea' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'analytics'}
+                  onClick={() => setActiveSection('analytics')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'analytics' ? '#667eea' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Analytics"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'analytics' ? '#667eea' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+              </List>
+            )}
+
+            {/* Students - Collapsible */}
+            <ListItem disablePadding>
+              <ListItemButton 
+                onClick={() => setStudentMenuOpen(!studentMenuOpen)}
+                sx={{
+                  bgcolor: studentMenuOpen ? '#1976d215' : 'transparent',
+                }}
+              >
+                <ListItemIcon>
+                  <People sx={{ color: studentMenuOpen ? '#1976d2' : 'inherit' }} />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Students" 
+                  primaryTypographyProps={{
+                    fontWeight: studentMenuOpen ? 600 : 400,
+                    color: studentMenuOpen ? '#1976d2' : 'inherit',
+                  }}
+                />
+                {studentMenuOpen ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+            </ListItem>
+
+            {/* Students Sub-menu */}
+            {studentMenuOpen && (
+              <List component="div" disablePadding>
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'search-student'}
+                  onClick={() => setActiveSection('search-student')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'search-student' ? '#1976d2' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Search Student"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'search-student' ? '#1976d2' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'search-all-data'}
+                  onClick={() => setActiveSection('search-all-data')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'search-all-data' ? '#1976d2' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Search Student All Data"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'search-all-data' ? '#1976d2' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'search-family'}
+                  onClick={() => setActiveSection('search-family')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'search-family' ? '#1976d2' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Search Student By Family Number"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'search-family' ? '#1976d2' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'student-status'}
+                  onClick={() => setActiveSection('student-status')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'student-status' ? '#1976d2' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Student Status Date Wise"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'student-status' ? '#1976d2' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+
+                <ListItemButton 
+                  sx={{ pl: 4 }}
+                  selected={activeSection === 'import-students'}
+                  onClick={() => setActiveSection('import-students')}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'import-students' ? '#1976d2' : 'inherit' }} />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Import Students"
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      color: activeSection === 'import-students' ? '#1976d2' : 'text.secondary',
+                    }}
+                  />
+                </ListItemButton>
+              </List>
+            )}
+
+            {/* Student Bulk SignUp */}
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => setActiveSection('bulk-signup')}>
+                <ListItemIcon>
+                  <GroupAdd />
+                </ListItemIcon>
+                <ListItemText primary="Student Bulk SignUp" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Drawer>
+
+        {/* Main Content */}
+        <Box 
+          sx={{ 
+            flexGrow: 1, 
+            pt: '80px',
+            pr: 3,
+            pb: 3,
+            minHeight: '100vh',
+            bgcolor: '#f5f5f5',
+          }}
+        >
+      {/* Quick Links for Academic Setup */}
+      <Paper sx={{ p: 2, mb: 3, mx: 3, background: 'linear-gradient(135deg, #667eea15 0%, #764ba205 100%)', border: '1px solid #667eea30' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: '#667eea' }}>
+            Academic Setup
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/classes')}
+              sx={{
+                borderColor: '#667eea',
+                color: '#667eea',
+                '&:hover': {
+                  borderColor: '#5568d3',
+                  bgcolor: '#667eea15',
+                },
+              }}
+            >
+              📚 Manage Classes
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/sections')}
+              sx={{
+                borderColor: '#764ba2',
+                color: '#764ba2',
+                '&:hover': {
+                  borderColor: '#653a8b',
+                  bgcolor: '#764ba215',
+                },
+              }}
+            >
+              📑 Manage Sections
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/groups')}
+              sx={{
+                borderColor: '#f093fb',
+                color: '#f093fb',
+                '&:hover': {
+                  borderColor: '#d97ee4',
+                  bgcolor: '#f093fb15',
+                },
+              }}
+            >
+              👥 Manage Groups
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Content based on active section */}
+      {activeSection === 'list' && (
+        <>
       {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 4, px: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card
             elevation={0}
@@ -530,12 +926,12 @@ const Admissions = () => {
       </Grid>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3, mx: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 3, mx: 3 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
-      <Paper sx={{ p: 4, mx: 2 }}>
+      <Paper sx={{ p: 4, mx: 3 }}>
         {/* Header with Quick Stats */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
           <Box>
@@ -752,9 +1148,63 @@ const Admissions = () => {
       </Paper>
 
       {/* Analytics Charts Section */}
-      <Box sx={{ mb: 4, mt: 4 }}>
-        <AdmissionCharts filters={{ institution: selectedInstitution || user.institution }} />
+      <Box sx={{ mb: 4, mt: 4, px: 3 }}>
+        <AdmissionCharts 
+          filters={getInstitutionId() ? { institution: getInstitutionId() } : {}} 
+        />
       </Box>
+        </>
+      )}
+
+      {/* Section: New Admission */}
+      {activeSection === 'new' && (
+        <Box sx={{ p: 4, mx: 3 }}>
+          <Typography variant="h5" gutterBottom>New Admission Form</Typography>
+          <Typography variant="body1" color="text.secondary">
+            New Admission form will be displayed here. Click the button below to navigate to the admission form.
+          </Typography>
+          <Button 
+            variant="contained" 
+            startIcon={<Add />}
+            onClick={() => navigate('/admissions/new')}
+            sx={{ mt: 2 }}
+          >
+            Go to New Admission Form
+          </Button>
+        </Box>
+      )}
+
+      {/* Section: Reports */}
+      {activeSection === 'reports' && (
+        <Box sx={{ p: 4, mx: 3 }}>
+          <Typography variant="h5" gutterBottom>Admission Reports</Typography>
+          <Typography variant="body1" color="text.secondary">
+            Reports section - Coming soon!
+          </Typography>
+        </Box>
+      )}
+
+      {/* Section: Register */}
+      {activeSection === 'register' && (
+        <Box sx={{ p: 4, mx: 3 }}>
+          <Typography variant="h5" gutterBottom>Admission Register</Typography>
+          <Typography variant="body1" color="text.secondary">
+            Admission register - Coming soon!
+          </Typography>
+        </Box>
+      )}
+
+      {/* Section: Analytics */}
+      {activeSection === 'analytics' && (
+        <Box sx={{ px: 3 }}>
+          <Typography variant="h5" gutterBottom fontWeight="bold" sx={{ mb: 3 }}>
+            Admission Analytics & Insights
+          </Typography>
+          <AdmissionCharts 
+            filters={getInstitutionId() ? { institution: getInstitutionId() } : {}} 
+          />
+        </Box>
+      )}
 
       {/* Action Dialog */}
       <Dialog open={actionDialog.open} onClose={() => setActionDialog({ open: false, type: '', remarks: '' })}>
@@ -784,7 +1234,8 @@ const Admissions = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      </Container>
+        </Box>
+      </Box>
     </Box>
   );
 };

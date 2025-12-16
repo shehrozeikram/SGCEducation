@@ -408,6 +408,126 @@ const AdmissionCharts = ({ filters = {} }) => {
             )}
           </Paper>
         </Grid>
+
+        {/* Student Strength Class Wise */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              Student Strength Class Wise - Current School
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            {!analyticsData.classWiseStrength || analyticsData.classWiseStrength.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                No data available
+              </Typography>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analyticsData.classWiseStrength}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="className" angle={-45} textAnchor="end" height={100} style={{ fontSize: '12px' }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#43e97b" name="Students" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Section Capacity Overview */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              Section Capacity Overview
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={4}>
+                <Card elevation={0} sx={{ bgcolor: '#43e97b15', border: '1px solid #43e97b30' }}>
+                  <CardContent>
+                    <Typography variant="caption" color="text.secondary">Total Capacity</Typography>
+                    <Typography variant="h5" fontWeight="bold" color="#43e97b">
+                      {analyticsData.totalSectionCapacity || 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={4}>
+                <Card elevation={0} sx={{ bgcolor: '#667eea15', border: '1px solid #667eea30' }}>
+                  <CardContent>
+                    <Typography variant="caption" color="text.secondary">Current Strength</Typography>
+                    <Typography variant="h5" fontWeight="bold" color="#667eea">
+                      {analyticsData.totalSectionStrength || 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={4}>
+                <Card elevation={0} sx={{ bgcolor: '#f093fb15', border: '1px solid #f093fb30' }}>
+                  <CardContent>
+                    <Typography variant="caption" color="text.secondary">Seats Available</Typography>
+                    <Typography variant="h5" fontWeight="bold" color="#f093fb">
+                      {analyticsData.totalSeatsAvailable || 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Section-wise Strength Details */}
+        <Grid item xs={12}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              Section-wise Student Strength
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            {!analyticsData.sectionStats || analyticsData.sectionStats.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                No sections available
+              </Typography>
+            ) : (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={analyticsData.sectionStats} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={120} 
+                    style={{ fontSize: '11px' }}
+                    tickFormatter={(value, index) => {
+                      const section = analyticsData.sectionStats[index];
+                      return section ? `${section.className} - ${value}` : value;
+                    }}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <Box sx={{ bgcolor: 'white', p: 2, border: '1px solid #ccc', borderRadius: 1 }}>
+                            <Typography variant="body2" fontWeight="bold">{data.className} - {data.name}</Typography>
+                            <Typography variant="caption" display="block">Capacity: {data.capacity}</Typography>
+                            <Typography variant="caption" display="block">Current: {data.currentStrength}</Typography>
+                            <Typography variant="caption" display="block">Available: {data.availableSeats}</Typography>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="capacity" fill="#43e97b" name="Capacity" />
+                  <Bar dataKey="currentStrength" fill="#667eea" name="Current Strength" />
+                  <Bar dataKey="availableSeats" fill="#f093fb" name="Available Seats" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Paper>
+        </Grid>
       </Grid>
     </Box>
   );
