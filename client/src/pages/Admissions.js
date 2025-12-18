@@ -109,9 +109,6 @@ const Admissions = () => {
     if (path === '/admissions/analytics') return 'analytics';
     if (path === '/admissions/students/search') return 'search-student';
     if (path === '/admissions/students/search-all') return 'search-all-data';
-    if (path === '/admissions/students/search-family') return 'search-family';
-    if (path === '/admissions/students/status') return 'student-status';
-    if (path === '/admissions/students/import') return 'import-students';
     if (path === '/admissions/students/bulk-signup') return 'bulk-signup';
     return 'list'; // Default
   };
@@ -126,9 +123,6 @@ const Admissions = () => {
       'analytics': '/admissions/analytics',
       'search-student': '/admissions/students/search',
       'search-all-data': '/admissions/students/search-all',
-      'search-family': '/admissions/students/search-family',
-      'student-status': '/admissions/students/status',
-      'import-students': '/admissions/students/import',
       'bulk-signup': '/admissions/students/bulk-signup',
     };
     return urlMap[section] || '/admissions';
@@ -160,6 +154,44 @@ const Admissions = () => {
   const [activeSection, setActiveSection] = useState(getSectionFromPath()); // 'list', 'new', 'reports', 'register', 'analytics'
   const [admissionMenuOpen, setAdmissionMenuOpen] = useState(true);
   const [studentMenuOpen, setStudentMenuOpen] = useState(false);
+
+  // Search Student All Data state
+  const allStudentStatusOptions = [
+    'Enrolled',
+    'Struck Off',
+    'Soft Admission',
+    'Passout',
+    'Expelled',
+    'Freeze',
+    'School Leaving',
+  ];
+  const [allDataStatusFilter, setAllDataStatusFilter] = useState(allStudentStatusOptions);
+
+  const allDataFieldOptions = [
+    { id: 'studentId', label: 'Student Id' },
+    { id: 'studentName', label: 'Student Name' },
+    { id: 'fatherName', label: 'Father Name' },
+    { id: 'dateOfBirth', label: 'Date Of Birth' },
+    { id: 'bloodGroup', label: 'Blood Group' },
+    { id: 'hobbies', label: 'Hobbies' },
+    { id: 'category', label: 'Student Category Name' },
+    { id: 'familyNumber', label: 'Family Number' },
+    { id: 'admissionDate', label: 'Admission Date' },
+    { id: 'gender', label: 'Gender Name' },
+    { id: 'packageName', label: 'Package Name' },
+    { id: 'packageStart', label: 'Fee Package Start Date' },
+    { id: 'packageEnd', label: 'Fee Package End Date' },
+    { id: 'sectionRollNumber', label: 'Section Roll Number' },
+    { id: 'admissionNumber', label: 'Admission Number' },
+    { id: 'rollNumber', label: 'Roll Number' },
+    { id: 'sectionName', label: 'Section Name' },
+    { id: 'className', label: 'Class Name' },
+    { id: 'groupName', label: 'Group Name' },
+  ];
+  const [selectedAllDataFields, setSelectedAllDataFields] = useState(
+    allDataFieldOptions.map((f) => f.id)
+  );
+  const [studentAllDataRows, setStudentAllDataRows] = useState([]);
   
   // Reports state
   const [selectedReportTab, setSelectedReportTab] = useState(0);
@@ -190,6 +222,110 @@ const Admissions = () => {
     'monthly-strength-report': null,
   });
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Helper to build row data for "Search Student All Data"
+  const buildStudentAllDataRow = (admission, index) => {
+    const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+    const dob = admission.personalInfo?.dateOfBirth
+      ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0]
+      : '';
+    const ageYears = admission.personalInfo?.dateOfBirth
+      ? Math.floor(
+          (new Date().getTime() - new Date(admission.personalInfo.dateOfBirth).getTime()) /
+            (365.25 * 24 * 60 * 60 * 1000)
+        )
+      : null;
+
+    return {
+      _id: admission._id,
+      index: index + 1,
+      studentId: admission.studentId?.enrollmentNumber || '',
+      studentName: fullName || 'N/A',
+      fatherName: admission.guardianInfo?.fatherName || 'N/A',
+      dateOfBirth: dob,
+      bloodGroup: admission.personalInfo?.bloodGroup || '',
+      hobbies: admission.hobbies || '',
+      category: admission.personalInfo?.category || 'Default',
+      familyNumber: admission.familyNumber || '',
+      admissionDate: admission.createdAt
+        ? new Date(admission.createdAt).toISOString().split('T')[0]
+        : '',
+      gender:
+        admission.personalInfo?.gender
+          ? admission.personalInfo.gender.charAt(0).toUpperCase() +
+            admission.personalInfo.gender.slice(1)
+          : '',
+      packageName: admission.packageName || '',
+      packageStart: admission.packageStartDate
+        ? new Date(admission.packageStartDate).toISOString().split('T')[0]
+        : '',
+      packageEnd: admission.packageEndDate
+        ? new Date(admission.packageEndDate).toISOString().split('T')[0]
+        : '',
+      sectionRollNumber: admission.sectionRollNumber || '',
+      admissionNumber: admission.applicationNumber || '',
+      rollNumber: admission.studentId?.rollNumber || '',
+      sectionName: admission.section?.name || '',
+      className: admission.class?.name || admission.program || '',
+      groupName: admission.group?.name || '',
+      age: ageYears !== null ? `${ageYears} Years` : '',
+    };
+  };
+
+  const handleSearchStudentAllData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Fetch all admissions with student data populated
+      const token = localStorage.getItem('token');
+      const filters = {};
+      if (selectedInstitution) filters.institution = selectedInstitution;
+      
+      // Get all admissions (we'll filter for enrolled ones that have students)
+      const admissionsData = await getAllAdmissions(filters);
+      let allAdmissions = admissionsData.data || [];
+      
+      // Filter for enrolled admissions that have studentId (students)
+      let studentsData = allAdmissions.filter(admission => 
+        admission.status === 'enrolled' && admission.studentId
+      );
+      
+      // If status filter is applied, we need to fetch student details
+      // For now, we'll work with enrolled admissions
+      // Map UI statuses to admission/student statuses
+      const statusMapping = {
+        'Enrolled': 'enrolled',
+        'Struck Off': 'struck_off',
+        'Soft Admission': 'soft_admission',
+        'Passout': 'passout',
+        'Expelled': 'expelled',
+        'Freeze': 'freeze',
+        'School Leaving': 'school_leaving'
+      };
+      
+      if (allDataStatusFilter && allDataStatusFilter.length > 0 && allDataStatusFilter.length < allStudentStatusOptions.length) {
+        // Filter by selected statuses
+        const mappedStatuses = allDataStatusFilter.map(s => statusMapping[s] || s.toLowerCase());
+        studentsData = studentsData.filter(admission => {
+          // For now, we'll show all enrolled students
+          // Later, we can filter by actual student status when we have student API
+          return mappedStatuses.includes('enrolled') || mappedStatuses.includes(admission.status?.toLowerCase());
+        });
+      }
+      
+      const rows = studentsData.map((admission, index) =>
+        buildStudentAllDataRow(admission, index)
+      );
+      setStudentAllDataRows(rows);
+    } catch (err) {
+      console.error('Error searching student data:', err);
+      setError(err.response?.data?.message || 'Failed to search student data');
+      setStudentAllDataRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
@@ -237,6 +373,38 @@ const Admissions = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+
+  // Auto-fetch data when navigating to search-all-data section
+  useEffect(() => {
+    if (activeSection === 'search-all-data' && admissions.length > 0) {
+      // Auto-search when section is active and we have admissions data
+      // Only if no rows are currently displayed
+      if (studentAllDataRows.length === 0) {
+        // Don't auto-search, let user click Search button
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, admissions]);
+
+  // Fetch data when register section is active (especially for super admin)
+  useEffect(() => {
+    if (activeSection === 'register') {
+      // For super admin, always fetch data (even if no institution selected)
+      // For regular admin, fetchData will be called by the existing useEffect
+      if (isSuperAdmin) {
+        fetchData();
+      } else if (!isSuperAdmin && user.institution) {
+        // For regular admin, ensure institution is set and fetch
+        const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+        if (!selectedInstitution) {
+          setSelectedInstitution(institutionId);
+        } else {
+          fetchData();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
 
   // Fetch data when filters change
   useEffect(() => {
@@ -881,56 +1049,6 @@ const Admissions = () => {
                   />
                 </ListItemButton>
 
-                <ListItemButton 
-                  sx={{ pl: 4 }}
-                  selected={activeSection === 'search-family'}
-                  onClick={() => navigateToSection('search-family')}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'search-family' ? '#1976d2' : 'inherit' }} />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary="Search Student By Family Number"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      color: activeSection === 'search-family' ? '#1976d2' : 'text.secondary',
-                    }}
-                  />
-                </ListItemButton>
-
-                <ListItemButton 
-                  sx={{ pl: 4 }}
-                  selected={activeSection === 'student-status'}
-                  onClick={() => navigateToSection('student-status')}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'student-status' ? '#1976d2' : 'inherit' }} />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary="Student Status Date Wise"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      color: activeSection === 'student-status' ? '#1976d2' : 'text.secondary',
-                    }}
-                  />
-                </ListItemButton>
-
-                <ListItemButton 
-                  sx={{ pl: 4 }}
-                  selected={activeSection === 'import-students'}
-                  onClick={() => navigateToSection('import-students')}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ArrowForward fontSize="small" sx={{ color: activeSection === 'import-students' ? '#1976d2' : 'inherit' }} />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary="Import Students"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      color: activeSection === 'import-students' ? '#1976d2' : 'text.secondary',
-                    }}
-                  />
-                </ListItemButton>
               </List>
             )}
 
@@ -1312,7 +1430,143 @@ const Admissions = () => {
           />
         </Box>
       )}
-        </>
+      </>
+      )}
+
+      {/* Section: Search Student All Data */}
+      {activeSection === 'search-all-data' && (
+        <Box sx={{ mx: 3 }}>
+          <Paper sx={{ p: 3, mt: 2 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              STUDENT ALL DATA REPORT
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3, mt: 1 }}>
+              <Grid item xs={12} md={4}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Student Status
+                </Typography>
+                <FormControl fullWidth>
+                  <Select
+                    multiple
+                    value={allDataStatusFilter}
+                    onChange={(e) => setAllDataStatusFilter(e.target.value)}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if (!selected || selected.length === 0) return 'Select Status';
+                      if (selected.length === allStudentStatusOptions.length) {
+                        return `All selected (${selected.length})`;
+                      }
+                      return selected.join(', ');
+                    }}
+                  >
+                    {allStudentStatusOptions.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {status}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Data Fields
+                </Typography>
+                <FormControl fullWidth>
+                  <Select
+                    multiple
+                    value={selectedAllDataFields}
+                    onChange={(e) => setSelectedAllDataFields(e.target.value)}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if (!selected || selected.length === 0) return 'Select Columns';
+                      if (selected.length === allDataFieldOptions.length) {
+                        return `All selected (${selected.length})`;
+                      }
+                      const labels = allDataFieldOptions
+                        .filter((opt) => selected.includes(opt.id))
+                        .map((opt) => opt.label);
+                      return labels.join(', ');
+                    }}
+                  >
+                    {allDataFieldOptions.map((field) => (
+                      <MenuItem key={field.id} value={field.id}>
+                        {field.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={handleSearchStudentAllData}
+                  sx={{
+                    bgcolor: '#0d6efd',
+                    '&:hover': { bgcolor: '#0b5ed7' },
+                    textTransform: 'none',
+                    px: 4,
+                    py: 1.25,
+                  }}
+                >
+                  Search
+                </Button>
+              </Grid>
+            </Grid>
+
+            {/* Results Table */}
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : studentAllDataRows.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                No data to display. Please click on Search button to get all students.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Sr</strong></TableCell>
+                      {allDataFieldOptions
+                        .filter((field) => selectedAllDataFields.includes(field.id))
+                        .map((field) => (
+                          <TableCell key={field.id}>
+                            <strong>{field.label}</strong>
+                          </TableCell>
+                        ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {studentAllDataRows.map((row, idx) => (
+                      <TableRow key={row._id || idx} hover>
+                        <TableCell>{idx + 1}</TableCell>
+                        {allDataFieldOptions
+                          .filter((field) => selectedAllDataFields.includes(field.id))
+                          .map((field) => (
+                            <TableCell key={field.id}>
+                              {row[field.id] || ''}
+                            </TableCell>
+                          ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {studentAllDataRows.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Total: {studentAllDataRows.length}
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Box>
       )}
 
       {/* Section: New Admission */}

@@ -42,6 +42,9 @@ class AdmissionService {
       .populate('institution', 'name type code')
       .populate('reviewedBy', 'name email')
       .populate('createdBy', 'name email')
+      .populate('studentId', 'enrollmentNumber rollNumber status currentClass currentSection')
+      .populate('class', 'name code')
+      .populate('section', 'name')
       .sort({ createdAt: -1 });
 
     return admissions;

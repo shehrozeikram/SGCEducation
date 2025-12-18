@@ -61,18 +61,49 @@ const AdmissionByDateReport = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           setInstitutions(response.data.data || []);
-        } else if (user.institution) {
-          // For non-superadmin, use their institution
-          const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
-          const response = await axios.get(`http://localhost:5000/api/v1/institutions/${institutionId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setInstitutions([response.data.data]);
-          setSelectedInstitutions([response.data.data._id]);
+        } else {
+          // For non-superadmin (admin role), fetch all institutions
+          // The API will automatically filter to return only their institution
+          try {
+            const response = await axios.get('http://localhost:5000/api/v1/institutions', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const fetchedInstitutions = response.data.data || [];
+            
+            if (fetchedInstitutions.length > 0) {
+              // For admin, they should only see their own institution
+              setInstitutions(fetchedInstitutions);
+              // Auto-select the first (and only) institution
+              setSelectedInstitutions([fetchedInstitutions[0]._id]);
+            } else {
+              // Fallback: try to get from localStorage or user object
+              const selectedInstitutionData = localStorage.getItem('selectedInstitution');
+              if (selectedInstitutionData) {
+                try {
+                  const institutionData = JSON.parse(selectedInstitutionData);
+                  setInstitutions([institutionData]);
+                  setSelectedInstitutions([institutionData._id || institutionData]);
+                } catch (e) {
+                  console.error('Failed to parse selectedInstitution:', e);
+                  setError('No institution found for your account. Please contact administrator.');
+                }
+              } else if (user.institution) {
+                const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+                const institutionData = typeof user.institution === 'object' ? user.institution : { _id: institutionId, name: 'My Institution', code: '' };
+                setInstitutions([institutionData]);
+                setSelectedInstitutions([institutionId]);
+              } else {
+                setError('No institution found for your account. Please contact administrator.');
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching institutions:', err);
+            setError(err.response?.data?.message || 'Failed to load institutions');
+          }
         }
       } catch (err) {
         console.error('Error fetching institutions:', err);
-        setError('Failed to load institutions');
+        setError(err.response?.data?.message || 'Failed to load institutions');
       }
     };
 
