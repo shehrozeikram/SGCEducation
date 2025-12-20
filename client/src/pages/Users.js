@@ -35,6 +35,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageHeader from '../components/layout/PageHeader';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const Users = () => {
   const navigate = useNavigate();
@@ -376,7 +377,7 @@ const Users = () => {
                 ) : (
                   users.map((user) => (
                     <TableRow key={user._id} hover>
-                      <TableCell>{user.name}</TableCell>
+                      <TableCell>{capitalizeFirstOnly(user.name || 'N/A')}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
                         <Chip
@@ -386,10 +387,10 @@ const Users = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        {user.institution?.name || '-'}
+                        {capitalizeFirstOnly(user.institution?.name || '-')}
                       </TableCell>
                       <TableCell>
-                        {user.department ? `${user.department.name} (${user.department.code})` : '-'}
+                        {user.department ? `${capitalizeFirstOnly(user.department.name || '')} (${user.department.code})` : '-'}
                       </TableCell>
                       <TableCell>
                         <Chip

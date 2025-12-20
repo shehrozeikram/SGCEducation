@@ -25,6 +25,7 @@ import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Performance from './pages/Performance';
+import StudentPromotion from './pages/StudentPromotion';
 
 const theme = createTheme({
   palette: {
@@ -185,6 +186,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <GroupForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student-promotion"
+            element={
+              <ProtectedRoute>
+                <StudentPromotion />
               </ProtectedRoute>
             }
           />

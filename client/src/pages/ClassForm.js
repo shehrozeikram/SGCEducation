@@ -33,15 +33,12 @@ const ClassForm = () => {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [grades, setGrades] = useState([]);
   const [feeTypes, setFeeTypes] = useState([]);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
 
   // Dialogs for adding new items
-  const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [feeTypeDialogOpen, setFeeTypeDialogOpen] = useState(false);
-  const [newGrade, setNewGrade] = useState({ name: '', code: '', level: '' });
   const [newFeeType, setNewFeeType] = useState({ name: '', code: '', amount: 0 });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -58,7 +55,6 @@ const ClassForm = () => {
     code: '',
     institution: getUserInstitutionId(),
     department: '',
-    grade: '',
     group: '',
     feeType: '',
     academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
@@ -78,7 +74,6 @@ const ClassForm = () => {
   }, [location.search]);
 
   useEffect(() => {
-    fetchGrades();
     fetchFeeTypes();
     fetchGroups();
     if (!isEditMode) {
@@ -93,22 +88,6 @@ const ClassForm = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, location.search]);
-
-  const fetchGrades = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const url = formData.institution 
-        ? `http://localhost:5000/api/v1/grades?institution=${formData.institution}`
-        : 'http://localhost:5000/api/v1/grades';
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setGrades(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching grades:', err);
-      setGrades([]);
-    }
-  };
 
   const fetchFeeTypes = async () => {
     try {
@@ -159,7 +138,6 @@ const ClassForm = () => {
         code: cls.code,
         institution: cls.institution?._id || user.institution || '',
         department: cls.department?._id || '',
-        grade: cls.grade?._id || '',
         group: cls.group?._id || '',
         feeType: cls.feeType?._id || '',
         academicYear: cls.academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
@@ -177,37 +155,6 @@ const ClassForm = () => {
       ...formData,
       [name]: value
     });
-  };
-
-  const handleAddGrade = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
-      // Extract institution ID if it's an object
-      let institutionId = user.institution;
-      if (institutionId && typeof institutionId === 'object') {
-        institutionId = institutionId._id;
-      }
-      
-      const response = await axios.post(
-        'http://localhost:5000/api/v1/grades',
-        {
-          ...newGrade,
-          institution: institutionId || undefined
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setGrades([...grades, response.data.data]);
-      setFormData({ ...formData, grade: response.data.data._id });
-      setGradeDialogOpen(false);
-      setNewGrade({ name: '', code: '', level: '' });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add grade');
-    }
   };
 
   const handleAddFeeType = async () => {
@@ -250,16 +197,36 @@ const ClassForm = () => {
     try {
       const token = localStorage.getItem('token');
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const selectedInstitution = localStorage.getItem('selectedInstitution');
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
       const params = new URLSearchParams(location.search);
       const depFromQuery = params.get('department');
 
       // Get institution from multiple sources and extract _id if it's an object
-      let institutionId = currentUser.institution || selectedInstitution || formData.institution;
+      let institutionId = formData.institution || currentUser.institution || selectedInstitutionStr;
+      
+      // Handle selectedInstitution from localStorage (might be stringified JSON)
+      if (selectedInstitutionStr && typeof selectedInstitutionStr === 'string') {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          if (parsed && parsed._id) {
+            institutionId = parsed._id;
+          } else if (parsed && typeof parsed === 'string') {
+            institutionId = parsed;
+          }
+        } catch (e) {
+          // If it's not JSON, it might be a plain string ID
+          institutionId = selectedInstitutionStr;
+        }
+      }
       
       // If institution is an object, extract the _id
       if (institutionId && typeof institutionId === 'object') {
-        institutionId = institutionId._id;
+        institutionId = institutionId._id || institutionId;
+      }
+      
+      // Ensure we have a string ID, not an object
+      if (institutionId && typeof institutionId !== 'string') {
+        institutionId = String(institutionId);
       }
 
       if (!institutionId) {
@@ -271,7 +238,6 @@ const ClassForm = () => {
       const payload = {
         name: formData.name,
         code: formData.code,
-        grade: formData.grade,
         group: formData.group,
         feeType: formData.feeType,
         academicYear: formData.academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
@@ -378,35 +344,6 @@ const ClassForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <FormControl fullWidth>
-                  <InputLabel>Grade</InputLabel>
-                  <Select
-                    name="grade"
-                    value={formData.grade}
-                    onChange={handleChange}
-                    label="Grade"
-                  >
-                    <MenuItem value="">Select Grade</MenuItem>
-                    {grades.map((grade) => (
-                      <MenuItem key={grade._id} value={grade._id}>
-                        {grade.name} ({grade.code}) - Level {grade.level}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <IconButton
-                  color="primary"
-                  onClick={() => setGradeDialogOpen(true)}
-                  sx={{ mt: 1 }}
-                  title="Add New Grade"
-                >
-                  <Add />
-                </IconButton>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
                 <InputLabel>Group</InputLabel>
                 <Select
@@ -481,66 +418,6 @@ const ClassForm = () => {
         </Box>
       </Paper>
       </Container>
-
-      {/* Add Grade Dialog */}
-      <Dialog open={gradeDialogOpen} onClose={() => setGradeDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Add New Grade</Typography>
-            <IconButton onClick={() => setGradeDialogOpen(false)} size="small">
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Grade Name"
-                value={newGrade.name}
-                onChange={(e) => setNewGrade({ ...newGrade, name: e.target.value })}
-                placeholder="e.g., Grade 1, Class 10"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Grade Code"
-                value={newGrade.code}
-                onChange={(e) => setNewGrade({ ...newGrade, code: e.target.value.toUpperCase() })}
-                placeholder="e.g., G1, C10"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Level"
-                type="number"
-                value={newGrade.level}
-                onChange={(e) => setNewGrade({ ...newGrade, level: parseInt(e.target.value) || '' })}
-                placeholder="e.g., 1, 10"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setGradeDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleAddGrade}
-            variant="contained"
-            disabled={!newGrade.name || !newGrade.code || !newGrade.level}
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            }}
-          >
-            Add Grade
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Add Fee Type Dialog */}
       <Dialog open={feeTypeDialogOpen} onClose={() => setFeeTypeDialogOpen(false)} maxWidth="sm" fullWidth>

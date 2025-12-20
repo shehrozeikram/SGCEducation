@@ -53,6 +53,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const Sections = () => {
   const navigate = useNavigate();
@@ -556,7 +557,6 @@ const Sections = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Grade</strong></TableCell>
                 <TableCell><strong>Class</strong></TableCell>
                 <TableCell><strong>Section</strong></TableCell>
                 <TableCell><strong>Session</strong></TableCell>
@@ -569,7 +569,7 @@ const Sections = () => {
             <TableBody>
               {filteredSections.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Box py={4}>
                       <Typography variant="body2" color="text.secondary">
                         No sections found
@@ -582,22 +582,17 @@ const Sections = () => {
                   <TableRow key={section._id} hover>
                     <TableCell>
                       <Typography variant="body2">
-                        {section.class?.grade?.name || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {section.class?.name || 'N/A'}
+                        {capitalizeFirstOnly(section.class?.name || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
-                        {section.code}
+                        {capitalizeFirstOnly(section.name || section.code || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {section.academicYear}
+                        {section.academicYear || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -607,7 +602,7 @@ const Sections = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {section.createdBy?.name || 'admin'}
+                        {capitalizeFirstOnly(section.createdBy?.name || 'admin')}
                       </Typography>
                     </TableCell>
                     <TableCell>

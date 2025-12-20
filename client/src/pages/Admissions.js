@@ -91,6 +91,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
 import axios from 'axios';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 import AdmissionCharts from '../components/admissions/AdmissionCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
 import AdmissionByDateReport from '../components/reports/AdmissionByDateReport';
@@ -223,7 +224,7 @@ const Admissions = () => {
 
   // Helper to build row data for "Search Student All Data"
   const buildStudentAllDataRow = (admission, index) => {
-    const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+    const fullName = `${capitalizeFirstOnly(admission.personalInfo?.firstName || '')} ${capitalizeFirstOnly(admission.personalInfo?.middleName || '')} ${capitalizeFirstOnly(admission.personalInfo?.lastName || '')}`.trim();
     const dob = admission.personalInfo?.dateOfBirth
       ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0]
       : '';
@@ -239,7 +240,7 @@ const Admissions = () => {
       index: index + 1,
       studentId: admission.studentId?.enrollmentNumber || '',
       studentName: fullName || 'N/A',
-      fatherName: admission.guardianInfo?.fatherName || 'N/A',
+      fatherName: capitalizeFirstOnly(admission.guardianInfo?.fatherName || 'N/A'),
       dateOfBirth: dob,
       bloodGroup: admission.personalInfo?.bloodGroup || '',
       hobbies: admission.hobbies || '',
@@ -1116,6 +1117,21 @@ const Admissions = () => {
             >
               👥 Manage Groups
             </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/student-promotion')}
+              sx={{
+                borderColor: '#43e97b',
+                color: '#43e97b',
+                '&:hover': {
+                  borderColor: '#3dd16b',
+                  bgcolor: '#43e97b15',
+                },
+              }}
+            >
+              🎓 Student Promote/Transfer/Passout
+            </Button>
           </Box>
         </Box>
       </Paper>
@@ -1327,7 +1343,7 @@ const Admissions = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {`${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim() || 'N/A'}
+                        {`${capitalizeFirstOnly(admission.personalInfo?.firstName || '')} ${capitalizeFirstOnly(admission.personalInfo?.middleName || '')} ${capitalizeFirstOnly(admission.personalInfo?.lastName || '')}`.trim() || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -1335,7 +1351,7 @@ const Admissions = () => {
                     </TableCell>
                     {isSuperAdmin && (
                       <TableCell>
-                        <Typography variant="body2">{admission.institution?.name || 'N/A'}</Typography>
+                        <Typography variant="body2">{capitalizeFirstOnly(admission.institution?.name || 'N/A')}</Typography>
                       </TableCell>
                     )}
                     <TableCell>

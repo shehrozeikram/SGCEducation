@@ -55,6 +55,7 @@ import axios from 'axios';
 import ActivityFeed from '../components/dashboard/ActivityFeed';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const Dashboard = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -287,13 +288,13 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <Box sx={{ mb: { xs: 3, sm: 4 } }}>
           <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
-            Welcome back, {user.name || 'Admin'}!
+            Welcome back, {capitalizeFirstOnly(user.name || 'Admin')}!
           </Typography>
           {selectedInstitution && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Business sx={{ fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="h6" color="primary" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                {selectedInstitution.name}
+                {capitalizeFirstOnly(selectedInstitution.name || '')}
               </Typography>
               <Chip
                 label={selectedInstitution.type}

@@ -37,6 +37,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { createAdmission, updateAdmission, getAdmissionById } from '../services/admissionService';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -318,7 +319,7 @@ const AdmissionForm = () => {
         code: newClass.code,
         institution: user.institution || undefined,
         academicYear: formData.academicYear,
-        // Note: grade, group, and feeType are required by the backend
+        // Note: group, and feeType are required by the backend
         // For now, we'll use placeholder values or require the user to add them via the Classes page
       };
       
@@ -562,12 +563,12 @@ const AdmissionForm = () => {
                         <MenuItem value="">Select Class</MenuItem>
                         {classes.map((cls) => (
                           <MenuItem key={cls._id} value={cls._id}>
-                            {cls.name}
+                            {capitalizeFirstOnly(cls.name || '')}
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
-                    {/* Add Class button removed - classes must be created via Classes page with all required fields (grade, group, feeType) */}
+                    {/* Add Class button removed - classes must be created via Classes page with all required fields (group, feeType) */}
                   </Box>
                 </Grid>
                 
@@ -591,7 +592,7 @@ const AdmissionForm = () => {
                           })
                           .map((section) => (
                             <MenuItem key={section._id} value={section._id}>
-                              {section.name} ({section.academicYear}) (Stds: {section.stats?.totalStudents || 0}) {section.isActive ? 'Active' : 'Inactive'}
+                              {capitalizeFirstOnly(section.name || '')} ({section.academicYear}) (Stds: {section.stats?.totalStudents || 0}) {section.isActive ? 'Active' : 'Inactive'}
                             </MenuItem>
                           ))}
                       </Select>

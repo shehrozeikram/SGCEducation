@@ -31,11 +31,6 @@ const classSchema = new mongoose.Schema({
     min: 1,
     trim: true
   },
-  grade: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Grade',
-    required: [true, 'Please provide grade']
-  },
   group: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group',

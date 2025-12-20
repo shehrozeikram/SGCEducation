@@ -33,7 +33,6 @@ class ClassService {
     const classes = await Class.find(query)
       .populate('institution', 'name type code')
       .populate('department', 'name code')
-      .populate('grade', 'name code level')
       .populate('group', 'name code')
       .populate('feeType', 'name code amount')
       .populate('classTeacher.userId', 'name email')
@@ -50,7 +49,6 @@ class ClassService {
     const classDoc = await Class.findById(classId)
       .populate('institution', 'name type code')
       .populate('department', 'name code')
-      .populate('grade', 'name code level')
       .populate('group', 'name code')
       .populate('feeType', 'name code amount')
       .populate('classTeacher.userId', 'name email')
@@ -80,6 +78,30 @@ class ClassService {
         throw new ApiError(400, 'Institution is required');
       }
     }
+
+    // Handle case where institution might be sent as an object or stringified object
+    if (typeof classData.institution === 'object' && classData.institution._id) {
+      classData.institution = classData.institution._id;
+    } else if (typeof classData.institution === 'string') {
+      // Try to parse if it's a stringified JSON object
+      try {
+        const parsed = JSON.parse(classData.institution);
+        if (parsed && parsed._id) {
+          classData.institution = parsed._id;
+        }
+      } catch (e) {
+        // If parsing fails, assume it's already an ID string
+        // Keep it as is
+      }
+    }
+    
+    // Ensure institution is a valid ObjectId string
+    if (!classData.institution || (typeof classData.institution !== 'string' && !classData.institution.toString)) {
+      throw new ApiError(400, 'Invalid institution ID');
+    }
+    
+    // Convert to string if it's not already
+    classData.institution = String(classData.institution);
 
     let department = null;
     if (classData.department) {
@@ -126,7 +148,6 @@ class ClassService {
     return await Class.findById(newClass._id)
       .populate('institution', 'name type code')
       .populate('department', 'name code')
-      .populate('grade', 'name code level')
       .populate('group', 'name code')
       .populate('feeType', 'name code amount')
       .populate('classTeacher.userId', 'name email')
@@ -167,7 +188,6 @@ class ClassService {
     return await Class.findById(classId)
       .populate('institution', 'name type code')
       .populate('department', 'name code')
-      .populate('grade', 'name code level')
       .populate('group', 'name code')
       .populate('feeType', 'name code amount')
       .populate('classTeacher.userId', 'name email')

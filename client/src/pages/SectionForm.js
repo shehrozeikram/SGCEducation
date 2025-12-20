@@ -20,6 +20,7 @@ import { Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const sessionsDefault = ['2025-2026', '2024-2025', '2023-2024'];
 
@@ -33,7 +34,6 @@ const SectionForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [classes, setClasses] = useState([]);
-  const [grades, setGrades] = useState([]);
   const [sessions] = useState(sessionsDefault);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -48,7 +48,6 @@ const SectionForm = () => {
     name: '',
     code: '',
     session: '',
-    grade: '',
     class: '',
     academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     strength: '',
@@ -60,25 +59,11 @@ const SectionForm = () => {
   });
 
   useEffect(() => {
-    fetchGrades();
     fetchClasses();
     if (isEditMode) {
       fetchSection();
     }
   }, [id]);
-
-  const fetchGrades = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/v1/grades', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setGrades(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching grades:', err);
-      setGrades([]);
-    }
-  };
 
   const fetchClasses = async () => {
     try {
@@ -108,7 +93,6 @@ const SectionForm = () => {
         name: section.name,
         code: section.code,
         session: section.session || '',
-        grade: section.grade || '',
         institution: section.institution?._id || user.institution || '',
         department: section.department?._id || '',
         class: section.class?._id || '',
@@ -275,25 +259,6 @@ const SectionForm = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Grade</InputLabel>
-                <Select
-                  name="grade"
-                  value={formData.grade}
-                  onChange={handleChange}
-                  label="Grade"
-                >
-                  <MenuItem value="">Select Grade</MenuItem>
-                  {grades.map((grade) => (
-                    <MenuItem key={grade._id} value={grade._id}>
-                      {grade.name} ({grade.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
             <Grid item xs={12}>
               <FormControl fullWidth required>
                 <InputLabel>Class</InputLabel>
@@ -306,7 +271,7 @@ const SectionForm = () => {
                   <MenuItem value="">Select School Class</MenuItem>
                   {classes.map((cls) => (
                     <MenuItem key={cls._id} value={cls._id}>
-                      {cls.name}
+                      {capitalizeFirstOnly(cls.name || '')}
                     </MenuItem>
                   ))}
                 </Select>

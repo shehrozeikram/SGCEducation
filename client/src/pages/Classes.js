@@ -39,6 +39,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
+import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -230,7 +231,6 @@ const Classes = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Grade</strong></TableCell>
                 <TableCell><strong>Name</strong></TableCell>
                 <TableCell><strong>Code</strong></TableCell>
                 <TableCell><strong>Fee Type</strong></TableCell>
@@ -243,7 +243,7 @@ const Classes = () => {
             <TableBody>
               {filteredClasses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Box py={4}>
                       <Typography variant="body2" color="text.secondary">
                         No classes found
@@ -255,29 +255,24 @@ const Classes = () => {
                 filteredClasses.map((cls) => (
                   <TableRow key={cls._id} hover>
                     <TableCell>
-                      <Typography variant="body2">
-                        {cls.grade?.name || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{cls.name}</Typography>
+                      <Typography variant="body2">{capitalizeFirstOnly(cls.name || 'N/A')}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{cls.code}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {cls.feeType?.name || 'N/A'}
+                        {capitalizeFirstOnly(cls.feeType?.name || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {cls.group?.name || 'N/A'}
+                        {capitalizeFirstOnly(cls.group?.name || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {cls.createdBy?.name || 'N/A'}
+                        {capitalizeFirstOnly(cls.createdBy?.name || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">

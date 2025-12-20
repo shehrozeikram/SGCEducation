@@ -37,11 +37,7 @@ class SectionService {
       .populate('department', 'name code')
       .populate({
         path: 'class',
-        select: 'name code level grade',
-        populate: {
-          path: 'grade',
-          select: 'name code level'
-        }
+        select: 'name code level'
       })
       .populate('classTeacher.userId', 'name email')
       .populate('createdBy', 'name email')
@@ -59,11 +55,7 @@ class SectionService {
       .populate('department', 'name code')
       .populate({
         path: 'class',
-        select: 'name code level grade',
-        populate: {
-          path: 'grade',
-          select: 'name code level'
-        }
+        select: 'name code level'
       })
       .populate('classTeacher.userId', 'name email')
       .populate('createdBy', 'name email');
@@ -129,11 +121,7 @@ class SectionService {
       .populate('department', 'name code')
       .populate({
         path: 'class',
-        select: 'name code level grade',
-        populate: {
-          path: 'grade',
-          select: 'name code level'
-        }
+        select: 'name code level'
       })
       .populate('classTeacher.userId', 'name email');
   }
@@ -174,11 +162,7 @@ class SectionService {
       .populate('department', 'name code')
       .populate({
         path: 'class',
-        select: 'name code level grade',
-        populate: {
-          path: 'grade',
-          select: 'name code level'
-        }
+        select: 'name code level'
       })
       .populate('classTeacher.userId', 'name email');
   }
