@@ -133,7 +133,7 @@ const Dashboard = () => {
     { name: 'Inquiry', icon: <ContactMail />, color: '#667eea', route: null },
     { name: 'Admissions', icon: <PersonAdd />, color: '#f093fb', route: '/admissions' },
     { name: 'Attendance', icon: <EventAvailable />, color: '#4facfe', route: null },
-    { name: 'Fee Management', icon: <Payment />, color: '#43e97b', route: '/financial' },
+    { name: 'Fee Management', icon: <Payment />, color: '#43e97b', route: '/fee-management' },
     { name: 'Results', icon: <Assessment />, color: '#feca57', route: null },
     { name: 'SMS & Notification', icon: <Notifications />, color: '#fa709a', route: '/notifications' },
     { name: 'Complaints', icon: <Report />, color: '#ee5a6f', route: null },

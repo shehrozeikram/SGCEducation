@@ -1,5 +1,6 @@
 const admissionService = require('../services/admission.service');
 const { asyncHandler } = require('../middleware/error.middleware');
+const Admission = require('../models/Admission');
 
 /**
  * Admission Controller - Handles HTTP requests for admission management
@@ -258,6 +259,21 @@ const getAdmissionByMonthDetailedReport = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/v1/admissions/statuses
+ * @desc    Get all available admission statuses from the model enum
+ * @access  Private
+ */
+const getAdmissionStatuses = asyncHandler(async (req, res) => {
+  // Get the status enum values from the Admission schema
+  const statusEnum = Admission.schema.path('status').enumValues || [];
+  
+  res.json({
+    success: true,
+    data: statusEnum
+  });
+});
+
 module.exports = {
   getAdmissions,
   getAdmissionById,
@@ -271,5 +287,6 @@ module.exports = {
   getAdmissionAnalytics,
   getAdmissionReports,
   getAdmissionByDateReport,
-  getAdmissionByMonthDetailedReport
+  getAdmissionByMonthDetailedReport,
+  getAdmissionStatuses
 };

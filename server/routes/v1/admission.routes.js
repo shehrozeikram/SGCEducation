@@ -31,6 +31,7 @@ router.use(authenticate);
 // Routes accessible by all authenticated users
 // IMPORTANT: Specific routes must come before parameterized routes (:id)
 router.get('/', admissionController.getAdmissions);
+router.get('/statuses', admissionController.getAdmissionStatuses);
 router.get('/stats/overview', admissionController.getAdmissionStats);
 
 // Analytics route - must be before /:id to avoid route conflicts

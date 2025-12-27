@@ -76,6 +76,8 @@ const InstitutionSwitcher = () => {
     localStorage.setItem('selectedInstitution', JSON.stringify(institution));
     setCurrentInstitution(institution);
     handleClose();
+    // Dispatch custom event for same-tab listeners
+    window.dispatchEvent(new Event('institutionChanged'));
     window.location.reload();
   };
 

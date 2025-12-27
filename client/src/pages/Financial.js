@@ -76,17 +76,31 @@ const Financial = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const isSuperAdmin = user.role === 'super_admin';
+      
+      // Get institution ID
+      let institutionId = null;
+      
+      // First, try to get from selectedInstitution in localStorage
       const institutionData = localStorage.getItem('selectedInstitution');
-
-      // Build URL with institution parameter if available
-      let institutionParam = '';
       if (institutionData) {
         try {
           const institution = JSON.parse(institutionData);
-          institutionParam = `?institution=${institution._id}`;
+          institutionId = institution._id || institution;
         } catch (e) {
           console.error('Failed to parse institution data', e);
         }
+      }
+      
+      // If not found and user is admin, extract from user object
+      if (!institutionId && !isSuperAdmin && user.institution) {
+        institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+      }
+      
+      // Build URL with institution parameter if available
+      let institutionParam = '';
+      if (institutionId) {
+        institutionParam = `?institution=${institutionId}`;
       }
 
       const [overviewRes, paymentsRes, subscriptionsRes] = await Promise.all([
@@ -127,9 +141,9 @@ const Financial = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
+    return new Intl.NumberFormat('en-PK', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount || 0);
   };
 

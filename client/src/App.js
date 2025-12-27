@@ -26,6 +26,8 @@ import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Performance from './pages/Performance';
 import StudentPromotion from './pages/StudentPromotion';
+import FeeManagement from './pages/FeeManagement';
+import FeeHeads from './pages/FeeHeads';
 
 const theme = createTheme({
   palette: {
@@ -194,6 +196,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <StudentPromotion />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fee-management"
+            element={
+              <ProtectedRoute>
+                <FeeManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fee-heads"
+            element={
+              <ProtectedRoute>
+                <FeeHeads />
               </ProtectedRoute>
             }
           />

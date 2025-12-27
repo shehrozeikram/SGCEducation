@@ -21,6 +21,8 @@ const academicCalendarRoutes = require('./academicCalendar.routes');
 const messageRoutes = require('./message.routes');
 const performanceRoutes = require('./performance.routes');
 const studentPromotionRoutes = require('./studentPromotion.routes');
+const feeRoutes = require('./fee.routes');
+const feeHeadRoutes = require('./feeHead.routes');
 
 /**
  * API v1 Routes
@@ -46,6 +48,8 @@ router.use('/calendar', academicCalendarRoutes);
 router.use('/messages', messageRoutes);
 router.use('/performance', performanceRoutes);
 router.use('/student-promotions', studentPromotionRoutes);
+router.use('/fees', feeRoutes);
+router.use('/fee-heads', feeHeadRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

@@ -2,16 +2,16 @@ const express = require('express');
 const router = express.Router();
 const financialController = require('../../controllers/financial.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isSuperAdmin } = require('../../middleware/rbac.middleware');
+const { isAdmin } = require('../../middleware/rbac.middleware');
 
 /**
  * Financial Management Routes - API v1
  * Base path: /api/v1/financial
  */
 
-// All routes require authentication and super admin role
+// All routes require authentication and admin role (super admin or admin)
 router.use(authenticate);
-router.use(isSuperAdmin);
+router.use(isAdmin);
 
 // Overview
 router.get('/overview', financialController.getFinancialOverview);
