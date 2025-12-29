@@ -77,9 +77,10 @@ import {
   Verified,
   FileDownload,
   Edit,
+  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
+import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission } from '../services/admissionService';
 import axios from 'axios';
 import { capitalizeFirstOnly } from '../utils/textUtils';
 import AdmissionCharts from '../components/admissions/AdmissionCharts';
@@ -126,12 +127,11 @@ const Admissions = () => {
   const [admissions, setAdmissions] = useState([]);
   const [stats, setStats] = useState({});
   const [institutions, setInstitutions] = useState([]);
-  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInstitution, setSelectedInstitution] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(''); // For list page - single status
   const [studentStatusFilter, setStudentStatusFilter] = useState([]); // For search student page - multi-select
   const [selectedAdmission, setSelectedAdmission] = useState(null);
@@ -161,10 +161,7 @@ const Admissions = () => {
     { id: 'studentName', label: 'Student Name' },
     { id: 'fatherName', label: 'Father Name' },
     { id: 'dateOfBirth', label: 'Date Of Birth' },
-    { id: 'bloodGroup', label: 'Blood Group' },
     { id: 'hobbies', label: 'Hobbies' },
-    { id: 'category', label: 'Student Category Name' },
-    { id: 'familyNumber', label: 'Family Number' },
     { id: 'admissionDate', label: 'Admission Date' },
     { id: 'gender', label: 'Gender Name' },
     { id: 'packageName', label: 'Package Name' },
@@ -204,7 +201,7 @@ const Admissions = () => {
 
   // Helper to build row data for "Search Student All Data"
   const buildStudentAllDataRow = (admission, index) => {
-    const fullName = `${capitalizeFirstOnly(admission.personalInfo?.firstName || '')} ${capitalizeFirstOnly(admission.personalInfo?.middleName || '')} ${capitalizeFirstOnly(admission.personalInfo?.lastName || '')}`.trim();
+    const fullName = capitalizeFirstOnly(admission.personalInfo?.name || '');
     const dob = admission.personalInfo?.dateOfBirth
       ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0]
       : '';
@@ -222,10 +219,7 @@ const Admissions = () => {
       studentName: fullName || 'N/A',
       fatherName: capitalizeFirstOnly(admission.guardianInfo?.fatherName || 'N/A'),
       dateOfBirth: dob,
-      bloodGroup: admission.personalInfo?.bloodGroup || '',
       hobbies: admission.hobbies || '',
-      category: admission.personalInfo?.category || 'Default',
-      familyNumber: admission.familyNumber || '',
       admissionDate: admission.createdAt
         ? new Date(admission.createdAt).toISOString().split('T')[0]
         : '',
@@ -404,7 +398,7 @@ const Admissions = () => {
     if (isSuperAdmin || selectedInstitution) {
       fetchData();
     }
-  }, [selectedInstitution, selectedDepartment, selectedStatus]);
+  }, [selectedInstitution, selectedStatus]);
 
   const fetchData = async () => {
     try {
@@ -424,23 +418,9 @@ const Admissions = () => {
         setInstitutions(instResponse.data.data || []);
       }
 
-      // Fetch departments
-      if (selectedInstitution) {
-        try {
-          const deptResponse = await axios.get(`http://localhost:5000/api/v1/departments?institution=${selectedInstitution}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setDepartments(deptResponse.data.data || []);
-        } catch (deptErr) {
-          console.error('Failed to fetch departments:', deptErr);
-          setDepartments([]);
-        }
-      }
-
       // Fetch admissions
       const filters = {};
       if (selectedInstitution) filters.institution = selectedInstitution;
-      if (selectedDepartment) filters.department = selectedDepartment;
       if (selectedStatus) filters.status = selectedStatus;
       if (searchTerm) filters.search = searchTerm;
 
@@ -527,6 +507,22 @@ const Admissions = () => {
   const handleExport = () => {
     // TODO: Implement export functionality
     alert('Export functionality coming soon!');
+  };
+
+  const handleDeleteAdmission = async (admissionId, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete the admission for ${studentName || 'this student'}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteAdmission(admissionId);
+      setSuccess('Admission deleted successfully');
+      fetchData();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete admission');
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   // Report type mapping
@@ -618,7 +614,7 @@ const Admissions = () => {
       case 'applicationNumber':
         return admission.applicationNumber?.toLowerCase().includes(searchLower);
       case 'name':
-        const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim().toLowerCase();
+        const fullName = (admission.personalInfo?.name || '').toLowerCase();
         return fullName.includes(searchLower);
       case 'email':
         return admission.contactInfo?.email?.toLowerCase().includes(searchLower);
@@ -1241,10 +1237,7 @@ const Admissions = () => {
               <InputLabel>Institution/Campus</InputLabel>
               <Select
                 value={selectedInstitution}
-                onChange={(e) => {
-                  setSelectedInstitution(e.target.value);
-                  setSelectedDepartment('');
-                }}
+                onChange={(e) => setSelectedInstitution(e.target.value)}
                 label="Institution/Campus"
                 startAdornment={
                   <InputAdornment position="start">
@@ -1288,7 +1281,7 @@ const Admissions = () => {
                 <TableCell><strong>Applicant Name</strong></TableCell>
                 <TableCell><strong>Email</strong></TableCell>
                 {isSuperAdmin && <TableCell><strong>Institution</strong></TableCell>}
-                <TableCell><strong>Program</strong></TableCell>
+                <TableCell><strong>Class</strong></TableCell>
                 <TableCell><strong>Applied On</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell align="center"><strong>Actions</strong></TableCell>
@@ -1313,7 +1306,7 @@ const Admissions = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {`${capitalizeFirstOnly(admission.personalInfo?.firstName || '')} ${capitalizeFirstOnly(admission.personalInfo?.middleName || '')} ${capitalizeFirstOnly(admission.personalInfo?.lastName || '')}`.trim() || 'N/A'}
+                        {capitalizeFirstOnly(admission.personalInfo?.name || 'N/A')}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -1325,7 +1318,7 @@ const Admissions = () => {
                       </TableCell>
                     )}
                     <TableCell>
-                      <Typography variant="body2">{admission.program || 'N/A'}</Typography>
+                      <Typography variant="body2">{admission.class?.name || 'N/A'}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -2106,19 +2099,28 @@ const Admissions = () => {
               />
             </Box>
 
+            {/* Success/Error Messages */}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+                {success}
+              </Alert>
+            )}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                {error}
+              </Alert>
+            )}
+
             {/* Table */}
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : error ? (
-              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
             ) : (
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#0d6efd' }}>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
+                    <TableRow sx={{ bgcolor: '#667eea' }}>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Admission</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission No</TableCell>
@@ -2126,7 +2128,6 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Father Name</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Birth</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Phone No</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Category Or Tribe</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Religion</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Residence</TableCell>
@@ -2135,6 +2136,7 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class From Which Withdrawn</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Withdrawal</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -2161,7 +2163,7 @@ const Admissions = () => {
                                  phone.includes(search);
                         })
                         .map((admission, index) => {
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+                          const studentName = admission.personalInfo?.name || '';
                           const dateOfBirth = admission.personalInfo?.dateOfBirth 
                             ? new Date(admission.personalInfo.dateOfBirth).toLocaleDateString('en-GB', {
                                 day: 'numeric',
@@ -2179,15 +2181,6 @@ const Admissions = () => {
                           
                           return (
                             <TableRow key={admission._id} hover>
-                              <TableCell>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => navigate(`/admissions/${admission._id}/edit`)}
-                                  sx={{ color: '#0d6efd' }}
-                                >
-                                  <Edit fontSize="small" />
-                                </IconButton>
-                              </TableCell>
                               <TableCell>{index + 1}</TableCell>
                               <TableCell>{admissionDate}</TableCell>
                               <TableCell>{admission.applicationNumber || 'N/A'}</TableCell>
@@ -2195,7 +2188,6 @@ const Admissions = () => {
                               <TableCell>{admission.guardianInfo?.fatherName || 'N/A'}</TableCell>
                               <TableCell>{dateOfBirth}</TableCell>
                               <TableCell>{admission.contactInfo?.phone || 'N/A'}</TableCell>
-                              <TableCell>{admission.personalInfo?.category || ''}</TableCell>
                               <TableCell>{admission.personalInfo?.religion || 'N/A'}</TableCell>
                               <TableCell>
                                 <Chip
@@ -2221,6 +2213,28 @@ const Admissions = () => {
                               </TableCell>
                               <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {admission.remarks || ''}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => navigate(`/admissions/${admission._id}/edit`)}
+                                    sx={{ color: '#667eea' }}
+                                    title="Edit"
+                                  >
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                  {admission.status !== 'enrolled' && (
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDeleteAdmission(admission._id, studentName)}
+                                      sx={{ color: '#f44336' }}
+                                      title="Delete"
+                                    >
+                                      <Delete fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </Box>
                               </TableCell>
                             </TableRow>
                           );
@@ -2304,7 +2318,7 @@ const Admissions = () => {
             {selectedAdmission && (
               <Box sx={{ mb: 2, p: 1, bgcolor: '#ffebee', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#c62828' }}>
-                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({`${selectedAdmission.personalInfo?.firstName || ''} ${selectedAdmission.personalInfo?.lastName || ''}`.trim() || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
+                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({selectedAdmission.personalInfo?.name || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
                 </Typography>
               </Box>
             )}
@@ -2331,8 +2345,6 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Section</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Group</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Age</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Student Category</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Family Number</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Fee After Discount</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Gender</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Religion</TableCell>
@@ -2348,7 +2360,7 @@ const Admissions = () => {
                       .filter(admission => {
                         if (searchTerm) {
                           const search = searchTerm.toLowerCase();
-                          const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                          const name = (admission.personalInfo?.name || '').toLowerCase();
                           const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                           const admissionNo = (admission.applicationNumber || '').toLowerCase();
                           return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2369,7 +2381,7 @@ const Admissions = () => {
                         .filter(admission => {
                           if (searchTerm) {
                             const search = searchTerm.toLowerCase();
-                            const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                            const name = (admission.personalInfo?.name || '').toLowerCase();
                             const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                             const admissionNo = (admission.applicationNumber || '').toLowerCase();
                             return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2377,7 +2389,7 @@ const Admissions = () => {
                           return true;
                         })
                         .map((admission, index) => {
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+                          const studentName = admission.personalInfo?.name || '';
                           const isMenuOpen = studentMenuAnchor && selectedStudentForMenu?._id === admission._id;
                           
                           return (
@@ -2514,8 +2526,6 @@ const Admissions = () => {
                                   ? `${Math.floor((new Date() - new Date(admission.personalInfo.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))} Years`
                                   : 'N/A'}
                               </TableCell>
-                              <TableCell>{admission.personalInfo?.category || 'Default'}</TableCell>
-                              <TableCell>{admission.familyNumber || 'N/A'}</TableCell>
                               <TableCell>{admission.applicationFee?.amount || '0'}</TableCell>
                               <TableCell>{admission.personalInfo?.gender ? admission.personalInfo.gender.charAt(0).toUpperCase() + admission.personalInfo.gender.slice(1) : 'N/A'}</TableCell>
                               <TableCell>{admission.personalInfo?.religion || 'N/A'}</TableCell>

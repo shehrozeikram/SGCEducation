@@ -219,16 +219,13 @@ const getMiscOperationsStudents = asyncHandler(async (req, res) => {
     id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
     rollNumber: admission.rollNumber || admission.studentId?.rollNumber || 'N/A',
     admissionNo: admission.admissionNo || admission.applicationNumber || 'N/A',
-    name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-      ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-      : admission.personalInfo?.firstName || 'N/A',
+    name: admission.personalInfo?.name || 'N/A',
     fatherName: admission.personalInfo?.fatherName || 'N/A',
     status: admission.status || 'pending',
     school: admission.institution?.name || 'N/A',
     class: admission.class?.name || admission.studentId?.currentClass || 'N/A',
     section: admission.section?.name || admission.studentId?.currentSection || 'N/A',
-    category: admission.category || 'N/A',
-    familyNumber: admission.familyNumber || 'N/A'
+    category: admission.category || 'N/A'
   }));
 
   res.json({

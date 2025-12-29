@@ -30,21 +30,17 @@ const admissionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Section'
   },
+  rollNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
 
   // Personal Information
   personalInfo: {
-    firstName: {
+    name: {
       type: String,
-      required: [true, 'Please provide first name'],
-      trim: true
-    },
-    middleName: {
-      type: String,
-      trim: true
-    },
-    lastName: {
-      type: String,
-      required: [true, 'Please provide last name'],
+      required: [true, 'Please provide name'],
       trim: true
     },
     dateOfBirth: {
@@ -56,11 +52,6 @@ const admissionSchema = new mongoose.Schema({
       enum: ['male', 'female', 'other'],
       required: [true, 'Please provide gender']
     },
-    bloodGroup: {
-      type: String,
-      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-      trim: true
-    },
     nationality: {
       type: String,
       required: [true, 'Please provide nationality'],
@@ -69,11 +60,6 @@ const admissionSchema = new mongoose.Schema({
     religion: {
       type: String,
       trim: true
-    },
-    category: {
-      type: String,
-      enum: ['General', 'OBC', 'SC', 'ST', 'Other'],
-      default: 'General'
     }
   },
 
@@ -128,6 +114,10 @@ const admissionSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    fatherCnic: {
+      type: String,
+      trim: true
+    },
     motherName: {
       type: String,
       trim: true
@@ -137,6 +127,10 @@ const admissionSchema = new mongoose.Schema({
       trim: true
     },
     motherPhone: {
+      type: String,
+      trim: true
+    },
+    motherCnic: {
       type: String,
       trim: true
     },
@@ -155,6 +149,10 @@ const admissionSchema = new mongoose.Schema({
     guardianEmail: {
       type: String,
       lowercase: true,
+      trim: true
+    },
+    guardianCnic: {
+      type: String,
       trim: true
     },
     annualIncome: {
@@ -315,9 +313,7 @@ admissionSchema.index({ createdAt: -1 });
 // Virtual for full name
 admissionSchema.virtual('fullName').get(function() {
   const parts = [
-    this.personalInfo.firstName,
-    this.personalInfo.middleName,
-    this.personalInfo.lastName
+    this.personalInfo.name
   ].filter(Boolean);
   return parts.join(' ');
 });

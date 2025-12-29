@@ -277,7 +277,6 @@ const StudentPromotion = () => {
         fatherName: capitalizeFirstOnly(admission.guardianInfo?.fatherName || ''),
         // Use student status if available, otherwise use admission status
         status: admission.studentId?.status || admission.status || 'enrolled',
-        category: admission.personalInfo?.category || 'Default',
         gender: admission.personalInfo?.gender || 'Male',
         admission: admission,
       }));
@@ -431,7 +430,6 @@ const StudentPromotion = () => {
       student.name?.toLowerCase().includes(search) ||
       student.fatherName?.toLowerCase().includes(search) ||
       student.status?.toLowerCase().includes(search) ||
-      student.category?.toLowerCase().includes(search) ||
       student.gender?.toLowerCase().includes(search)
     );
   });
@@ -775,7 +773,6 @@ const StudentPromotion = () => {
                       <TableCell><strong>Name</strong></TableCell>
                       <TableCell><strong>Father Name</strong></TableCell>
                       <TableCell><strong>Status</strong></TableCell>
-                      <TableCell><strong>Category</strong></TableCell>
                       <TableCell><strong>Gender</strong></TableCell>
                     </TableRow>
                   </TableHead>
@@ -816,7 +813,6 @@ const StudentPromotion = () => {
                               }
                             />
                           </TableCell>
-                          <TableCell>{student.category}</TableCell>
                           <TableCell>{student.gender}</TableCell>
                         </TableRow>
                       ))

@@ -580,9 +580,7 @@ class FeeService {
         
         results.success.push({
           studentId: admission._id,
-          name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-            ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-            : admission.personalInfo?.firstName || 'N/A',
+          name: admission.personalInfo?.name || 'N/A',
           rollNumber: admission.rollNumber || 'N/A',
           admissionNo: admission.applicationNumber || 'N/A',
           month,

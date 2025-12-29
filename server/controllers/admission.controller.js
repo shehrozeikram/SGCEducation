@@ -12,10 +12,10 @@ const Admission = require('../models/Admission');
  * @access  Private
  */
 const getAdmissions = asyncHandler(async (req, res) => {
-  const { institution, status, department, academicYear, isActive, search } = req.query;
+  const { institution, status, academicYear, isActive, search } = req.query;
 
   const admissions = await admissionService.getAllAdmissions(
-    { institution, status, department, academicYear, isActive, search },
+    { institution, status, academicYear, isActive, search },
     req.user
   );
 

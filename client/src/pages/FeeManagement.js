@@ -49,6 +49,7 @@ import {
   Restore,
   Receipt,
 } from '@mui/icons-material';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
 import { capitalizeFirstOnly } from '../utils/textUtils';
@@ -58,14 +59,103 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 const FeeManagement = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Tab management
-  const [activeTab, setActiveTab] = useState(0);
-  const [feeDepositSubTab, setFeeDepositSubTab] = useState(0);
-  const [miscFeeSubTab, setMiscFeeSubTab] = useState(0);
+  // Tab name mappings
+  const tabNames = ['fee-heads', 'fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit'];
+  const miscSubTabNames = ['student-operations', 'generate-voucher'];
+  const feeDepositSubTabNames = ['manual', 'voucher'];
+
+  // Tab management - initialize from URL or default
+  const getTabFromURL = () => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabIndex = tabNames.indexOf(tabParam);
+      return tabIndex >= 0 ? tabIndex : 0;
+    }
+    return 0;
+  };
+
+  const getSubTabFromURL = (tabIndex) => {
+    const subtabParam = searchParams.get('subtab');
+    if (subtabParam) {
+      if (tabIndex === 2) { // misc-operations
+        const subtabIndex = miscSubTabNames.indexOf(subtabParam);
+        return subtabIndex >= 0 ? subtabIndex : 0;
+      } else if (tabIndex === 4) { // fee-deposit
+        const subtabIndex = feeDepositSubTabNames.indexOf(subtabParam);
+        return subtabIndex >= 0 ? subtabIndex : 0;
+      }
+    }
+    return 0;
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromURL());
+  const [feeDepositSubTab, setFeeDepositSubTab] = useState(getSubTabFromURL(4));
+  const [miscFeeSubTab, setMiscFeeSubTab] = useState(getSubTabFromURL(2));
+
+  // Update URL when tabs change
+  const updateURL = (tabIndex, subtabIndex = null) => {
+    const params = new URLSearchParams();
+    params.set('tab', tabNames[tabIndex]);
+    
+    if (subtabIndex !== null) {
+      if (tabIndex === 2) { // misc-operations
+        params.set('subtab', miscSubTabNames[subtabIndex]);
+      } else if (tabIndex === 4) { // fee-deposit
+        params.set('subtab', feeDepositSubTabNames[subtabIndex]);
+      }
+    }
+    
+    navigate(`/fee-management?${params.toString()}`, { replace: true });
+  };
+
+  // Handle main tab change
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    updateURL(newValue, null);
+  };
+
+  // Handle misc fee sub-tab change
+  const handleMiscFeeSubTabChange = (event, newValue) => {
+    setMiscFeeSubTab(newValue);
+    updateURL(2, newValue);
+  };
+
+  // Handle fee deposit sub-tab change
+  const handleFeeDepositSubTabChange = (event, newValue) => {
+    setFeeDepositSubTab(newValue);
+    updateURL(4, newValue);
+  };
+
+  // Initialize URL on mount if no params exist
+  useEffect(() => {
+    if (!searchParams.get('tab')) {
+      updateURL(0, null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync with URL when URL changes
+  useEffect(() => {
+    const tabFromURL = getTabFromURL();
+    const subtabFromURL = getSubTabFromURL(tabFromURL);
+    
+    if (tabFromURL !== activeTab) {
+      setActiveTab(tabFromURL);
+    }
+    
+    if (tabFromURL === 2 && subtabFromURL !== miscFeeSubTab) {
+      setMiscFeeSubTab(subtabFromURL);
+    } else if (tabFromURL === 4 && subtabFromURL !== feeDepositSubTab) {
+      setFeeDepositSubTab(subtabFromURL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Status options
   const [enrolledOptions, setEnrolledOptions] = useState([]);
@@ -141,8 +231,7 @@ const FeeManagement = () => {
     admissionNumber: '',
     rollNumber: '',
     studentName: '',
-    phoneNumber: '',
-    familyNumber: ''
+    phoneNumber: ''
   });
   const [manualDepositStudents, setManualDepositStudents] = useState([]);
   const [selectedManualDepositStudent, setSelectedManualDepositStudent] = useState(null);
@@ -569,9 +658,7 @@ const FeeManagement = () => {
           _id: admission._id,
           id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
           rollNumber: admission.rollNumber || 'N/A',
-          name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-            ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-            : admission.personalInfo?.firstName || 'N/A',
+          name: admission.personalInfo?.name || 'N/A',
           fatherName: admission.personalInfo?.fatherName || 'N/A',
           status: admission.status || 'pending',
           school: admission.institution?.name || 'N/A',
@@ -580,7 +667,6 @@ const FeeManagement = () => {
           mobileNumber: admission.personalInfo?.phone || 'N/A',
           admissionNo: admission.applicationNumber || 'N/A',
           admissionDate: admission.admissionDate ? new Date(admission.admissionDate).toLocaleDateString() : 'N/A',
-          familyNumber: admission.familyNumber || 'N/A',
           admissionEffectiveDate: admission.effectiveDate ? new Date(admission.effectiveDate).toLocaleDateString() : 'N/A',
           advanceFee: '0',
           lastVoucher: 'N/A'
@@ -621,7 +707,6 @@ const FeeManagement = () => {
         id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
         rollNumber: admission.rollNumber || 'N/A',
         admissionNo: admission.applicationNumber || 'N/A',
-        familyNumber: admission.familyNumber || 'N/A',
         name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
           ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
           : admission.personalInfo?.firstName || 'N/A',
@@ -629,7 +714,6 @@ const FeeManagement = () => {
         class: admission.class?.name || 'N/A',
         section: admission.section?.name || 'N/A',
         status: admission.status || 'pending',
-        studentCategory: admission.category || 'N/A',
         voucherStatus: 'Pending',
         printStatus: 'Not Printed'
       }));
@@ -668,7 +752,6 @@ const FeeManagement = () => {
         id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
         rollNumber: admission.rollNumber || 'N/A',
         admissionNo: admission.applicationNumber || 'N/A',
-        familyNumber: admission.familyNumber || 'N/A',
         name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
           ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
           : admission.personalInfo?.firstName || 'N/A',
@@ -676,7 +759,6 @@ const FeeManagement = () => {
         class: admission.class?.name || 'N/A',
         section: admission.section?.name || 'N/A',
         status: admission.status || 'pending',
-        studentCategory: admission.category || 'N/A',
         voucherStatus: admission.voucherStatus || 'Not Generated'
       }));
       setGenerateVoucherStudents(transformedStudents);
@@ -732,6 +814,110 @@ const FeeManagement = () => {
       setError(err.response?.data?.message || 'Failed to generate vouchers');
     } finally {
       setGenerateVoucherLoading(false);
+    }
+  };
+
+  // Fetch manual deposit students with search filters
+  const fetchManualDepositStudents = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      const institutionId = user.institution?._id || user.institution;
+
+      // Check if any search filter is provided
+      const hasSearchFilters = Object.values(manualDepositSearch).some(value => value && value.trim() !== '');
+      
+      if (!hasSearchFilters) {
+        setError('Please enter at least one search criteria');
+        setLoading(false);
+        return;
+      }
+
+      const params = {
+        institution: institutionId
+      };
+
+      // Use search parameter for general search (API supports searching by applicationNumber, firstName, lastName, email)
+      // We'll fetch all and filter client-side for specific fields
+      const searchTerms = [];
+      if (manualDepositSearch.id) searchTerms.push(manualDepositSearch.id);
+      if (manualDepositSearch.admissionNumber) searchTerms.push(manualDepositSearch.admissionNumber);
+      if (manualDepositSearch.studentName) searchTerms.push(manualDepositSearch.studentName);
+      
+      if (searchTerms.length > 0) {
+        params.search = searchTerms.join(' ');
+      }
+
+      const response = await axios.get(`${API_URL}/admissions`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: params,
+        paramsSerializer: { indexes: null }
+      });
+
+      let admissions = response.data.data || [];
+      
+      // Client-side filtering for specific fields
+      if (manualDepositSearch.rollNumber) {
+        admissions = admissions.filter(admission => 
+          admission.rollNumber?.toLowerCase().includes(manualDepositSearch.rollNumber.toLowerCase()) ||
+          admission.studentId?.rollNumber?.toLowerCase().includes(manualDepositSearch.rollNumber.toLowerCase())
+        );
+      }
+      
+      if (manualDepositSearch.phoneNumber) {
+        admissions = admissions.filter(admission => 
+          admission.personalInfo?.phone?.includes(manualDepositSearch.phoneNumber) ||
+          admission.contactInfo?.phone?.includes(manualDepositSearch.phoneNumber)
+        );
+      }
+      
+
+      // Additional filtering for ID and admission number if they were used in general search
+      if (manualDepositSearch.id && !searchTerms.includes(manualDepositSearch.id)) {
+        admissions = admissions.filter(admission => 
+          admission.studentId?.enrollmentNumber?.toLowerCase().includes(manualDepositSearch.id.toLowerCase()) ||
+          admission.applicationNumber?.toLowerCase().includes(manualDepositSearch.id.toLowerCase())
+        );
+      }
+      
+      if (manualDepositSearch.admissionNumber && !searchTerms.includes(manualDepositSearch.admissionNumber)) {
+        admissions = admissions.filter(admission => 
+          admission.applicationNumber?.toLowerCase().includes(manualDepositSearch.admissionNumber.toLowerCase())
+        );
+      }
+
+      const transformedStudents = admissions.map(admission => ({
+        _id: admission._id,
+        id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
+        rollNumber: admission.rollNumber || admission.studentId?.rollNumber || 'N/A',
+        name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
+          ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
+          : admission.personalInfo?.firstName || 'N/A',
+        fatherName: admission.personalInfo?.fatherName || 'N/A',
+        status: admission.status || 'pending',
+        school: admission.institution?.name || 'N/A',
+        class: admission.class?.name || 'N/A',
+        section: admission.section?.name || 'N/A',
+        mobileNumber: admission.personalInfo?.phone || admission.contactInfo?.phone || 'N/A',
+        admissionNo: admission.applicationNumber || 'N/A',
+        admissionDate: admission.admissionDate ? new Date(admission.admissionDate).toLocaleDateString() : 'N/A',
+        admissionEffectiveDate: admission.effectiveDate ? new Date(admission.effectiveDate).toLocaleDateString() : 'N/A',
+        advanceFee: '0',
+        lastVoucher: 'N/A'
+      }));
+
+      setManualDepositStudents(transformedStudents);
+      
+      if (transformedStudents.length === 0) {
+        setError('No students found matching the search criteria');
+      } else {
+        setSuccess(`Found ${transformedStudents.length} student(s)`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to search students');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1026,7 +1212,7 @@ const FeeManagement = () => {
 
           {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+            <Tabs value={activeTab} onChange={handleTabChange}>
               <Tab label="Fee Heads" />
               <Tab label="Fee Structure" />
               <Tab label="Misc Fee Operations" />
@@ -1370,7 +1556,7 @@ const FeeManagement = () => {
 
             {/* Sub-tabs for Misc Fee Operations */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs value={miscFeeSubTab} onChange={(e, newValue) => setMiscFeeSubTab(newValue)}>
+              <Tabs value={miscFeeSubTab} onChange={handleMiscFeeSubTabChange}>
                 <Tab label="Student Operations" />
                 <Tab label="Generate Voucher" />
               </Tabs>
@@ -1478,7 +1664,6 @@ const FeeManagement = () => {
                         <TableCell>ID</TableCell>
                         <TableCell>Roll #</TableCell>
                         <TableCell>Name</TableCell>
-                        <TableCell>Father Name</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Class</TableCell>
                         <TableCell>Section</TableCell>
@@ -1487,13 +1672,13 @@ const FeeManagement = () => {
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={8} align="center">
+                          <TableCell colSpan={7} align="center">
                             <CircularProgress />
                           </TableCell>
                         </TableRow>
                       ) : miscFeeStudents.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} align="center">
+                          <TableCell colSpan={7} align="center">
                             <Typography variant="body2" color="textSecondary">
                               No data found
                             </Typography>
@@ -1517,8 +1702,14 @@ const FeeManagement = () => {
                             </TableCell>
                             <TableCell>{student.id || 'N/A'}</TableCell>
                             <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                            <TableCell>{capitalizeFirstOnly(student.name || 'N/A')}</TableCell>
-                            <TableCell>{capitalizeFirstOnly(student.fatherName || 'N/A')}</TableCell>
+                            <TableCell>
+                              {capitalizeFirstOnly(student.name || 'N/A')}
+                              {student.fatherName && (
+                                <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                                  {capitalizeFirstOnly(student.fatherName)}
+                                </Typography>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Chip
                                 label={capitalizeFirstOnly(student.status || 'pending')}
@@ -1620,25 +1811,22 @@ const FeeManagement = () => {
                         <TableCell>ID</TableCell>
                         <TableCell>Roll #</TableCell>
                         <TableCell>Admission #</TableCell>
-                        <TableCell>Family #</TableCell>
                         <TableCell>Name</TableCell>
-                        <TableCell>Father Name</TableCell>
                         <TableCell>Class</TableCell>
                         <TableCell>Section</TableCell>
                         <TableCell>Status</TableCell>
-                        <TableCell>Student Category</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={12} align="center">
+                          <TableCell colSpan={11} align="center">
                             <CircularProgress />
                           </TableCell>
                         </TableRow>
                       ) : generateVoucherStudents.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={12} align="center">
+                          <TableCell colSpan={11} align="center">
                             <Typography variant="body2" color="textSecondary">
                               No data found
                             </Typography>
@@ -1670,9 +1858,14 @@ const FeeManagement = () => {
                             <TableCell>{student.id || 'N/A'}</TableCell>
                             <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                             <TableCell>{student.admissionNo || 'N/A'}</TableCell>
-                            <TableCell>{student.familyNumber || 'N/A'}</TableCell>
-                            <TableCell>{capitalizeFirstOnly(student.name || 'N/A')}</TableCell>
-                            <TableCell>{capitalizeFirstOnly(student.fatherName || 'N/A')}</TableCell>
+                            <TableCell>
+                              {capitalizeFirstOnly(student.name || 'N/A')}
+                              {student.fatherName && (
+                                <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                                  {capitalizeFirstOnly(student.fatherName)}
+                                </Typography>
+                              )}
+                            </TableCell>
                             <TableCell>{capitalizeFirstOnly(student.class || 'N/A')}</TableCell>
                             <TableCell>{capitalizeFirstOnly(student.section || 'N/A')}</TableCell>
                             <TableCell>
@@ -1682,7 +1875,6 @@ const FeeManagement = () => {
                                 size="small"
                               />
                             </TableCell>
-                            <TableCell>{capitalizeFirstOnly(student.studentCategory || 'N/A')}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1776,25 +1968,22 @@ const FeeManagement = () => {
                     <TableCell>ID</TableCell>
                     <TableCell>Roll #</TableCell>
                     <TableCell>Admission #</TableCell>
-                    <TableCell>Family #</TableCell>
                     <TableCell>Name</TableCell>
-                    <TableCell>Father Name</TableCell>
                     <TableCell>Class</TableCell>
                     <TableCell>Section</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Student Category</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} align="center">
+                      <TableCell colSpan={12} align="center">
                         <CircularProgress />
                       </TableCell>
                     </TableRow>
                   ) : printVoucherStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} align="center">
+                      <TableCell colSpan={12} align="center">
                         <Typography variant="body2" color="textSecondary">
                           No data found
                         </Typography>
@@ -1821,9 +2010,14 @@ const FeeManagement = () => {
                         <TableCell>{student.id || 'N/A'}</TableCell>
                         <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                         <TableCell>{student.admissionNo || 'N/A'}</TableCell>
-                        <TableCell>{student.familyNumber || 'N/A'}</TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.name || 'N/A')}</TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.fatherName || 'N/A')}</TableCell>
+                        <TableCell>
+                          {capitalizeFirstOnly(student.name || 'N/A')}
+                          {student.fatherName && (
+                            <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                              {capitalizeFirstOnly(student.fatherName)}
+                            </Typography>
+                          )}
+                        </TableCell>
                         <TableCell>{capitalizeFirstOnly(student.class || 'N/A')}</TableCell>
                         <TableCell>{capitalizeFirstOnly(student.section || 'N/A')}</TableCell>
                         <TableCell>
@@ -1833,7 +2027,6 @@ const FeeManagement = () => {
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.studentCategory || 'N/A')}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -1859,7 +2052,7 @@ const FeeManagement = () => {
 
             {/* Sub-tabs for Fee Deposit */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs value={feeDepositSubTab} onChange={(e, newValue) => setFeeDepositSubTab(newValue)}>
+              <Tabs value={feeDepositSubTab} onChange={handleFeeDepositSubTabChange}>
                 <Tab label="Manual Fee Deposit" />
                 <Tab label="Fee Deposit by Voucher" />
               </Tabs>
@@ -1925,16 +2118,6 @@ const FeeManagement = () => {
                           placeholder="Enter phone number"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Family Number"
-                          value={manualDepositSearch.familyNumber}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, familyNumber: e.target.value })}
-                          placeholder="Enter family number"
-                        />
-                      </Grid>
                       <Grid item xs={12}>
                         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
                           <Typography variant="body2" color="textSecondary">
@@ -1944,11 +2127,10 @@ const FeeManagement = () => {
                             variant="contained"
                             startIcon={<Search />}
                             sx={{ bgcolor: '#667eea' }}
-                            onClick={() => {
-                              setSuccess('Search functionality will be implemented');
-                            }}
+                            onClick={fetchManualDepositStudents}
+                            disabled={loading}
                           >
-                            Search
+                            {loading ? 'Searching...' : 'Search'}
                           </Button>
                         </Box>
                       </Grid>
@@ -1980,7 +2162,6 @@ const FeeManagement = () => {
                               <TableCell>ID</TableCell>
                               <TableCell>Roll #</TableCell>
                               <TableCell>Name</TableCell>
-                              <TableCell>Father Name</TableCell>
                               <TableCell>Status</TableCell>
                               <TableCell>School</TableCell>
                               <TableCell>Class</TableCell>
@@ -1988,7 +2169,6 @@ const FeeManagement = () => {
                               <TableCell>Mobile #</TableCell>
                               <TableCell>Admission #</TableCell>
                               <TableCell>Admission Date</TableCell>
-                              <TableCell>Family #</TableCell>
                               <TableCell>Admission Effective Date</TableCell>
                               <TableCell>Adv. Fee</TableCell>
                               <TableCell>Last Voucher</TableCell>
@@ -1997,7 +2177,7 @@ const FeeManagement = () => {
                           <TableBody>
                             {manualDepositStudents.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={15} align="center" sx={{ py: 4 }}>
+                                <TableCell colSpan={14} align="center" sx={{ py: 4 }}>
                                   <Typography variant="body2" color="textSecondary">
                                     No data found. Please search for students.
                                   </Typography>
@@ -2018,8 +2198,12 @@ const FeeManagement = () => {
                                   <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                                   <TableCell sx={{ fontWeight: selectedManualDepositStudent?._id === student._id ? 'bold' : 'normal' }}>
                                     {capitalizeFirstOnly(student.name || 'N/A')}
+                                    {student.fatherName && (
+                                      <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                                        {capitalizeFirstOnly(student.fatherName)}
+                                      </Typography>
+                                    )}
                                   </TableCell>
-                                  <TableCell>{capitalizeFirstOnly(student.fatherName || 'N/A')}</TableCell>
                                   <TableCell>
                                     <Chip
                                       label={capitalizeFirstOnly(student.status || 'pending')}
@@ -2033,7 +2217,6 @@ const FeeManagement = () => {
                                   <TableCell>{student.mobileNumber || 'N/A'}</TableCell>
                                   <TableCell>{student.admissionNo || 'N/A'}</TableCell>
                                   <TableCell>{student.admissionDate || 'N/A'}</TableCell>
-                                  <TableCell>{student.familyNumber || 'N/A'}</TableCell>
                                   <TableCell>{student.admissionEffectiveDate || 'N/A'}</TableCell>
                                   <TableCell>{student.advanceFee || '0'}</TableCell>
                                   <TableCell>{student.lastVoucher || 'N/A'}</TableCell>

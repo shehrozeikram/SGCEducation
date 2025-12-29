@@ -42,8 +42,7 @@ class AdmissionService {
     if (filters.search) {
       query.$or = [
         { applicationNumber: { $regex: filters.search, $options: 'i' } },
-        { 'personalInfo.firstName': { $regex: filters.search, $options: 'i' } },
-        { 'personalInfo.lastName': { $regex: filters.search, $options: 'i' } },
+        { 'personalInfo.name': { $regex: filters.search, $options: 'i' } },
         { 'contactInfo.email': { $regex: filters.search, $options: 'i' } }
       ];
     }
@@ -96,9 +95,16 @@ class AdmissionService {
     }
 
     // Check permissions for non-super admins
-    if (createdBy && createdBy.role !== 'super_admin' &&
-        institution.toString() !== createdBy.institution?.toString()) {
-      throw new ApiError(403, 'You can only create admissions for your institution');
+    if (createdBy && createdBy.role !== 'super_admin') {
+      // Get user's institution ID (handle both populated object and ObjectId)
+      const userInstitutionId = createdBy.institution?._id 
+        ? createdBy.institution._id.toString() 
+        : createdBy.institution?.toString();
+      
+      // Compare institution IDs
+      if (!userInstitutionId || institution.toString() !== userInstitutionId) {
+        throw new ApiError(403, 'You can only create admissions for your institution');
+      }
     }
 
     // Check if email already has a pending/approved application
@@ -135,9 +141,21 @@ class AdmissionService {
     }
 
     // Check permissions
-    if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
-      throw new ApiError(403, 'You can only update admissions in your institution');
+    if (currentUser.role !== 'super_admin') {
+      // Get user's institution ID (handle both populated object and ObjectId)
+      const userInstitutionId = currentUser.institution?._id 
+        ? currentUser.institution._id.toString() 
+        : currentUser.institution?.toString();
+      
+      // Get admission's institution ID (handle both ObjectId and populated object)
+      const admissionInstitutionId = admission.institution?._id 
+        ? admission.institution._id.toString() 
+        : admission.institution?.toString();
+      
+      // Compare institution IDs
+      if (!userInstitutionId || admissionInstitutionId !== userInstitutionId) {
+        throw new ApiError(403, 'You can only update admissions in your institution');
+      }
     }
 
     // Prevent updating if already enrolled
@@ -171,9 +189,21 @@ class AdmissionService {
       throw new ApiError(403, 'Only admins can update admission status');
     }
 
-    if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
-      throw new ApiError(403, 'You can only update admissions in your institution');
+    if (currentUser.role !== 'super_admin') {
+      // Get user's institution ID (handle both populated object and ObjectId)
+      const userInstitutionId = currentUser.institution?._id 
+        ? currentUser.institution._id.toString() 
+        : currentUser.institution?.toString();
+      
+      // Get admission's institution ID (handle both ObjectId and populated object)
+      const admissionInstitutionId = admission.institution?._id 
+        ? admission.institution._id.toString() 
+        : admission.institution?.toString();
+      
+      // Compare institution IDs
+      if (!userInstitutionId || admissionInstitutionId !== userInstitutionId) {
+        throw new ApiError(403, 'You can only update admissions in your institution');
+      }
     }
 
     // Update status
@@ -195,7 +225,6 @@ class AdmissionService {
 
     return await Admission.findById(admission._id)
       .populate('institution', 'name type code')
-      .populate('department', 'name code')
       .populate('reviewedBy', 'name email');
   }
 
@@ -216,9 +245,21 @@ class AdmissionService {
       throw new ApiError(403, 'Only admins can approve admissions');
     }
 
-    if (currentUser.role !== 'super_admin' &&
-        admission.institution._id.toString() !== currentUser.institution?.toString()) {
-      throw new ApiError(403, 'Access denied');
+    if (currentUser.role !== 'super_admin') {
+      // Get user's institution ID (handle both populated object and ObjectId)
+      const userInstitutionId = currentUser.institution?._id 
+        ? currentUser.institution._id.toString() 
+        : currentUser.institution?.toString();
+      
+      // Get admission's institution ID (handle both populated object and ObjectId)
+      const admissionInstitutionId = admission.institution?._id 
+        ? admission.institution._id.toString() 
+        : admission.institution?.toString();
+      
+      // Compare institution IDs
+      if (!userInstitutionId || admissionInstitutionId !== userInstitutionId) {
+        throw new ApiError(403, 'You can only update admissions in your institution');
+      }
     }
 
     // Check if already enrolled
@@ -238,7 +279,7 @@ class AdmissionService {
       // Create user account
       const tempPassword = Math.random().toString(36).slice(-8);
       user = await User.create({
-        name: `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`,
+        name: admission.personalInfo.name,
         email: admission.contactInfo.email,
         password: tempPassword,
         role: 'student',
@@ -259,11 +300,8 @@ class AdmissionService {
       academicYear: admission.academicYear,
       program: admission.program,
       personalDetails: {
-        middleName: admission.personalInfo.middleName,
-        bloodGroup: admission.personalInfo.bloodGroup,
         nationality: admission.personalInfo.nationality,
-        religion: admission.personalInfo.religion,
-        category: admission.personalInfo.category
+        religion: admission.personalInfo.religion
       },
       contactDetails: {
         alternatePhone: admission.contactInfo.alternatePhone,
@@ -521,17 +559,6 @@ class AdmissionService {
       { $sort: { _id: 1 } }
     ]);
 
-    // Category breakdown
-    const categoryBreakdown = await Admission.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: '$personalInfo.category',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
     // Conversion rate (approved + enrolled / total)
     const totalCount = await Admission.countDocuments(query);
     const convertedCount = await Admission.countDocuments({
@@ -649,10 +676,6 @@ class AdmissionService {
       })),
       monthlyTrends: monthlyTrends.map(item => ({
         month: item._id,
-        count: item.count
-      })),
-      categoryBreakdown: categoryBreakdown.map(item => ({
-        category: item._id || 'Unknown',
         count: item.count
       })),
       conversionRate: parseFloat(conversionRate),
@@ -1053,12 +1076,8 @@ class AdmissionService {
 
     // Transform data for the report
     const reportData = admissions.map((admission, index) => {
-      // Build full name from personalInfo
-      const fullName = [
-        admission.personalInfo?.firstName,
-        admission.personalInfo?.middleName,
-        admission.personalInfo?.lastName
-      ].filter(Boolean).join(' ') || 'N/A';
+      // Get name from personalInfo
+      const fullName = admission.personalInfo?.name || 'N/A';
 
       // Get program and section info
       const className = admission.class?.name || admission.program || 'N/A';
@@ -1130,12 +1149,8 @@ class AdmissionService {
 
     // Transform data for the report with all required fields
     const reportData = admissions.map((admission, index) => {
-      // Build full name from personalInfo
-      const fullName = [
-        admission.personalInfo?.firstName,
-        admission.personalInfo?.middleName,
-        admission.personalInfo?.lastName
-      ].filter(Boolean).join(' ') || 'N/A';
+      // Get name from personalInfo
+      const fullName = admission.personalInfo?.name || 'N/A';
 
       // Get guardian name (can be father, mother, or guardian)
       let guardianName = admission.guardianInfo?.fatherName || '';
@@ -1161,10 +1176,7 @@ class AdmissionService {
           : '',
         mobileNumber: admission.contactInfo?.phone || '',
         age: calculateAge(admission.personalInfo?.dateOfBirth),
-        bloodGroup: admission.personalInfo?.bloodGroup || admission.studentId?.personalDetails?.bloodGroup || '',
         hobbies: '', // Not in current schema, add if needed
-        categoryName: admission.personalInfo?.category || '',
-        familyNumber: '', // Not in current schema, add if needed
         admissionDate: admission.createdAt 
           ? new Date(admission.createdAt).toLocaleDateString('en-GB')
           : '',

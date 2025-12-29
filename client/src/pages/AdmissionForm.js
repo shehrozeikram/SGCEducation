@@ -47,37 +47,28 @@ const createInitialFormData = (userCtx) => ({
   section: '',
   group: '',
   admissionDate: new Date().toISOString().split('T')[0],
-  admissionNumber: '',
   studentName: '',
   fatherName: '',
   dateOfBirth: '',
   rollNumber: '',
-  studentCategory: 'Default',
   religion: 'Islam',
   gender: 'Male',
-  bloodGroup: 'NA',
   admEffectNo: new Date().toISOString().split('T')[0],
-  familyNumber: '',
   markAsEnrolled: false,
   orphan: 'NO',
   studentPicture: null,
-  hobbies: '',
-  notes1: '',
-  notes2: '',
 
   // Address - Present
   presentAddress: {
     address: '',
     country: 'Pakistan',
     city: 'Sialkot',
-    cityRegion: '',
   },
   // Address - Permanent
   permanentAddress: {
     address: '',
     country: 'Pakistan',
     city: 'Sialkot',
-    cityRegion: '',
   },
 
   // Guardian - Father
@@ -150,7 +141,6 @@ const AdmissionForm = () => {
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [studentCategories, setStudentCategories] = useState(['Default', 'General', 'OBC', 'SC', 'ST', 'Other']);
   const [religions, setReligions] = useState(['Islam', 'Christianity', 'Hinduism', 'Sikhism', 'Buddhism', 'Other']);
   const [countries, setCountries] = useState(['Pakistan', 'Bangladesh', 'Other']);
   const [cities, setCities] = useState(['Sialkot', 'Lahore', 'Karachi', 'Islamabad', 'Other']);
@@ -160,11 +150,9 @@ const AdmissionForm = () => {
   const [classDialogOpen, setClassDialogOpen] = useState(false);
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newClass, setNewClass] = useState({ name: '', code: '' });
   const [newSection, setNewSection] = useState({ name: '', code: '' });
   const [newGroup, setNewGroup] = useState({ name: '' });
-  const [newCategory, setNewCategory] = useState({ name: '' });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
@@ -249,6 +237,38 @@ const AdmissionForm = () => {
     }, 150);
   };
 
+  // Format CNIC with dashes (XXXXX-XXXXXXX-X)
+  const formatCNIC = (value) => {
+    if (!value) return '';
+    // Remove all non-digits
+    const digits = value.toString().replace(/\D/g, '');
+    
+    // Limit to 13 digits
+    const limited = digits.slice(0, 13);
+    
+    // Format with dashes
+    if (limited.length <= 5) {
+      return limited;
+    } else if (limited.length <= 12) {
+      return `${limited.slice(0, 5)}-${limited.slice(5)}`;
+    } else {
+      return `${limited.slice(0, 5)}-${limited.slice(5, 12)}-${limited.slice(12)}`;
+    }
+  };
+
+  // Strip dashes from CNIC
+  const stripCNIC = (value) => {
+    if (!value) return '';
+    return value.toString().replace(/\D/g, '');
+  };
+
+  // Validate CNIC format
+  const validateCNIC = (value) => {
+    if (!value) return true; // Allow empty (optional field)
+    const digits = stripCNIC(value);
+    return digits.length === 13;
+  };
+
   const fetchAdmissionData = async () => {
     try {
       setLoading(true);
@@ -261,18 +281,38 @@ const AdmissionForm = () => {
         section: admission.section?._id || '',
         group: admission.group?._id || '',
         admissionDate: admission.admissionDate || prev.admissionDate,
-        admissionNumber: admission.applicationNumber || '',
-        studentName: `${admission.personalInfo.firstName} ${admission.personalInfo.middleName || ''} ${admission.personalInfo.lastName}`.trim(),
+        // Use the name field from personalInfo
+        studentName: admission.personalInfo.name || '',
         fatherName: admission.guardianInfo?.fatherName || '',
         dateOfBirth: admission.personalInfo.dateOfBirth ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
         rollNumber: admission.rollNumber || '',
-        studentCategory: admission.personalInfo.category || 'Default',
         religion: admission.personalInfo.religion || 'Islam',
         gender: admission.personalInfo.gender || 'Male',
-        bloodGroup: admission.personalInfo.bloodGroup || 'NA',
         institution: admission.institution._id,
         academicYear: admission.academicYear,
         program: admission.program,
+        father: {
+          ...prev.father,
+          name: admission.guardianInfo?.fatherName || '',
+          occupation: admission.guardianInfo?.fatherOccupation || '',
+          mobileNumber: admission.guardianInfo?.fatherPhone || '',
+          cnic: admission.guardianInfo?.fatherCnic ? formatCNIC(admission.guardianInfo.fatherCnic) : '',
+        },
+        mother: {
+          ...prev.mother,
+          name: admission.guardianInfo?.motherName || '',
+          occupation: admission.guardianInfo?.motherOccupation || '',
+          mobileNumber: admission.guardianInfo?.motherPhone || '',
+          cnic: admission.guardianInfo?.motherCnic ? formatCNIC(admission.guardianInfo.motherCnic) : '',
+        },
+        guardian: {
+          ...prev.guardian,
+          name: admission.guardianInfo?.guardianName || '',
+          relation: admission.guardianInfo?.guardianRelation || '',
+          mobileNumber: admission.guardianInfo?.guardianPhone || '',
+          emailAddress: admission.guardianInfo?.guardianEmail || '',
+          cnic: admission.guardianInfo?.guardianCnic ? formatCNIC(admission.guardianInfo.guardianCnic) : '',
+        },
       }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch admission data');
@@ -293,13 +333,25 @@ const AdmissionForm = () => {
   };
 
   const handleNestedChange = (section, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
-    }));
+    // Special handling for CNIC fields
+    if (field === 'cnic') {
+      const formatted = formatCNIC(value);
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: formatted,
+        },
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value,
+        },
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -381,14 +433,6 @@ const AdmissionForm = () => {
     }
   };
 
-  const handleAddCategory = () => {
-    if (newCategory.name && !studentCategories.includes(newCategory.name)) {
-      setStudentCategories([...studentCategories, newCategory.name]);
-      setFormData(prev => ({ ...prev, studentCategory: newCategory.name }));
-      setCategoryDialogOpen(false);
-      setNewCategory({ name: '' });
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -397,27 +441,39 @@ const AdmissionForm = () => {
       setError('');
 
       // Map form data to backend structure
-      const nameParts = formData.studentName.trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : firstName; // Use firstName as lastName if only one name provided
-      const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
+      // We only have a single "Name" field, so store it directly in personalInfo.name
+      const name = formData.studentName.trim();
+
+      // Get institution ID - use formData if super admin and it's set, otherwise use user's institution
+      let institutionId;
+      if (isSuperAdmin && formData.institution) {
+        institutionId = formData.institution;
+      } else {
+        // For non-super admins, always use user's institution
+        institutionId = typeof user.institution === 'object' && user.institution?._id 
+          ? user.institution._id 
+          : user.institution;
+      }
+
+      if (!institutionId) {
+        setError('Institution is required. Please contact administrator.');
+        setLoading(false);
+        return;
+      }
 
       const admissionData = {
-        institution: formData.institution,
+        institution: institutionId,
         academicYear: formData.academicYear,
         program: formData.program || 'General',
         class: formData.class || undefined,
         section: formData.section || undefined,
+        rollNumber: formData.rollNumber || undefined,
         personalInfo: {
-          firstName,
-          middleName,
-          lastName,
+          name,
           dateOfBirth: formData.dateOfBirth,
           gender: formData.gender.toLowerCase(),
-          bloodGroup: formData.bloodGroup !== 'NA' ? formData.bloodGroup : '',
           nationality: 'Pakistani',
           religion: formData.religion,
-          category: formData.studentCategory,
         },
         contactInfo: {
           email: formData.father.emailAddress || formData.mother.emailAddress || '',
@@ -426,27 +482,28 @@ const AdmissionForm = () => {
           currentAddress: {
             street: formData.presentAddress.address,
             city: formData.presentAddress.city,
-            state: formData.presentAddress.cityRegion,
             country: formData.presentAddress.country,
           },
           permanentAddress: {
             street: formData.permanentAddress.address,
             city: formData.permanentAddress.city,
-            state: formData.permanentAddress.cityRegion,
             country: formData.permanentAddress.country,
           },
         },
         guardianInfo: {
-          fatherName: formData.father.name,
+          fatherName: formData.fatherName || formData.father.name,
           fatherOccupation: formData.father.occupation,
           fatherPhone: formData.father.mobileNumber,
+          fatherCnic: formData.father.cnic ? stripCNIC(formData.father.cnic) : '',
           motherName: formData.mother.name,
           motherOccupation: formData.mother.occupation,
           motherPhone: formData.mother.mobileNumber,
+          motherCnic: formData.mother.cnic ? stripCNIC(formData.mother.cnic) : '',
           guardianName: formData.guardian.name,
           guardianRelation: formData.guardian.relation,
           guardianPhone: formData.guardian.mobileNumber,
           guardianEmail: formData.guardian.emailAddress,
+          guardianCnic: formData.guardian.cnic ? stripCNIC(formData.guardian.cnic) : '',
         },
       };
 
@@ -472,7 +529,7 @@ const AdmissionForm = () => {
           errorMessage = errorData.message;
           
           // Parse Mongoose validation errors from message
-          // Format: "ValidationError: Admission validation failed: personalInfo.lastName: Please provide last name"
+          // Format: "ValidationError: Admission validation failed: personalInfo.name: Please provide name"
           if (errorMessage.includes('validation failed')) {
             // Extract the actual field error message
             const match = errorMessage.match(/: ([^:]+): (.+)$/);
@@ -638,16 +695,6 @@ const AdmissionForm = () => {
                 <Grid item xs={12} md={3}>
                   <TextField
                     fullWidth
-                    label="ADMISSION NUMBER"
-                    value={formData.admissionNumber}
-                    onChange={(e) => handleChange('admissionNumber', e.target.value)}
-                    placeholder="Admission Number"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
                     required
                     label="STUDENT NAME*"
                     value={formData.studentName}
@@ -691,40 +738,6 @@ const AdmissionForm = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={3}>
-                  <Box display="flex" gap={1}>
-                    <FormControl fullWidth required>
-                      <InputLabel>STUDENT CATEGORY*</InputLabel>
-                      <Select
-                        value={formData.studentCategory}
-                        onChange={(e) => handleChange('studentCategory', e.target.value)}
-                        label="STUDENT CATEGORY*"
-                      >
-                        {studentCategories.map((cat) => (
-                          <MenuItem key={cat} value={cat}>
-                            {cat}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <IconButton
-                      color="primary"
-                      size="small"
-                      onClick={() => setCategoryDialogOpen(true)}
-                      sx={{ 
-                        border: '1px solid',
-                        borderColor: 'primary.main',
-                        '&:hover': {
-                          bgcolor: 'primary.main',
-                          color: 'white'
-                        }
-                      }}
-                    >
-                      <Add />
-                    </IconButton>
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={12} md={3}>
                   <FormControl fullWidth required>
                     <InputLabel>RELIGION*</InputLabel>
                     <Select
@@ -758,27 +771,6 @@ const AdmissionForm = () => {
 
                 {/* Row 4 */}
                 <Grid item xs={12} md={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>BLOOD GROUP</InputLabel>
-                    <Select
-                      value={formData.bloodGroup}
-                      onChange={(e) => handleChange('bloodGroup', e.target.value)}
-                      label="BLOOD GROUP"
-                    >
-                      <MenuItem value="NA">NA</MenuItem>
-                      <MenuItem value="A+">A+</MenuItem>
-                      <MenuItem value="A-">A-</MenuItem>
-                      <MenuItem value="B+">B+</MenuItem>
-                      <MenuItem value="B-">B-</MenuItem>
-                      <MenuItem value="AB+">AB+</MenuItem>
-                      <MenuItem value="AB-">AB-</MenuItem>
-                      <MenuItem value="O+">O+</MenuItem>
-                      <MenuItem value="O-">O-</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} md={3}>
                   <TextField
                     fullWidth
                     required
@@ -791,18 +783,6 @@ const AdmissionForm = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={3}>
-                  <Box display="flex" gap={1}>
-                    <TextField
-                      fullWidth
-                      label="FAMILY NUMBER"
-                      value={formData.familyNumber}
-                      onChange={(e) => handleChange('familyNumber', e.target.value)}
-                      placeholder="Family Number"
-                    />
-                    <IconButton color="primary">
-                      <Search />
-                    </IconButton>
-                  </Box>
                 </Grid>
                 
                 <Grid item xs={12} md={3}>
@@ -856,40 +836,6 @@ const AdmissionForm = () => {
                   </Box>
                 </Grid>
                 
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    label="HOBBIES"
-                    value={formData.hobbies}
-                    onChange={(e) => handleChange('hobbies', e.target.value)}
-                    placeholder="Hobbies"
-                  />
-                </Grid>
-
-                {/* Notes areas */}
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={formData.notes1}
-                    onChange={(e) => handleChange('notes1', e.target.value)}
-                    sx={{ border: '2px solid #ffeb3b', borderRadius: 1 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={formData.notes2}
-                    onChange={(e) => handleChange('notes2', e.target.value)}
-                    sx={{ border: '2px solid #ffeb3b', borderRadius: 1 }}
-                  />
-                </Grid>
               </Grid>
             </Box>
 
@@ -949,21 +895,6 @@ const AdmissionForm = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <FormControl fullWidth>
-                      <InputLabel>CITY REGION</InputLabel>
-                      <Select
-                        value={formData.presentAddress.cityRegion}
-                        onChange={(e) => handleNestedChange('presentAddress', 'cityRegion', e.target.value)}
-                        label="CITY REGION"
-                      >
-                        <MenuItem value="">Select Region</MenuItem>
-                        <MenuItem value="Region 1">Region 1</MenuItem>
-                        <MenuItem value="Region 2">Region 2</MenuItem>
-                        <MenuItem value="Region 3">Region 3</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
                 </Grid>
               )}
               
@@ -1012,21 +943,6 @@ const AdmissionForm = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <FormControl fullWidth>
-                      <InputLabel>CITY REGION</InputLabel>
-                      <Select
-                        value={formData.permanentAddress.cityRegion}
-                        onChange={(e) => handleNestedChange('permanentAddress', 'cityRegion', e.target.value)}
-                        label="CITY REGION"
-                      >
-                        <MenuItem value="">Select Region</MenuItem>
-                        <MenuItem value="Region 1">Region 1</MenuItem>
-                        <MenuItem value="Region 2">Region 2</MenuItem>
-                        <MenuItem value="Region 3">Region 3</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
                 </Grid>
               )}
             </Box>
@@ -1062,6 +978,9 @@ const AdmissionForm = () => {
                       value={formData.father.cnic}
                       onChange={(e) => handleNestedChange('father', 'cnic', e.target.value)}
                       placeholder="XXXXX-XXXXXXX-X"
+                      inputProps={{ maxLength: 15 }}
+                      error={formData.father.cnic && !validateCNIC(formData.father.cnic)}
+                      helperText={formData.father.cnic && !validateCNIC(formData.father.cnic) ? 'CNIC must be 13 digits (format: XXXXX-XXXXXXX-X)' : ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1178,6 +1097,9 @@ const AdmissionForm = () => {
                       value={formData.mother.cnic}
                       onChange={(e) => handleNestedChange('mother', 'cnic', e.target.value)}
                       placeholder="XXXXX-XXXXXXX-X"
+                      inputProps={{ maxLength: 15 }}
+                      error={formData.mother.cnic && !validateCNIC(formData.mother.cnic)}
+                      helperText={formData.mother.cnic && !validateCNIC(formData.mother.cnic) ? 'CNIC must be 13 digits (format: XXXXX-XXXXXXX-X)' : ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1303,6 +1225,9 @@ const AdmissionForm = () => {
                       value={formData.guardian.cnic}
                       onChange={(e) => handleNestedChange('guardian', 'cnic', e.target.value)}
                       placeholder="XXXXX-XXXXXXX-X"
+                      inputProps={{ maxLength: 15 }}
+                      error={formData.guardian.cnic && !validateCNIC(formData.guardian.cnic)}
+                      helperText={formData.guardian.cnic && !validateCNIC(formData.guardian.cnic) ? 'CNIC must be 13 digits (format: XXXXX-XXXXXXX-X)' : ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1527,34 +1452,6 @@ const AdmissionForm = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add Student Category Dialog */}
-      <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Add New Student Category</Typography>
-            <IconButton onClick={() => setCategoryDialogOpen(false)} size="small">
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Category Name"
-                value={newCategory.name}
-                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddCategory} variant="contained">Add Category</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
