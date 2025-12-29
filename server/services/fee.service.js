@@ -171,6 +171,7 @@ class FeeService {
 
   /**
    * Get fee structure matrix (classes x fee heads)
+   * Fee structures are now shared, but we still need institution to get classes
    */
   async getFeeStructureMatrix(filters = {}, currentUser) {
     let institutionId = filters.institution;
@@ -187,48 +188,85 @@ class FeeService {
     }
 
     if (!institutionId) {
-      throw new ApiError(400, 'Institution is required');
+      throw new ApiError(400, 'Institution is required to get classes');
     }
 
-    // Get all classes for the institution
+    // Get all classes for the institution (classes are still institution-specific)
     const classes = await Class.find({ 
       institution: institutionId, 
       isActive: true 
-    }).sort({ name: 1 });
+    });
 
-    // Get all fee heads for the institution (these will be the columns)
-    // Include fee heads with matching institution OR null (for backward compatibility)
-    let feeHeads = await FeeHead.find({ 
-      $or: [
-        { institution: institutionId },
-        { institution: null }
-      ],
+    // Custom sort function to match the expected order:
+    // Pre-school classes first, then numbered classes (One, Two, etc.), then numbered with suffix (5th, 6th, etc.)
+    const classOrder = (className) => {
+      const name = (className || '').toLowerCase().trim();
+      
+      // Pre-school classes (highest priority)
+      if (name.includes('play group') || name === 'playgroup') return 1;
+      if (name.includes('advance montessori') || name.includes('advanced montessori')) return 2;
+      if (name.includes('core montessori') || name.includes('cor.mon') || name.includes('cormon') || name.includes('cor mon') || name.includes('core montessory')) return 3;
+      
+      // Numbered classes in word form
+      const wordNumbers = {
+        'one': 10,
+        'two': 11,
+        'three': 12,
+        'four': 13,
+        'five': 14,
+        'six': 15,
+        'seven': 16,
+        'eight': 17,
+        'nine': 18,
+        'ten': 19
+      };
+      
+      for (const [word, order] of Object.entries(wordNumbers)) {
+        if (name === word || name.startsWith(word + ' ') || name.endsWith(' ' + word)) {
+          return order;
+        }
+      }
+      
+      // Numbered classes with suffix (5th, 6th, etc.)
+      const numberMatch = name.match(/^(\d+)(th|st|nd|rd)?/);
+      if (numberMatch) {
+        const num = parseInt(numberMatch[1]);
+        return 20 + num; // Start from 20 to come after word numbers
+      }
+      
+      // Extract number from name if it contains digits
+      const anyNumberMatch = name.match(/(\d+)/);
+      if (anyNumberMatch) {
+        const num = parseInt(anyNumberMatch[1]);
+        return 20 + num;
+      }
+      
+      // Default: sort alphabetically after numbered classes
+      return 1000;
+    };
+
+    // Sort classes using custom order
+    classes.sort((a, b) => {
+      const orderA = classOrder(a.name);
+      const orderB = classOrder(b.name);
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // If same order, sort alphabetically
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    // Get all fee heads (shared - get all regardless of institution)
+    // Since fee heads are now shared, we get all active fee heads
+    const feeHeads = await FeeHead.find({ 
       isActive: true 
     }).sort({ priority: 1 });
 
-    // Update fee heads with null institution to the current institution
-    const feeHeadsToUpdate = feeHeads.filter(fh => !fh.institution);
-    if (feeHeadsToUpdate.length > 0) {
-      const feeHeadIds = feeHeadsToUpdate.map(fh => fh._id.toString());
-      await FeeHead.updateMany(
-        { _id: { $in: feeHeadIds }, institution: null },
-        { $set: { institution: institutionId } }
-      );
-      
-      // Re-fetch to get updated fee heads
-      feeHeads = await FeeHead.find({ 
-        institution: institutionId,
-        isActive: true 
-      }).sort({ priority: 1 });
-    }
-
-    // Get all fee types for the institution (FeeStructure uses feeType)
-    // Include fee types with matching institution OR null (for backward compatibility)
+    // Get all fee types (shared - get all regardless of institution)
+    // Since fee types are shared, we get all active fee types
     const feeTypes = await FeeType.find({ 
-      $or: [
-        { institution: institutionId },
-        { institution: null }
-      ],
       isActive: true 
     }).sort({ name: 1 });
 
@@ -244,7 +282,7 @@ class FeeService {
       }
     });
 
-    // Get existing fee structures
+    // Get existing fee structures for the institution
     const query = { 
       institution: institutionId, 
       isActive: true 
@@ -306,6 +344,7 @@ class FeeService {
 
   /**
    * Bulk save fee structure matrix
+   * Fee structures are institution-specific
    */
   async bulkSaveFeeStructureMatrix(matrixData, currentUser) {
     const { institution, academicYear, data } = matrixData;
@@ -337,14 +376,11 @@ class FeeService {
       const classData = data[classId];
       if (!classData.fees) continue;
 
-      // Process each fee head (the keys are feeHead IDs, but we need to convert to feeType IDs)
-      // First, get fee heads and fee types to create mapping
+      // Get fee heads and fee types (shared - get all regardless of institution)
       const feeHeads = await FeeHead.find({ 
-        institution: institutionId, 
         isActive: true 
       });
       const feeTypes = await FeeType.find({ 
-        institution: institutionId, 
         isActive: true 
       });
 
@@ -370,7 +406,7 @@ class FeeService {
         }
 
         try {
-          // Check if fee structure already exists
+          // Check if fee structure already exists for this institution
           const existing = await FeeStructure.findOne({
             institution: institutionId,
             academicYear,

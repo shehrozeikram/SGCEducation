@@ -261,9 +261,19 @@ const FeeManagement = () => {
       const response = await axios.get(`${API_URL}/fee-heads/priorities/available`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAvailablePriorities(response.data.data || []);
+      
+      // Transform array of numbers to array of objects with value, label, and available
+      const prioritiesArray = response.data.data || [];
+      const formattedPriorities = prioritiesArray.map(priority => ({
+        value: priority,
+        label: `Priority ${priority}`,
+        available: true
+      }));
+      
+      setAvailablePriorities(formattedPriorities);
     } catch (err) {
       console.error('Error fetching priorities:', err);
+      setAvailablePriorities([]);
     }
   };
 
@@ -281,11 +291,12 @@ const FeeManagement = () => {
         return;
       }
       
+      // Fee structures are shared, but we still need institution to get classes
       // For super admin, ensure institution is selected
       if (isSuperAdmin) {
         const institutionId = feeStructureSelectedInstitution || getInstitutionId();
         if (!institutionId) {
-          setError('Please select an institution first');
+          setError('Please select an institution first to view classes');
           setFeeStructureLoading(false);
           return;
         }
@@ -295,15 +306,20 @@ const FeeManagement = () => {
         academicYear: feeStructureAcademicYear
       };
       
-      // For super admin, pass institution if selected
-      // For admin, backend will use their institution automatically
+      // Institution is still needed to get classes (classes are institution-specific)
+      // But fee structures themselves are shared
       if (isSuperAdmin) {
         const institutionId = feeStructureSelectedInstitution || getInstitutionId();
         if (institutionId) {
-          params.institution = institutionId;
+          params.institution = institutionId; // For getting classes only
+        }
+      } else {
+        // For admin users, get their institution for classes
+        const institutionId = getInstitutionId();
+        if (institutionId) {
+          params.institution = institutionId; // For getting classes only
         }
       }
-      // For admin users, don't pass institution - backend will use their institution
 
       const response = await axios.get(`${API_URL}/fees/structures/matrix`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -364,6 +380,8 @@ const FeeManagement = () => {
         frequencyType: ''
       });
     }
+    // Fetch available priorities when dialog opens
+    fetchAvailablePriorities();
     setFeeHeadDialogOpen(true);
   };
 
@@ -477,10 +495,11 @@ const FeeManagement = () => {
       setError('');
       setSuccess('');
       const token = localStorage.getItem('token');
-      const institutionId = getInstitutionId();
-
+      // Fee structures are institution-specific
+      const institutionId = feeStructureSelectedInstitution || getInstitutionId();
+      
       const payload = {
-        institution: feeStructureSelectedInstitution || institutionId,
+        institution: institutionId,
         academicYear: feeStructureAcademicYear,
         data: feeStructureMatrixData
       };
@@ -1068,52 +1087,42 @@ const FeeManagement = () => {
         {/* Tab Panel 1: Fee Structure */}
         {activeTab === 1 && (
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
-                FEE STRUCTURE
-              </Typography>
-            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3, textTransform: 'uppercase' }}>
+              FEE STRUCTURE
+            </Typography>
 
             {/* Filters */}
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Grid container spacing={2}>
-                  {isSuperAdmin && (
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth>
-                        <InputLabel>Schools</InputLabel>
-                        <Select
-                          value={feeStructureSelectedInstitution || ''}
-                          onChange={(e) => {
-                            setFeeStructureSelectedInstitution(e.target.value);
-                            setTimeout(() => fetchFeeStructureMatrix(), 100);
-                          }}
-                          label="Schools"
-                        >
-                          {institutions.map((inst) => (
-                            <MenuItem key={inst._id} value={inst._id}>
-                              {capitalizeFirstOnly(inst.name)}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  )}
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Academic Year"
-                      value={feeStructureAcademicYear}
-                      onChange={(e) => {
-                        setFeeStructureAcademicYear(e.target.value);
-                        fetchFeeStructureMatrix();
-                      }}
-                      placeholder="2024-2025"
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+            <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {isSuperAdmin && (
+                <FormControl sx={{ minWidth: 200 }}>
+                  <InputLabel>Schools</InputLabel>
+                  <Select
+                    value={feeStructureSelectedInstitution || ''}
+                    onChange={(e) => {
+                      setFeeStructureSelectedInstitution(e.target.value);
+                      setTimeout(() => fetchFeeStructureMatrix(), 100);
+                    }}
+                    label="Schools"
+                  >
+                    {institutions.map((inst) => (
+                      <MenuItem key={inst._id} value={inst._id}>
+                        {capitalizeFirstOnly(inst.name)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+              <TextField
+                label="Academic Year"
+                value={feeStructureAcademicYear}
+                onChange={(e) => {
+                  setFeeStructureAcademicYear(e.target.value);
+                  fetchFeeStructureMatrix();
+                }}
+                placeholder="2024-2025"
+                sx={{ minWidth: 200 }}
+              />
+            </Box>
 
             {feeStructureLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -1121,12 +1130,43 @@ const FeeManagement = () => {
               </Box>
             ) : feeStructureMatrix && feeStructureMatrix.classes && feeStructureMatrix.feeHeads && feeStructureMatrix.feeHeads.length > 0 ? (
               <Box>
-                <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto' }}>
+                <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto', border: '1px solid #e0e0e0' }}>
                   <Table stickyHeader>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ bgcolor: '#667eea', color: 'white', fontWeight: 'bold', minWidth: 150, position: 'sticky', left: 0, zIndex: 3 }}>
+                        <TableCell 
+                          sx={{ 
+                            bgcolor: '#667eea', 
+                            color: 'white', 
+                            fontWeight: 'bold', 
+                            minWidth: 150, 
+                            position: 'sticky', 
+                            left: 0, 
+                            zIndex: 3,
+                            borderRight: '1px solid rgba(255,255,255,0.2)'
+                          }}
+                        >
                           Classes
+                        </TableCell>
+                        <TableCell 
+                          colSpan={feeStructureMatrix.feeHeads.length}
+                          sx={{ bgcolor: '#667eea', color: 'white', fontWeight: 'bold', textAlign: 'center' }}
+                        >
+                          Fee Heads
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell 
+                          sx={{ 
+                            bgcolor: '#667eea', 
+                            color: 'white', 
+                            fontWeight: 'bold', 
+                            position: 'sticky', 
+                            left: 0, 
+                            zIndex: 3,
+                            borderRight: '1px solid rgba(255,255,255,0.2)'
+                          }}
+                        >
                         </TableCell>
                         {feeStructureMatrix.feeHeads.map((feeHead) => (
                           <TableCell
@@ -1149,7 +1189,8 @@ const FeeManagement = () => {
                                 position: 'sticky',
                                 left: 0,
                                 zIndex: 2,
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                borderRight: '1px solid #e0e0e0'
                               }}
                             >
                               {capitalizeFirstOnly(cls.name)}
@@ -1158,15 +1199,15 @@ const FeeManagement = () => {
                               const classData = feeStructureMatrixData[cls._id];
                               const amount = classData?.fees?.[feeHead._id] ?? (feeStructureMatrix?.data?.[cls._id]?.fees?.[feeHead._id] ?? 0);
                               return (
-                                <TableCell key={feeHead._id} align="center">
+                                <TableCell key={feeHead._id} align="center" sx={{ py: 1 }}>
                                   <TextField
                                     type="number"
                                     value={amount || ''}
                                     onChange={(e) => handleFeeStructureAmountChange(cls._id, feeHead._id, e.target.value)}
                                     size="small"
-                                    sx={{ width: '120px' }}
+                                    sx={{ width: '100%', maxWidth: 150 }}
                                     InputProps={{
-                                      inputProps: { min: 0, step: 1 }
+                                      inputProps: { min: 0, step: 1, style: { textAlign: 'center' } }
                                     }}
                                     placeholder="0"
                                   />
@@ -1199,7 +1240,7 @@ const FeeManagement = () => {
               </Box>
             ) : feeStructureMatrix && feeStructureMatrix.feeHeads && feeStructureMatrix.feeHeads.length === 0 ? (
               <Alert severity="warning">
-                No fee heads found for this institution. Please create fee heads in the "Fee Heads" tab first.
+                No fee heads found. Please create fee heads in the "Fee Heads" tab first. (Fee heads are shared across all institutions)
               </Alert>
             ) : feeStructureMatrix && feeStructureMatrix.classes && feeStructureMatrix.classes.length === 0 ? (
               <Alert severity="warning">
