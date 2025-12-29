@@ -1,6 +1,5 @@
 const Institution = require('../models/Institution');
 const User = require('../models/User');
-const Organization = require('../models/Organization');
 const { ApiError } = require('../middleware/error.middleware');
 
 /**
@@ -16,23 +15,10 @@ class InstitutionService {
     const query = {};
 
     if (currentUser.role !== 'super_admin') {
-      // Handle institution as object or string
-      const institutionId = currentUser.institution 
-        ? (typeof currentUser.institution === 'object' ? currentUser.institution._id : currentUser.institution)
-        : null;
-      
-      if (!institutionId) {
-        // Return empty array if user has no institution
-        return [];
-      }
-      
-      query._id = institutionId;
+      query._id = currentUser.institution;
     }
 
     // Apply filters
-    if (filters.organization) {
-      query.organization = filters.organization;
-    }
     if (filters.type) query.type = filters.type;
     if (filters.isActive !== undefined) query.isActive = filters.isActive;
     if (filters.search) {
@@ -43,7 +29,6 @@ class InstitutionService {
     }
 
     const institutions = await Institution.find(query)
-      .populate('organization', 'name code type')
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
@@ -55,12 +40,7 @@ class InstitutionService {
    */
   async getInstitutionById(institutionId, currentUser) {
     const institution = await Institution.findById(institutionId)
-      .populate('organization', 'name code type')
       .populate('createdBy', 'name email');
-
-    if (!institution) {
-      throw new ApiError(404, 'Institution not found');
-    }
 
     if (!institution) {
       throw new ApiError(404, 'Institution not found');
@@ -81,16 +61,6 @@ class InstitutionService {
     // Only super admin can create institutions
     if (createdBy.role !== 'super_admin') {
       throw new ApiError(403, 'Only Super Admin can create institutions');
-    }
-
-    // Validate organization exists
-    if (institutionData.organization) {
-      const organization = await Organization.findById(institutionData.organization);
-      if (!organization) {
-        throw new ApiError(400, 'Organization not found');
-      }
-    } else {
-      throw new ApiError(400, 'Organization is required');
     }
 
     // Check if institution code already exists
@@ -150,14 +120,6 @@ class InstitutionService {
       });
       if (existingName) {
         throw new ApiError(400, 'Institution name already exists');
-      }
-    }
-
-    // Validate organization if being updated
-    if (updateData.organization) {
-      const organization = await Organization.findById(updateData.organization);
-      if (!organization) {
-        throw new ApiError(400, 'Organization not found');
       }
     }
 

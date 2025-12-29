@@ -17,6 +17,7 @@ router.use(authenticate);
 
 /**
  * Fee Head Routes
+ * IMPORTANT: Specific routes must come before parameterized routes (:id)
  */
 router.get('/', getFeeHeads);
 router.get('/priorities/available', getAvailablePriorities);

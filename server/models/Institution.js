@@ -19,11 +19,6 @@ const institutionSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
-  organization: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Organization',
-    required: [true, 'Please provide organization']
-  },
   email: {
     type: String,
     required: [true, 'Please provide institution email'],
@@ -115,7 +110,6 @@ institutionSchema.pre('save', function() {
 // Indexes for better query performance
 institutionSchema.index({ code: 1 });
 institutionSchema.index({ type: 1 });
-institutionSchema.index({ organization: 1 });
 institutionSchema.index({ isActive: 1 });
 institutionSchema.index({ createdAt: -1 });
 

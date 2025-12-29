@@ -231,39 +231,10 @@ const FeeManagement = () => {
       setError('');
       const token = localStorage.getItem('token');
       
-      // For admin users, ensure we have their institution
-      if (!isSuperAdmin) {
-        // Check if user has institution in the user object
-        const userInstitutionId = user.institution 
-          ? (typeof user.institution === 'object' ? user.institution._id : user.institution)
-          : null;
-        
-        if (!userInstitutionId) {
-          setError('No institution found for your account. Please contact administrator.');
-          setFeeHeadsLoading(false);
-          return;
-        }
-      }
-      
-      // For super admin, ensure institution is selected
-      if (isSuperAdmin) {
-        const institutionId = getInstitutionId();
-        if (!institutionId) {
-          setError('Please select an institution first');
-          setFeeHeadsLoading(false);
-          return;
-        }
-      }
-      
       const params = {};
       
-      // For super admin, pass institution if selected
-      // For admin, backend will use their institution automatically
-      if (isSuperAdmin) {
-        const institutionId = getInstitutionId();
-        if (institutionId) params.institution = institutionId;
-      }
-      // For admin users, don't pass institution - backend will use their institution
+      // Fee heads are now shared across all institutions
+      // No institution parameter needed
       
       if (feeHeadSearchTerm) params.search = feeHeadSearchTerm;
 
@@ -271,9 +242,13 @@ const FeeManagement = () => {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
-      setFeeHeads(response.data.data || []);
+      
+      // Ensure we set the fee heads array even if empty
+      setFeeHeads(response.data?.data || response.data || []);
     } catch (err) {
+      console.error('Error fetching fee heads:', err);
       setError(err.response?.data?.message || 'Failed to fetch fee heads');
+      setFeeHeads([]); // Set empty array on error
     } finally {
       setFeeHeadsLoading(false);
     }
@@ -409,12 +384,13 @@ const FeeManagement = () => {
       setError('');
       setSuccess('');
       const token = localStorage.getItem('token');
-      const institutionId = getInstitutionId();
 
+      // Fee heads are now shared across all institutions
+      // No institution field needed
       const payload = {
         ...feeHeadFormData,
-        priority: parseInt(feeHeadFormData.priority),
-        institution: institutionId || undefined
+        priority: parseInt(feeHeadFormData.priority)
+        // institution is not needed - fee heads are shared
       };
 
       if (feeHeadEditMode) {

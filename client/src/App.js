@@ -4,8 +4,6 @@ import { ThemeProvider, createTheme } from '@mui/material';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import Organizations from './pages/Organizations';
-import OrganizationForm from './pages/OrganizationForm';
 import Institutions from './pages/Institutions';
 import InstitutionForm from './pages/InstitutionForm';
 import Departments from './pages/Departments';
@@ -21,15 +19,12 @@ import AdmissionForm from './pages/AdmissionForm';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import Notifications from './pages/Notifications';
-import Financial from './pages/Financial';
+import FeeManagement from './pages/FeeManagement';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Performance from './pages/Performance';
-import StudentPromotion from './pages/StudentPromotion';
-import FeeManagement from './pages/FeeManagement';
-import FeeHeads from './pages/FeeHeads';
 
 const theme = createTheme({
   palette: {
@@ -70,30 +65,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organizations"
-            element={
-              <ProtectedRoute>
-                <Organizations />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organizations/new"
-            element={
-              <ProtectedRoute>
-                <OrganizationForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organizations/edit/:id"
-            element={
-              <ProtectedRoute>
-                <OrganizationForm />
               </ProtectedRoute>
             }
           />
@@ -214,30 +185,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <GroupForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/student-promotion"
-            element={
-              <ProtectedRoute>
-                <StudentPromotion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/fee-management"
-            element={
-              <ProtectedRoute>
-                <FeeManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/fee-heads"
-            element={
-              <ProtectedRoute>
-                <FeeHeads />
               </ProtectedRoute>
             }
           />
@@ -379,10 +326,10 @@ function App() {
             }
           />
           <Route
-            path="/financial"
+            path="/fee-management"
             element={
               <ProtectedRoute>
-                <Financial />
+                <FeeManagement />
               </ProtectedRoute>
             }
           />

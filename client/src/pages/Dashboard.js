@@ -55,7 +55,6 @@ import axios from 'axios';
 import ActivityFeed from '../components/dashboard/ActivityFeed';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
-import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const Dashboard = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -141,8 +140,6 @@ const Dashboard = () => {
     { name: 'HR Management', icon: <People />, color: '#667eea', route: null },
     { name: 'Library', icon: <LocalLibrary />, color: '#f093fb', route: null },
     { name: 'Assets Management', icon: <Inventory />, color: '#4facfe', route: null },
-    { name: 'Finance Management', icon: <AccountBalance />, color: '#43e97b', route: '/financial' },
-    { name: 'Organizations', icon: <Business />, color: '#4facfe', route: '/organizations' },
     { name: 'User & Privilege', icon: <SupervisorAccount />, color: '#feca57', route: '/users' },
     { name: 'Configuration', icon: <Settings />, color: '#fa709a', route: '/settings' },
     { name: 'Transport', icon: <DirectionsBus />, color: '#ee5a6f', route: null },
@@ -289,13 +286,13 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <Box sx={{ mb: { xs: 3, sm: 4 } }}>
           <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
-            Welcome back, {capitalizeFirstOnly(user.name || 'Admin')}!
+            Welcome back, {user.name || 'Admin'}!
           </Typography>
           {selectedInstitution && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Business sx={{ fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="h6" color="primary" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                {capitalizeFirstOnly(selectedInstitution.name || '')}
+                {selectedInstitution.name}
               </Typography>
               <Chip
                 label={selectedInstitution.type}
@@ -661,22 +658,6 @@ const Dashboard = () => {
                   <Divider sx={{ mb: { xs: 2, sm: 2 } }} />
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      onClick={() => navigate('/organizations')}
-                      startIcon={<Business sx={{ fontSize: { xs: 18, sm: 20 } }} />}
-                      sx={{
-                        background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                        py: { xs: 1.2, sm: 1.5 },
-                        fontSize: { xs: '0.875rem', sm: '1rem' },
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #3d8fe0 0%, #00d9e0 100%)',
-                        }
-                      }}
-                    >
-                      Manage Organizations
-                    </Button>
                     <Button
                       variant="contained"
                       fullWidth

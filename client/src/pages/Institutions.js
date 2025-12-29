@@ -27,35 +27,19 @@ import {
   ToggleOn,
   ToggleOff,
 } from '@mui/icons-material';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const Institutions = () => {
   const navigate = useNavigate();
   const [institutions, setInstitutions] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrganization, setSelectedOrganization] = useState('');
 
   useEffect(() => {
-    fetchOrganizations();
     fetchInstitutions();
   }, []);
-
-  const fetchOrganizations = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/v1/organizations', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setOrganizations(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching organizations:', err);
-    }
-  };
 
   const fetchInstitutions = async () => {
     try {
@@ -91,13 +75,10 @@ const Institutions = () => {
     }
   };
 
-  const filteredInstitutions = institutions.filter((inst) => {
-    const matchesSearch = inst.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inst.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesOrganization = !selectedOrganization || 
-      (inst.organization && inst.organization._id === selectedOrganization);
-    return matchesSearch && matchesOrganization;
-  });
+  const filteredInstitutions = institutions.filter((inst) =>
+    inst.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inst.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -138,37 +119,21 @@ const Institutions = () => {
           </Alert>
         )}
 
-        {/* Search and Filter */}
-        <Box display="flex" gap={2} sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Search by name or code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Filter by Organization</InputLabel>
-            <Select
-              value={selectedOrganization}
-              onChange={(e) => setSelectedOrganization(e.target.value)}
-              label="Filter by Organization"
-            >
-              <MenuItem value="">All Organizations</MenuItem>
-              {organizations.map((org) => (
-                <MenuItem key={org._id} value={org._id}>
-                  {org.name} ({org.code})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
+        {/* Search */}
+        <TextField
+          fullWidth
+          placeholder="Search by name or code..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ mb: 3 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+        />
 
         {/* Table */}
         <TableContainer>
@@ -177,7 +142,6 @@ const Institutions = () => {
               <TableRow>
                 <TableCell><strong>Code</strong></TableCell>
                 <TableCell><strong>Name</strong></TableCell>
-                <TableCell><strong>Organization</strong></TableCell>
                 <TableCell><strong>Type</strong></TableCell>
                 <TableCell><strong>Location</strong></TableCell>
                 <TableCell><strong>Students</strong></TableCell>
@@ -189,7 +153,7 @@ const Institutions = () => {
             <TableBody>
               {filteredInstitutions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Box py={4}>
                       <Typography variant="body2" color="text.secondary">
                         No institutions found
@@ -212,14 +176,6 @@ const Institutions = () => {
                         )}
                         <Typography variant="body2">{institution.name}</Typography>
                       </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={institution.organization?.name || 'N/A'}
-                        size="small"
-                        color="secondary"
-                        variant="outlined"
-                      />
                     </TableCell>
                     <TableCell>
                       <Chip

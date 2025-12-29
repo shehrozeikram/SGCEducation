@@ -2,19 +2,25 @@ const feeHeadService = require('../services/feeHead.service');
 const { asyncHandler } = require('../middleware/error.middleware');
 
 /**
+ * Fee Head Controller - Handles HTTP requests for fee head management
+ */
+
+/**
  * @route   GET /api/v1/fee-heads
  * @desc    Get all fee heads
  * @access  Private
  */
 const getFeeHeads = asyncHandler(async (req, res) => {
-  const filters = {
-    institution: req.query.institution,
-    search: req.query.search
-  };
+  const { institution, isActive, search } = req.query;
 
-  const feeHeads = await feeHeadService.getAllFeeHeads(filters, req.user);
+  const feeHeads = await feeHeadService.getAllFeeHeads(
+    { institution, isActive, search },
+    req.user
+  );
+
   res.json({
     success: true,
+    count: feeHeads.length,
     data: feeHeads
   });
 });
@@ -25,7 +31,11 @@ const getFeeHeads = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const getFeeHeadById = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.getFeeHeadById(req.params.id, req.user);
+  const feeHead = await feeHeadService.getFeeHeadById(
+    req.params.id,
+    req.user
+  );
+
   res.json({
     success: true,
     data: feeHead
@@ -34,11 +44,15 @@ const getFeeHeadById = asyncHandler(async (req, res) => {
 
 /**
  * @route   POST /api/v1/fee-heads
- * @desc    Create fee head
- * @access  Private (Admin, Super Admin)
+ * @desc    Create new fee head
+ * @access  Private (Admin)
  */
 const createFeeHead = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.createFeeHead(req.body, req.user);
+  const feeHead = await feeHeadService.createFeeHead(
+    req.body,
+    req.user
+  );
+
   res.status(201).json({
     success: true,
     message: 'Fee head created successfully',
@@ -49,10 +63,15 @@ const createFeeHead = asyncHandler(async (req, res) => {
 /**
  * @route   PUT /api/v1/fee-heads/:id
  * @desc    Update fee head
- * @access  Private (Admin, Super Admin)
+ * @access  Private (Admin)
  */
 const updateFeeHead = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.updateFeeHead(req.params.id, req.body, req.user);
+  const feeHead = await feeHeadService.updateFeeHead(
+    req.params.id,
+    req.body,
+    req.user
+  );
+
   res.json({
     success: true,
     message: 'Fee head updated successfully',
@@ -62,41 +81,55 @@ const updateFeeHead = asyncHandler(async (req, res) => {
 
 /**
  * @route   DELETE /api/v1/fee-heads/:id
- * @desc    Delete fee head
- * @access  Private (Admin, Super Admin)
+ * @desc    Delete fee head (soft delete)
+ * @access  Private (Admin)
  */
 const deleteFeeHead = asyncHandler(async (req, res) => {
-  await feeHeadService.deleteFeeHead(req.params.id, req.user);
-  res.json({
-    success: true,
-    message: 'Fee head deleted successfully'
-  });
-});
+  const result = await feeHeadService.deleteFeeHead(
+    req.params.id,
+    req.user
+  );
 
-/**
- * @route   GET /api/v1/fee-heads/priorities/available
- * @desc    Get available priorities
- * @access  Private
- */
-const getAvailablePriorities = asyncHandler(async (req, res) => {
-  const priorities = await feeHeadService.getAvailablePriorities(req.user);
   res.json({
     success: true,
-    data: priorities
+    message: result.message
   });
 });
 
 /**
  * @route   PUT /api/v1/fee-heads/:id/reactivate
  * @desc    Reactivate fee head
- * @access  Private (Admin, Super Admin)
+ * @access  Private (Admin)
  */
 const reactivateFeeHead = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.reactivateFeeHead(req.params.id, req.user);
+  const feeHead = await feeHeadService.reactivateFeeHead(
+    req.params.id,
+    req.user
+  );
+
   res.json({
     success: true,
     message: 'Fee head reactivated successfully',
     data: feeHead
+  });
+});
+
+/**
+ * @route   GET /api/v1/fee-heads/priorities/available
+ * @desc    Get available priorities for fee heads
+ * @access  Private
+ */
+const getAvailablePriorities = asyncHandler(async (req, res) => {
+  const { institution } = req.query;
+
+  const priorities = await feeHeadService.getAvailablePriorities(
+    { institution },
+    req.user
+  );
+
+  res.json({
+    success: true,
+    data: priorities
   });
 });
 
@@ -106,10 +139,6 @@ module.exports = {
   createFeeHead,
   updateFeeHead,
   deleteFeeHead,
-  getAvailablePriorities,
-  reactivateFeeHead
+  reactivateFeeHead,
+  getAvailablePriorities
 };
-
-
-
-

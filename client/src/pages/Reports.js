@@ -139,7 +139,6 @@ const Reports = () => {
     const colors = {
       institution: '#667eea',
       user: '#43e97b',
-      financial: '#fa709a',
       activity: '#feca57',
       custom: '#ee5a6f'
     };
@@ -313,7 +312,6 @@ const Reports = () => {
               >
                 <MenuItem value="institution">Institution</MenuItem>
                 <MenuItem value="user">User</MenuItem>
-                <MenuItem value="financial">Financial</MenuItem>
                 <MenuItem value="activity">Activity</MenuItem>
                 <MenuItem value="custom">Custom</MenuItem>
               </Select>

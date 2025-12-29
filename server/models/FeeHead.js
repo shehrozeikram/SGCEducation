@@ -9,26 +9,23 @@ const feeHeadSchema = new mongoose.Schema({
   priority: {
     type: Number,
     required: [true, 'Please provide priority'],
+    unique: true,  // Priority is globally unique across all institutions
     min: 1
   },
   accountType: {
     type: String,
-    enum: ['Liabilities', 'Income', 'Other Income'],
-    required: [true, 'Please provide account type']
+    required: [true, 'Please provide account type'],
+    trim: true
   },
   frequencyType: {
     type: String,
-    enum: ['Monthly Fee/Annual Fee', 'Once at First Fee', 'Not Defined(e.g Paper Charges)'],
-    required: [true, 'Please provide frequency type']
-  },
-  glAccount: {
-    type: String,
-    trim: true,
-    unique: true
+    required: [true, 'Please provide frequency type'],
+    trim: true
   },
   institution: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Institution'
+    ref: 'Institution',
+    default: null  // null means shared across all institutions
   },
   isActive: {
     type: Boolean,
@@ -52,18 +49,11 @@ const feeHeadSchema = new mongoose.Schema({
 // Update timestamp on save
 feeHeadSchema.pre('save', function() {
   this.updatedAt = Date.now();
-  
-  // Generate GL Account based on priority if not set
-  if (!this.glAccount && this.priority) {
-    const priorityNum = this.priority - 1; // Priority 1 = 0, Priority 2 = 1, etc.
-    this.glAccount = `401090${priorityNum}-101090${priorityNum}`;
-  }
 });
 
 // Indexes for better query performance
 feeHeadSchema.index({ institution: 1, isActive: 1 });
-feeHeadSchema.index({ institution: 1, priority: 1 }, { unique: true }); // Priority unique per institution
-feeHeadSchema.index({ glAccount: 1 });
+feeHeadSchema.index({ priority: 1 }, { unique: true });
+feeHeadSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('FeeHead', feeHeadSchema);
-
