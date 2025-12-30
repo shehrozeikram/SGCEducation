@@ -280,6 +280,39 @@ const generateVouchers = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/v1/fees/students/without-fee-structure
+ * @desc    Get students without fee structure assigned
+ * @access  Private
+ */
+const getStudentsWithoutFeeStructure = asyncHandler(async (req, res) => {
+  const filters = {
+    institution: req.query.institution,
+    academicYear: req.query.academicYear,
+    class: req.query.class
+  };
+
+  const students = await feeService.getStudentsWithoutFeeStructure(filters, req.user);
+  res.json({
+    success: true,
+    data: students
+  });
+});
+
+/**
+ * @route   POST /api/v1/fees/assign-structure
+ * @desc    Assign fee structure to a student
+ * @access  Private (Admin, Super Admin)
+ */
+const assignFeeStructureToStudent = asyncHandler(async (req, res) => {
+  const studentFee = await feeService.assignFeeStructureToStudent(req.body, req.user);
+  res.status(201).json({
+    success: true,
+    message: 'Fee structure assigned successfully',
+    data: studentFee
+  });
+});
+
 module.exports = {
   getFeeStructures,
   getFeeStructureById,
@@ -295,7 +328,9 @@ module.exports = {
   getFeePayments,
   getFeeStatistics,
   getMiscOperationsStudents,
-  generateVouchers
+  generateVouchers,
+  getStudentsWithoutFeeStructure,
+  assignFeeStructureToStudent
 };
 
 

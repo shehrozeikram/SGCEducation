@@ -86,6 +86,26 @@ const studentFeeSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  vouchers: [{
+    month: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 12
+    },
+    year: {
+      type: Number,
+      required: true
+    },
+    generatedAt: {
+      type: Date,
+      default: Date.now
+    },
+    generatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  }],
   isActive: {
     type: Boolean,
     default: true

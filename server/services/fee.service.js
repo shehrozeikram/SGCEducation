@@ -5,6 +5,7 @@ const FeeHead = require('../models/FeeHead');
 const FeeType = require('../models/FeeType');
 const Class = require('../models/Class');
 const Admission = require('../models/Admission');
+const Student = require('../models/Student');
 const { ApiError } = require('../middleware/error.middleware');
 const { getInstitutionId } = require('../utils/userUtils');
 
@@ -401,10 +402,64 @@ class FeeService {
         const amount = parseFloat(classData.fees[feeHeadId]) || 0;
         
         // Convert fee head ID to fee type ID
-        const feeTypeId = feeHeadToFeeTypeMap[feeHeadId];
+        let feeTypeId = feeHeadToFeeTypeMap[feeHeadId];
+        
+        // If no matching fee type found, create one automatically
         if (!feeTypeId) {
-          // Skip if no matching fee type found
-          continue;
+          const feeHead = feeHeads.find(h => h._id.toString() === feeHeadId);
+          if (!feeHead) {
+            // Skip if fee head not found
+            continue;
+          }
+
+          // Create a new fee type for this fee head
+          try {
+            // First check if a fee type with this name already exists (case-insensitive)
+            let existingFeeType = await FeeType.findOne({ 
+              name: { $regex: new RegExp(`^${feeHead.name}$`, 'i') },
+              isActive: true 
+            });
+
+            if (!existingFeeType) {
+              // Generate a code from the name (uppercase, replace spaces with underscores, limit length)
+              let feeTypeCode = feeHead.name.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '').substring(0, 20);
+              
+              // Ensure code is not empty
+              if (!feeTypeCode || feeTypeCode.length === 0) {
+                feeTypeCode = `FEE_${feeHead._id.toString().substring(0, 10)}`;
+              }
+              
+              // Check if code already exists, if so, append a number
+              let finalCode = feeTypeCode;
+              let counter = 1;
+              while (await FeeType.findOne({ code: finalCode, isActive: true })) {
+                finalCode = `${feeTypeCode}_${counter}`;
+                counter++;
+                if (counter > 100) break; // Safety limit
+              }
+              
+              // Create new fee type
+              existingFeeType = await FeeType.create({
+                name: feeHead.name,
+                code: finalCode,
+                amount: 0,
+                institution: null, // Shared fee type
+                isActive: true,
+                createdBy: currentUser._id
+              });
+            }
+
+            feeTypeId = existingFeeType._id.toString();
+            // Add to map for future use in this loop
+            feeHeadToFeeTypeMap[feeHeadId] = feeTypeId;
+          } catch (error) {
+            results.errors.push({
+              class: classId,
+              feeHead: feeHeadId,
+              error: `Failed to create fee type: ${error.message}`
+            });
+            continue;
+          }
         }
 
         try {
@@ -483,8 +538,28 @@ class FeeService {
     if (filters.feeType) query.feeType = filters.feeType;
 
     const studentFees = await StudentFee.find(query)
-      .populate('student', 'name rollNumber admissionNo')
-      .populate('admission', 'admissionNo')
+      .populate({
+        path: 'student',
+        select: 'enrollmentNumber rollNumber program section status',
+        populate: {
+          path: 'user',
+          select: 'name email'
+        }
+      })
+      .populate({
+        path: 'admission',
+        select: 'applicationNumber personalInfo guardianInfo class section status',
+        populate: [
+          {
+            path: 'class',
+            select: 'name code'
+          },
+          {
+            path: 'section',
+            select: 'name code'
+          }
+        ]
+      })
       .populate('class', 'name code')
       .populate('feeType', 'name code')
       .populate('feeStructure', 'amount frequency')
@@ -560,36 +635,114 @@ class FeeService {
       failed: []
     };
 
-    // Fetch admissions for the selected students
-    const query = { _id: { $in: studentIds } };
-    if (currentUser.role !== 'super_admin') {
-      query.institution = institutionId;
-    }
+    // Get students from studentIds (these could be admission IDs or student IDs)
+    // First, try to find students by their studentId field in StudentFee
+    const studentFeeQuery = {
+      institution: institutionId,
+      isActive: true
+    };
 
-    const admissions = await Admission.find(query)
-      .populate('class', 'name')
-      .populate('section', 'name')
-      .populate('institution', 'name');
+    // Try to match by student ID or admission ID
+    const studentFees = await StudentFee.find(studentFeeQuery)
+      .populate('student', 'enrollmentNumber rollNumber')
+      .populate('admission', 'applicationNumber personalInfo rollNumber');
 
-    for (const admission of admissions) {
+    // Group student fees by student
+    const studentFeesMap = new Map();
+    studentFees.forEach(sf => {
+      const studentId = sf.student?._id || sf.student;
+      const admissionId = sf.admission?._id || sf.admission;
+      
+      if (studentId) {
+        if (!studentFeesMap.has(studentId.toString())) {
+          studentFeesMap.set(studentId.toString(), []);
+        }
+        studentFeesMap.get(studentId.toString()).push(sf);
+      }
+      
+      // Also index by admission ID
+      if (admissionId && studentIds.includes(admissionId.toString())) {
+        if (!studentFeesMap.has(admissionId.toString())) {
+          studentFeesMap.set(admissionId.toString(), []);
+        }
+        studentFeesMap.get(admissionId.toString()).push(sf);
+      }
+    });
+
+    // Process each student ID
+    for (const studentId of studentIds) {
       try {
-        // Generate voucher for the student
-        // Note: In a full implementation, you might want to create a Voucher document
-        // or update admission with voucher information
-        // For now, we'll just mark it as successful
+        // Find student fees for this student (could be by student ID or admission ID)
+        const fees = studentFeesMap.get(studentId.toString()) || [];
         
-        results.success.push({
-          studentId: admission._id,
-          name: admission.personalInfo?.name || 'N/A',
-          rollNumber: admission.rollNumber || 'N/A',
-          admissionNo: admission.applicationNumber || 'N/A',
-          month,
-          year,
-          generatedAt: new Date()
-        });
+        if (fees.length === 0) {
+          // Try to find by admission ID
+          const admission = await Admission.findById(studentId);
+          if (admission && admission.studentId) {
+            const studentFeesForStudent = await StudentFee.find({
+              student: admission.studentId,
+              institution: institutionId,
+              isActive: true
+            });
+            fees.push(...studentFeesForStudent);
+          }
+        }
+
+        if (fees.length === 0) {
+          results.failed.push({
+            studentId: studentId,
+            error: 'No fee structures found for this student'
+          });
+          continue;
+        }
+
+        // Mark vouchers as generated for all fee structures of this student
+        let voucherGenerated = false;
+        for (const fee of fees) {
+          // Check if voucher already exists for this month/year
+          const voucherExists = fee.vouchers && fee.vouchers.some(
+            v => v.month === parseInt(month) && v.year === parseInt(year)
+          );
+
+          if (!voucherExists) {
+            // Add voucher record
+            if (!fee.vouchers) {
+              fee.vouchers = [];
+            }
+            fee.vouchers.push({
+              month: parseInt(month),
+              year: parseInt(year),
+              generatedAt: new Date(),
+              generatedBy: currentUser._id
+            });
+            await fee.save();
+            voucherGenerated = true;
+          }
+        }
+
+        if (voucherGenerated) {
+          const firstFee = fees[0];
+          const student = firstFee.student;
+          const admission = firstFee.admission;
+          
+          results.success.push({
+            studentId: studentId,
+            name: admission?.personalInfo?.name || student?.user?.name || 'N/A',
+            rollNumber: student?.rollNumber || admission?.rollNumber || 'N/A',
+            admissionNo: admission?.applicationNumber || 'N/A',
+            month,
+            year,
+            generatedAt: new Date()
+          });
+        } else {
+          results.success.push({
+            studentId: studentId,
+            message: 'Voucher already generated for this month/year'
+          });
+        }
       } catch (error) {
         results.failed.push({
-          studentId: admission._id,
+          studentId: studentId,
           error: error.message
         });
       }
@@ -600,6 +753,195 @@ class FeeService {
       success: results.success.length,
       failed: results.failed.length,
       details: results
+    };
+  }
+
+  /**
+   * Get students without fee structure assigned
+   */
+  async getStudentsWithoutFeeStructure(filters = {}, currentUser) {
+    const query = { isActive: true, status: 'active' };
+
+    // Apply institution filter
+    if (currentUser.role !== 'super_admin') {
+      if (currentUser.institution) {
+        const institutionId = typeof currentUser.institution === 'object'
+          ? currentUser.institution._id
+          : currentUser.institution;
+        query.institution = institutionId;
+      }
+    } else if (filters.institution) {
+      query.institution = filters.institution;
+    }
+
+    // Apply additional filters
+    if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.class) query.program = filters.class;
+
+    // Get all active students
+    const allStudents = await Student.find(query)
+      .populate('user', 'name email')
+      .populate('admission', 'applicationNumber class section')
+      .populate('institution', 'name')
+      .sort({ createdAt: -1 });
+
+    // Get all students who have fee structures assigned
+    const academicYear = filters.academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+    const studentsWithFeeStructure = await StudentFee.find({
+      academicYear,
+      isActive: true
+    }).distinct('student');
+
+    // Filter out students who already have fee structures
+    const studentsWithoutFeeStructure = allStudents.filter(
+      student => !studentsWithFeeStructure.some(
+        studentId => studentId.toString() === student._id.toString()
+      )
+    );
+
+    // Format the response
+    return studentsWithoutFeeStructure.map(student => {
+      // Get student name from user or admission
+      let studentName = 'N/A';
+      if (student.user?.name) {
+        studentName = student.user.name;
+      } else if (student.admission?.personalInfo?.name) {
+        studentName = student.admission.personalInfo.name;
+      }
+
+      return {
+        _id: student._id,
+        name: studentName,
+        enrollmentNumber: student.enrollmentNumber || 'N/A',
+        rollNumber: student.rollNumber || 'N/A',
+        admissionNumber: student.admission?.applicationNumber || 'N/A',
+        class: student.program || student.admission?.class?.name || 'N/A',
+        section: student.section || student.admission?.section?.name || 'N/A',
+        academicYear: student.academicYear || 'N/A',
+        institution: student.institution?.name || 'N/A',
+        admission: student.admission?._id || null
+      };
+    });
+  }
+
+  /**
+   * Assign fee structure to a student (by class - assigns all fee structures for the class)
+   */
+  async assignFeeStructureToStudent(assignmentData, currentUser) {
+    const { studentId, classId, academicYear, discount = 0, discountType = 'amount', discountReason = '' } = assignmentData;
+
+    if (!studentId || !classId || !academicYear) {
+      throw new ApiError(400, 'Please provide student ID, class ID, and academic year');
+    }
+
+    // Get student
+    const student = await Student.findById(studentId)
+      .populate('admission')
+      .populate('institution');
+
+    if (!student) {
+      throw new ApiError(404, 'Student not found');
+    }
+
+    // Get student's institution ID
+    const studentInstitutionId = typeof student.institution === 'object'
+      ? student.institution._id
+      : student.institution;
+
+    // Check if student already has fee structure assigned for this academic year
+    const existingStudentFee = await StudentFee.findOne({
+      student: studentId,
+      academicYear,
+      isActive: true
+    });
+
+    if (existingStudentFee) {
+      throw new ApiError(400, 'Student already has a fee structure assigned for this academic year');
+    }
+
+    // Get all fee structures for the selected class, institution, and academic year
+    const feeStructures = await FeeStructure.find({
+      institution: studentInstitutionId,
+      class: classId,
+      academicYear,
+      isActive: true
+    })
+      .populate('class', 'name code')
+      .populate('feeType', 'name code');
+
+    if (!feeStructures || feeStructures.length === 0) {
+      throw new ApiError(404, `No fee structures found for the selected class in academic year ${academicYear}`);
+    }
+
+    // Get student's class from admission or use the selected class
+    const studentClass = student.admission?.class || classId;
+
+    // Create student fee records for all fee structures
+    const createdStudentFees = [];
+    const errors = [];
+
+    for (const feeStructure of feeStructures) {
+      try {
+        // Calculate final amount after discount
+        let finalAmount = feeStructure.amount;
+        if (discount > 0) {
+          if (discountType === 'percentage') {
+            finalAmount = feeStructure.amount - (feeStructure.amount * discount / 100);
+          } else {
+            // For amount discount, distribute it proportionally across all fee structures
+            // Calculate total amount first
+            const totalAmount = feeStructures.reduce((sum, fs) => sum + fs.amount, 0);
+            const discountPerStructure = (discount / totalAmount) * feeStructure.amount;
+            finalAmount = Math.max(0, feeStructure.amount - discountPerStructure);
+          }
+        }
+
+        // Create student fee record
+        const studentFee = await StudentFee.create({
+          institution: studentInstitutionId,
+          student: studentId,
+          admission: student.admission?._id || null,
+          feeStructure: feeStructure._id,
+          academicYear,
+          class: studentClass,
+          feeType: feeStructure.feeType,
+          amount: feeStructure.amount,
+          discount: discountType === 'percentage' ? discount : (discount / feeStructures.length),
+          discountType,
+          discountReason,
+          finalAmount,
+          paidAmount: 0,
+          dueAmount: finalAmount,
+          dueDate: feeStructure.dueDate,
+          status: 'pending',
+          createdBy: currentUser._id
+        });
+
+        const populatedStudentFee = await StudentFee.findById(studentFee._id)
+          .populate('student', 'enrollmentNumber rollNumber')
+          .populate('admission', 'applicationNumber')
+          .populate('class', 'name code')
+          .populate('feeType', 'name code')
+          .populate('feeStructure', 'amount frequency');
+
+        createdStudentFees.push(populatedStudentFee);
+      } catch (error) {
+        errors.push({
+          feeStructure: feeStructure._id,
+          feeType: feeStructure.feeType?.name || 'N/A',
+          error: error.message
+        });
+      }
+    }
+
+    if (createdStudentFees.length === 0) {
+      throw new ApiError(500, 'Failed to assign any fee structures. ' + (errors.length > 0 ? errors[0].error : ''));
+    }
+
+    return {
+      studentFees: createdStudentFees,
+      totalAssigned: createdStudentFees.length,
+      errors: errors.length > 0 ? errors : undefined
     };
   }
 }

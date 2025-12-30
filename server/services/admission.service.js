@@ -74,9 +74,14 @@ class AdmissionService {
     }
 
     // Check access permissions
-    if (currentUser.role !== 'super_admin' &&
-        admission.institution._id.toString() !== currentUser.institution?.toString()) {
-      throw new ApiError(403, 'Access denied to this admission');
+    if (currentUser.role !== 'super_admin') {
+      // Normalize institution IDs to strings for comparison
+      const admissionInstitutionId = admission.institution?._id?.toString() || admission.institution?.toString() || admission.institution;
+      const userInstitutionId = currentUser.institution?._id?.toString() || currentUser.institution?.toString() || currentUser.institution;
+      
+      if (admissionInstitutionId && userInstitutionId && admissionInstitutionId.toString() !== userInstitutionId.toString()) {
+        throw new ApiError(403, 'Access denied to this admission');
+      }
     }
 
     return admission;

@@ -66,7 +66,7 @@ const FeeManagement = () => {
   const [success, setSuccess] = useState('');
 
   // Tab name mappings
-  const tabNames = ['fee-heads', 'fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit'];
+  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit'];
   const miscSubTabNames = ['student-operations', 'generate-voucher'];
   const feeDepositSubTabNames = ['manual', 'voucher'];
 
@@ -83,10 +83,10 @@ const FeeManagement = () => {
   const getSubTabFromURL = (tabIndex) => {
     const subtabParam = searchParams.get('subtab');
     if (subtabParam) {
-      if (tabIndex === 2) { // misc-operations
+      if (tabIndex === 3) { // misc-operations
         const subtabIndex = miscSubTabNames.indexOf(subtabParam);
         return subtabIndex >= 0 ? subtabIndex : 0;
-      } else if (tabIndex === 4) { // fee-deposit
+      } else if (tabIndex === 5) { // fee-deposit
         const subtabIndex = feeDepositSubTabNames.indexOf(subtabParam);
         return subtabIndex >= 0 ? subtabIndex : 0;
       }
@@ -95,8 +95,8 @@ const FeeManagement = () => {
   };
 
   const [activeTab, setActiveTab] = useState(getTabFromURL());
-  const [feeDepositSubTab, setFeeDepositSubTab] = useState(getSubTabFromURL(4));
-  const [miscFeeSubTab, setMiscFeeSubTab] = useState(getSubTabFromURL(2));
+  const [feeDepositSubTab, setFeeDepositSubTab] = useState(getSubTabFromURL(5));
+  const [miscFeeSubTab, setMiscFeeSubTab] = useState(getSubTabFromURL(3));
 
   // Update URL when tabs change
   const updateURL = (tabIndex, subtabIndex = null) => {
@@ -104,9 +104,9 @@ const FeeManagement = () => {
     params.set('tab', tabNames[tabIndex]);
     
     if (subtabIndex !== null) {
-      if (tabIndex === 2) { // misc-operations
+      if (tabIndex === 3) { // misc-operations
         params.set('subtab', miscSubTabNames[subtabIndex]);
-      } else if (tabIndex === 4) { // fee-deposit
+      } else if (tabIndex === 5) { // fee-deposit
         params.set('subtab', feeDepositSubTabNames[subtabIndex]);
       }
     }
@@ -123,13 +123,13 @@ const FeeManagement = () => {
   // Handle misc fee sub-tab change
   const handleMiscFeeSubTabChange = (event, newValue) => {
     setMiscFeeSubTab(newValue);
-    updateURL(2, newValue);
+    updateURL(3, newValue);
   };
 
   // Handle fee deposit sub-tab change
   const handleFeeDepositSubTabChange = (event, newValue) => {
     setFeeDepositSubTab(newValue);
-    updateURL(4, newValue);
+    updateURL(5, newValue);
   };
 
   // Initialize URL on mount if no params exist
@@ -149,9 +149,9 @@ const FeeManagement = () => {
       setActiveTab(tabFromURL);
     }
     
-    if (tabFromURL === 2 && subtabFromURL !== miscFeeSubTab) {
+    if (tabFromURL === 3 && subtabFromURL !== miscFeeSubTab) {
       setMiscFeeSubTab(subtabFromURL);
-    } else if (tabFromURL === 4 && subtabFromURL !== feeDepositSubTab) {
+    } else if (tabFromURL === 5 && subtabFromURL !== feeDepositSubTab) {
       setFeeDepositSubTab(subtabFromURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,7 +184,7 @@ const FeeManagement = () => {
 
   // Generate Voucher
   const [generateVoucherFilters, setGenerateVoucherFilters] = useState({
-    monthYear: `${new Date().getMonth() + 1}-${new Date().getFullYear()}`,
+    monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, // Format: YYYY-MM for month input
     enrolled: []
   });
   const [generateVoucherStudents, setGenerateVoucherStudents] = useState([]);
@@ -216,7 +216,7 @@ const FeeManagement = () => {
 
   // Print Voucher
   const [printVoucherFilters, setPrintVoucherFilters] = useState({
-    monthYear: `${new Date().getMonth() + 1}-${new Date().getFullYear()}`,
+    monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, // Format: YYYY-MM for month input
     enrolled: []
   });
   const [printVoucherStudents, setPrintVoucherStudents] = useState([]);
@@ -224,6 +224,20 @@ const FeeManagement = () => {
   const [selectedVoucherStudent, setSelectedVoucherStudent] = useState(null);
   const [voucherData, setVoucherData] = useState(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
+
+  // Assign Fee Structure
+  const [studentsWithoutFeeStructure, setStudentsWithoutFeeStructure] = useState([]);
+  const [assignFeeStructureLoading, setAssignFeeStructureLoading] = useState(false);
+  const [assignFeeStructureDialog, setAssignFeeStructureDialog] = useState(false);
+  const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState(null);
+  const [availableClasses, setAvailableClasses] = useState([]);
+  const [assignFeeStructureForm, setAssignFeeStructureForm] = useState({
+    classId: '',
+    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+    discount: 0,
+    discountType: 'amount',
+    discountReason: ''
+  });
 
   // Manual Fee Deposit
   const [manualDepositSearch, setManualDepositSearch] = useState({
@@ -684,86 +698,241 @@ const FeeManagement = () => {
   const fetchPrintVoucherStudents = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
-      const institutionId = user.institution?._id || user.institution;
+      const institutionId = getInstitutionId();
 
+      if (!institutionId) {
+        setError('Institution not found');
+        setLoading(false);
+        return;
+      }
+
+      // Calculate month and year from filter
+      let month, year;
+      if (printVoucherFilters.monthYear) {
+        const parts = printVoucherFilters.monthYear.split('-');
+        if (parts[0].length === 4) {
+          // Format: YYYY-MM
+          year = parseInt(parts[0]);
+          month = parseInt(parts[1]);
+        } else {
+          // Format: M-YYYY
+          month = parseInt(parts[0]);
+          year = parseInt(parts[1]);
+        }
+      } else {
+        // Default to current month/year
+        const now = new Date();
+        month = now.getMonth() + 1;
+        year = now.getFullYear();
+      }
+
+      // Fetch students with generated vouchers for the selected month/year
       const params = {
         institution: institutionId
       };
 
-      if (printVoucherFilters.enrolled && printVoucherFilters.enrolled.length > 0) {
-        params.status = printVoucherFilters.enrolled;
-      }
-
-      const response = await axios.get(`${API_URL}/admissions`, {
+      const response = await axios.get(`${API_URL}/fees/student-fees`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: params,
-        paramsSerializer: { indexes: null }
+        params
       });
 
-      const admissions = response.data.data || [];
-      const transformedStudents = admissions.map(admission => ({
-        _id: admission._id,
-        id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
-        rollNumber: admission.rollNumber || 'N/A',
-        admissionNo: admission.applicationNumber || 'N/A',
-        name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-          ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-          : admission.personalInfo?.firstName || 'N/A',
-        fatherName: admission.personalInfo?.fatherName || 'N/A',
-        class: admission.class?.name || 'N/A',
-        section: admission.section?.name || 'N/A',
-        status: admission.status || 'pending',
-        voucherStatus: 'Pending',
-        printStatus: 'Not Printed'
-      }));
+      const studentFees = response.data.data || [];
+      
+      // Filter to only include students with vouchers for the selected month/year
+      const studentsWithVouchers = studentFees.filter(sf => 
+        sf.vouchers && sf.vouchers.some(v => v.month === month && v.year === year)
+      );
+
+      // Get unique students
+      const uniqueStudentsMap = new Map();
+      
+      studentsWithVouchers.forEach(studentFee => {
+        const studentId = studentFee.student?._id || studentFee.student;
+        if (studentId && !uniqueStudentsMap.has(studentId.toString())) {
+          const student = studentFee.student;
+          const admission = studentFee.admission;
+          
+          // Get student name
+          let studentName = 'N/A';
+          if (admission?.personalInfo?.name) {
+            studentName = admission.personalInfo.name;
+          } else if (student?.user?.name) {
+            studentName = student.user.name;
+          } else if (admission?.personalInfo?.firstName) {
+            const lastName = admission.personalInfo.lastName || '';
+            studentName = `${admission.personalInfo.firstName} ${lastName}`.trim();
+          }
+
+          uniqueStudentsMap.set(studentId.toString(), {
+            _id: admission?._id || studentId,
+            studentId: studentId,
+            id: student?.enrollmentNumber || student?.rollNumber || admission?.applicationNumber || 'N/A',
+            rollNumber: student?.rollNumber || admission?.rollNumber || 'N/A',
+            admissionNo: admission?.applicationNumber || student?.enrollmentNumber || 'N/A',
+            name: studentName,
+            fatherName: admission?.guardianInfo?.fatherName || 'N/A',
+            class: studentFee.class?.name || admission?.class?.name || 'N/A',
+            section: admission?.section?.name || 'N/A',
+            status: student?.status || admission?.status || 'active',
+            voucherStatus: 'Generated',
+            printStatus: 'Not Printed'
+          });
+        }
+      });
+
+      const transformedStudents = Array.from(uniqueStudentsMap.values());
       setPrintVoucherStudents(transformedStudents);
+      
+      if (transformedStudents.length === 0) {
+        setError(`No students found with generated vouchers for ${month}/${year}`);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch students');
+      console.error('Error fetching students with generated vouchers:', err);
+      setError(err.response?.data?.message || 'Failed to fetch students with generated vouchers');
+      setPrintVoucherStudents([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch generate voucher students
+  // Fetch generate voucher students (students with assigned fee structures)
   const fetchGenerateVoucherStudents = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
-      const institutionId = user.institution?._id || user.institution;
+      const institutionId = getInstitutionId();
 
-      const params = {
-        institution: institutionId
-      };
-
-      if (generateVoucherFilters.enrolled && generateVoucherFilters.enrolled.length > 0) {
-        params.status = generateVoucherFilters.enrolled;
+      if (!institutionId) {
+        setError('Institution not found');
+        setLoading(false);
+        return;
       }
 
-      const response = await axios.get(`${API_URL}/admissions`, {
+      // Calculate academic year from monthYear filter
+      // monthYear format can be "YYYY-MM" (from month input) or "M-YYYY" (from old format)
+      let academicYear = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+      if (generateVoucherFilters.monthYear) {
+        const parts = generateVoucherFilters.monthYear.split('-');
+        if (parts.length === 2) {
+          // Check if it's "YYYY-MM" format (from month input)
+          if (parts[0].length === 4) {
+            const yearNum = parseInt(parts[0]);
+            academicYear = `${yearNum}-${yearNum + 1}`;
+          } else {
+            // Old format "M-YYYY"
+            const yearNum = parseInt(parts[1]);
+            academicYear = `${yearNum}-${yearNum + 1}`;
+          }
+        }
+      }
+
+      // Fetch students with fee structures assigned
+      const params = {
+        institution: institutionId
+        // Note: academicYear is optional - if not provided, will return all student fees for the institution
+      };
+      
+      // Only add academicYear if we have a valid one
+      if (academicYear) {
+        params.academicYear = academicYear;
+      }
+
+      const response = await axios.get(`${API_URL}/fees/student-fees`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: params,
-        paramsSerializer: { indexes: null }
+        params
       });
 
-      const admissions = response.data.data || [];
-      const transformedStudents = admissions.map(admission => ({
-        _id: admission._id,
-        id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
-        rollNumber: admission.rollNumber || 'N/A',
-        admissionNo: admission.applicationNumber || 'N/A',
-        name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-          ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-          : admission.personalInfo?.firstName || 'N/A',
-        fatherName: admission.personalInfo?.fatherName || 'N/A',
-        class: admission.class?.name || 'N/A',
-        section: admission.section?.name || 'N/A',
-        status: admission.status || 'pending',
-        voucherStatus: admission.voucherStatus || 'Not Generated'
-      }));
+      const studentFees = response.data.data || [];
+      
+      if (studentFees.length === 0) {
+        setGenerateVoucherStudents([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Get unique students from student fees
+      const uniqueStudentsMap = new Map();
+      
+      studentFees.forEach(studentFee => {
+        const studentId = studentFee.student?._id || studentFee.student;
+        if (studentId && !uniqueStudentsMap.has(studentId.toString())) {
+          const student = studentFee.student;
+          const admission = studentFee.admission;
+          
+          // Get student name - Student model has user reference, not direct name
+          // We'll need to get it from admission or user
+          let studentName = 'N/A';
+          if (admission?.personalInfo?.name) {
+            studentName = admission.personalInfo.name;
+          } else if (student?.user?.name) {
+            studentName = student.user.name;
+          } else if (admission?.personalInfo?.firstName) {
+            const lastName = admission.personalInfo.lastName || '';
+            studentName = `${admission.personalInfo.firstName} ${lastName}`.trim();
+          }
+
+          // Check if voucher exists for the selected month/year
+          let voucherStatus = 'Not Generated';
+          if (generateVoucherFilters.monthYear) {
+            let monthNum, yearNum;
+            const parts = generateVoucherFilters.monthYear.split('-');
+            if (parts[0].length === 4) {
+              // Format: YYYY-MM
+              yearNum = parseInt(parts[0]);
+              monthNum = parseInt(parts[1]);
+            } else {
+              // Format: M-YYYY
+              monthNum = parseInt(parts[0]);
+              yearNum = parseInt(parts[1]);
+            }
+            
+            // Check all student fees for this student to see if any have a voucher for this month/year
+            const allStudentFees = studentFees.filter(sf => {
+              const sfStudentId = sf.student?._id || sf.student;
+              return sfStudentId && sfStudentId.toString() === studentId.toString();
+            });
+            
+            const hasVoucher = allStudentFees.some(sf => 
+              sf.vouchers && sf.vouchers.some(v => 
+                v.month === monthNum && v.year === yearNum
+              )
+            );
+            
+            if (hasVoucher) {
+              voucherStatus = 'Generated';
+            }
+          }
+
+          uniqueStudentsMap.set(studentId.toString(), {
+            _id: admission?._id || studentId, // Use admission ID if available for voucher generation
+            studentId: studentId, // Keep student ID reference
+            id: student?.enrollmentNumber || student?.rollNumber || admission?.applicationNumber || 'N/A',
+            rollNumber: student?.rollNumber || admission?.rollNumber || 'N/A',
+            admissionNo: admission?.applicationNumber || student?.enrollmentNumber || 'N/A',
+            name: studentName,
+            fatherName: admission?.guardianInfo?.fatherName || 'N/A',
+            class: studentFee.class?.name || admission?.class?.name || 'N/A',
+            section: admission?.section?.name || 'N/A',
+            status: student?.status || admission?.status || 'active',
+            voucherStatus: voucherStatus
+          });
+        }
+      });
+
+      // Convert map to array
+      const transformedStudents = Array.from(uniqueStudentsMap.values());
       setGenerateVoucherStudents(transformedStudents);
+      
+      if (transformedStudents.length === 0) {
+        setError('No students found with fee structures assigned for the selected academic year');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch students');
+      console.error('Error fetching students with fee structures:', err);
+      setError(err.response?.data?.message || 'Failed to fetch students with fee structures');
+      setGenerateVoucherStudents([]);
     } finally {
       setLoading(false);
     }
@@ -778,8 +947,21 @@ const FeeManagement = () => {
 
     try {
       setGenerateVoucherLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
-      const [month, year] = generateVoucherFilters.monthYear.split('-');
+      
+      // Handle month/year format (could be YYYY-MM or M-YYYY)
+      let month, year;
+      const monthYearParts = generateVoucherFilters.monthYear.split('-');
+      if (monthYearParts[0].length === 4) {
+        // Format: YYYY-MM
+        year = parseInt(monthYearParts[0]);
+        month = parseInt(monthYearParts[1]);
+      } else {
+        // Format: M-YYYY
+        month = parseInt(monthYearParts[0]);
+        year = parseInt(monthYearParts[1]);
+      }
 
       const studentIds = selectedGenerateVoucherStudents.map(s => s._id);
 
@@ -788,8 +970,8 @@ const FeeManagement = () => {
         `${API_URL}/fees/generate-vouchers`,
         {
           studentIds: studentIds,
-          month: parseInt(month),
-          year: parseInt(year)
+          month: month,
+          year: year
         },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -926,6 +1108,7 @@ const FeeManagement = () => {
     try {
       setVoucherLoading(true);
       const token = localStorage.getItem('token');
+      const institutionId = getInstitutionId();
 
       const admissionResponse = await axios.get(`${API_URL}/admissions/${student._id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -936,99 +1119,130 @@ const FeeManagement = () => {
         throw new Error('Admission not found');
       }
 
-      const [month, year] = monthYear.split('-');
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      // Parse month/year - handle both YYYY-MM and M-YYYY formats
+      let month, year;
+      const parts = monthYear.split('-');
+      if (parts[0].length === 4) {
+        // Format: YYYY-MM
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]);
+      } else {
+        // Format: M-YYYY
+        month = parseInt(parts[0]);
+        year = parseInt(parts[1]);
+      }
+
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
       let feeHeads = [];
       let totalAmount = 0;
       let lateFeeFine = 0;
       let absentFine = 0;
       let arrears = 0;
-      let dueDate = new Date(parseInt(year), parseInt(month), 20);
+      let dueDate = new Date(year, month, 20); // Default to 20th of the month
+      let studentFees = []; // Declare outside try block for use later
 
+      // Get student ID from admission
+      const studentId = admission.studentId?._id || admission.studentId;
+
+      // Fetch student fees for this student
       try {
-        const institutionId = user.institution?._id || user.institution;
-        const academicYear = admission.academicYear || new Date().getFullYear().toString();
-
-        const matrixResponse = await axios.get(`${API_URL}/fees/structure-matrix`, {
+        const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, {
           headers: { Authorization: `Bearer ${token}` },
           params: {
             institution: institutionId,
-            academicYear: academicYear
+            student: studentId
           }
         });
 
-        const matrix = matrixResponse.data.data;
+        studentFees = feeResponse.data.data || [];
+        
+        // Filter fees for the selected month/year based on due date
+        // Include fees that are due in the selected month OR fees that don't have a specific due date (one-time/annual fees)
+        const monthFees = studentFees.filter(fee => {
+          if (!fee.dueDate) {
+            // Include fees without due date (they might be annual/one-time fees)
+            return true;
+          }
+          const feeDate = new Date(fee.dueDate);
+          // Include fees due in the selected month/year
+          return feeDate >= startDate && feeDate <= endDate;
+        });
 
-        if (matrix && matrix.matrix && admission.class) {
-          const classId = admission.class._id || admission.class;
-          const classRow = matrix.matrix.find(row =>
-            row.classId?.toString() === classId.toString() ||
-            row.class?._id?.toString() === classId.toString()
+        // Group fees by fee type and calculate totals
+        const feeHeadMap = {};
+        monthFees.forEach(fee => {
+          const feeTypeName = fee.feeType?.name || 'Fee';
+          if (!feeHeadMap[feeTypeName]) {
+            feeHeadMap[feeTypeName] = 0;
+          }
+          // Use finalAmount (after discount) if available, otherwise use amount
+          feeHeadMap[feeTypeName] += fee.finalAmount || fee.amount || 0;
+        });
+        
+        // Also check if there are any fees that might be due in a different month but should be shown
+        // For example, transport fee might be annual or have a different due date
+        // Let's include all active fees for the student that haven't been paid
+        const allUnpaidFees = studentFees.filter(f => 
+          f.status !== 'paid' && 
+          (f.status === 'pending' || f.status === 'overdue' || f.status === 'partial')
+        );
+        
+        // Add any fees that weren't already included (like transport fee with different due date)
+        allUnpaidFees.forEach(fee => {
+          const feeTypeName = fee.feeType?.name || 'Fee';
+          // Only add if not already in the map (to avoid duplicates)
+          if (!feeHeadMap[feeTypeName]) {
+            feeHeadMap[feeTypeName] = 0;
+          }
+          // Add the fee amount if it's not already counted
+          const alreadyIncluded = monthFees.some(mf => 
+            mf._id?.toString() === fee._id?.toString()
           );
+          if (!alreadyIncluded) {
+            feeHeadMap[feeTypeName] += fee.finalAmount || fee.amount || 0;
+          }
+        });
 
-          if (classRow && classRow.fees) {
-            const feeHeadMap = {};
-            if (matrix.feeHeads && Array.isArray(matrix.feeHeads)) {
-              matrix.feeHeads.forEach(head => {
-                feeHeadMap[head._id] = head.name;
-              });
-            }
+        // Convert to array
+        feeHeads = Object.entries(feeHeadMap)
+          .map(([name, amount]) => ({
+            name: name,
+            amount: amount || 0
+          }))
+          .filter(h => h.amount > 0);
 
-            feeHeads = Object.entries(classRow.fees)
-              .filter(([headId, amount]) => amount > 0)
-              .map(([headId, amount]) => ({
-                name: feeHeadMap[headId] || 'Fee Head',
-                amount: amount || 0
-              }));
-
-            totalAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
+        // Get due date from first fee
+        if (monthFees.length > 0) {
+          const firstFee = monthFees[0];
+          if (firstFee.dueDate) {
+            dueDate = new Date(firstFee.dueDate);
           }
         }
 
-        try {
-          const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: {
-              student: admission.studentId?._id || admission.studentId,
-              admission: student._id
-            }
-          });
+        // Calculate arrears (unpaid fees before the selected month)
+        const unpaidFees = studentFees.filter(f => {
+          if (!f.dueDate || f.status === 'paid') return false;
+          const feeDate = new Date(f.dueDate);
+          return feeDate < startDate && (f.status === 'pending' || f.status === 'overdue' || f.status === 'partial');
+        });
+        arrears = unpaidFees.reduce((sum, f) => sum + (f.dueAmount || 0), 0);
 
-          const studentFees = feeResponse.data.data || [];
-          const monthFees = studentFees.filter(fee => {
-            if (!fee.dueDate) return false;
-            const feeDate = new Date(fee.dueDate);
-            return feeDate >= startDate && feeDate <= endDate;
-          });
-
-          if (monthFees.length > 0) {
-            const firstFee = monthFees[0];
-            if (firstFee.dueDate) {
-              dueDate = new Date(firstFee.dueDate);
-            }
-
-            const unpaidFees = studentFees.filter(f => {
-              if (!f.dueDate || f.status === 'paid') return false;
-              const feeDate = new Date(f.dueDate);
-              return feeDate < startDate;
-            });
-            arrears = unpaidFees.reduce((sum, f) => sum + (f.dueAmount || 0), 0);
-
-            const now = new Date();
-            if (dueDate < now) {
-              lateFeeFine = 200;
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching student fees:', err);
+        // Calculate late fee fine if due date has passed
+        const now = new Date();
+        if (dueDate < now) {
+          // Calculate days overdue
+          const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+          lateFeeFine = Math.max(0, daysOverdue * 50); // Rs. 50 per day (adjust as needed)
         }
 
+        totalAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
       } catch (err) {
-        console.error('Error fetching fee structure matrix:', err);
+        console.error('Error fetching student fees:', err);
       }
 
+      // If no fees found, set default
       if (feeHeads.length === 0) {
         feeHeads = [
           { name: 'Tuition Fee', amount: 0 }
@@ -1040,9 +1254,33 @@ const FeeManagement = () => {
       const payableWithinDueDate = tuitionFee + arrears;
       const payableAfterDueDate = payableWithinDueDate + lateFeeFine + absentFine;
 
+      // Format dates correctly
       const issueDate = new Date().toISOString().split('T')[0];
       const formattedDueDate = dueDate.toISOString().split('T')[0];
-      const validDate = new Date(parseInt(year), parseInt(month), 31).toISOString().split('T')[0];
+      // Valid date should be end of the month
+      const lastDayOfMonth = new Date(year, month, 0).getDate();
+      const validDate = new Date(year, month - 1, lastDayOfMonth).toISOString().split('T')[0];
+
+      // Get student name - use personalInfo.name (single field)
+      let studentName = 'N/A';
+      if (admission.personalInfo?.name) {
+        studentName = admission.personalInfo.name;
+      } else if (admission.studentId?.user?.name) {
+        studentName = admission.studentId.user.name;
+      }
+
+      // Get class and section from admission or student fees
+      let className = 'N/A';
+      let sectionName = 'N/A';
+      if (admission.class?.name) {
+        className = admission.class.name;
+      } else if (studentFees && studentFees.length > 0 && studentFees[0].class?.name) {
+        className = studentFees[0].class.name;
+      }
+      
+      if (admission.section?.name) {
+        sectionName = admission.section.name;
+      }
 
       return {
         voucherNo: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
@@ -1053,12 +1291,10 @@ const FeeManagement = () => {
         dueDate: formattedDueDate,
         studentId: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
         admissionNo: admission.applicationNumber || 'N/A',
-        name: admission.personalInfo?.firstName && admission.personalInfo?.lastName
-          ? `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`
-          : admission.personalInfo?.firstName || 'N/A',
-        fatherName: admission.personalInfo?.fatherName || admission.guardianInfo?.fatherName || 'N/A',
-        class: admission.class?.name || 'N/A',
-        section: admission.section?.name || 'N/A',
+        name: studentName,
+        fatherName: admission.guardianInfo?.fatherName || 'N/A',
+        class: className,
+        section: sectionName,
         feeHeads: [
           ...feeHeads.filter(h => !h.name.toLowerCase().includes('arrears') &&
                                   !h.name.toLowerCase().includes('fine')),
@@ -1076,6 +1312,128 @@ const FeeManagement = () => {
       return null;
     } finally {
       setVoucherLoading(false);
+    }
+  };
+
+  // Fetch students without fee structure
+  const fetchStudentsWithoutFeeStructure = async () => {
+    try {
+      setAssignFeeStructureLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      const institutionId = getInstitutionId();
+
+      const params = {
+        institution: institutionId,
+        academicYear: assignFeeStructureForm.academicYear
+      };
+
+      const response = await axios.get(`${API_URL}/fees/students/without-fee-structure`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+
+      setStudentsWithoutFeeStructure(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching students without fee structure:', err);
+      setError(err.response?.data?.message || 'Failed to fetch students without fee structure');
+    } finally {
+      setAssignFeeStructureLoading(false);
+    }
+  };
+
+  // Fetch available classes for assignment
+  const fetchAvailableClasses = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const institutionId = getInstitutionId();
+
+      const params = {
+        institution: institutionId,
+        academicYear: assignFeeStructureForm.academicYear,
+        isActive: true
+      };
+
+      const response = await axios.get(`${API_URL}/classes`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+
+      setAvailableClasses(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching classes:', err);
+      setError(err.response?.data?.message || 'Failed to fetch classes');
+    }
+  };
+
+  // Handle open assign fee structure dialog
+  const handleOpenAssignFeeStructureDialog = async (student) => {
+    setSelectedStudentForAssignment(student);
+    setAssignFeeStructureForm({
+      classId: '',
+      academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+      discount: 0,
+      discountType: 'amount',
+      discountReason: ''
+    });
+    await fetchAvailableClasses();
+    setAssignFeeStructureDialog(true);
+  };
+
+  // Handle close assign fee structure dialog
+  const handleCloseAssignFeeStructureDialog = () => {
+    setAssignFeeStructureDialog(false);
+    setSelectedStudentForAssignment(null);
+    setAssignFeeStructureForm({
+      classId: '',
+      academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+      discount: 0,
+      discountType: 'amount',
+      discountReason: ''
+    });
+  };
+
+  // Handle assign fee structure
+  const handleAssignFeeStructure = async () => {
+    if (!assignFeeStructureForm.classId) {
+      setError('Please select a class');
+      return;
+    }
+
+    try {
+      setAssignFeeStructureLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+
+      const payload = {
+        studentId: selectedStudentForAssignment._id,
+        classId: assignFeeStructureForm.classId,
+        academicYear: assignFeeStructureForm.academicYear,
+        discount: parseFloat(assignFeeStructureForm.discount) || 0,
+        discountType: assignFeeStructureForm.discountType,
+        discountReason: assignFeeStructureForm.discountReason
+      };
+
+      const response = await axios.post(`${API_URL}/fees/assign-structure`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const result = response.data.data;
+      const totalAssigned = result?.totalAssigned || 0;
+      
+      if (totalAssigned > 0) {
+        setSuccess(`Successfully assigned ${totalAssigned} fee structure(s) to the student`);
+      } else {
+        setError('No fee structures were assigned');
+      }
+      
+      handleCloseAssignFeeStructureDialog();
+      await fetchStudentsWithoutFeeStructure();
+    } catch (err) {
+      console.error('Error assigning fee structure:', err);
+      setError(err.response?.data?.message || 'Failed to assign fee structure');
+    } finally {
+      setAssignFeeStructureLoading(false);
     }
   };
 
@@ -1099,6 +1457,9 @@ const FeeManagement = () => {
       if (activeTab === 1) {
         fetchFeeStructureMatrix();
       }
+      if (activeTab === 2) {
+        fetchStudentsWithoutFeeStructure();
+      }
     };
     
     window.addEventListener('institutionChanged', handleInstitutionChange);
@@ -1121,14 +1482,14 @@ const FeeManagement = () => {
     if (activeTab === 1) {
       fetchFeeStructureMatrix();
     }
-    if (activeTab === 2) {
+    if (activeTab === 3) {
       if (miscFeeSubTab === 0) {
         fetchMiscFeeStudents();
       } else if (miscFeeSubTab === 1) {
         fetchGenerateVoucherStudents();
       }
     }
-    if (activeTab === 3) {
+    if (activeTab === 4) {
       fetchPrintVoucherStudents();
     }
   }, [activeTab, miscFeeSubTab, miscFeeFilters, generateVoucherFilters, printVoucherFilters, feeHeadSearchTerm, feeStructureAcademicYear, feeStructureSelectedInstitution]);
@@ -1215,9 +1576,10 @@ const FeeManagement = () => {
             <Tabs value={activeTab} onChange={handleTabChange}>
               <Tab label="Fee Heads" />
               <Tab label="Fee Structure" />
+              <Tab label="Assign Fee Structure" />
               <Tab label="Misc Fee Operations" />
-              <Tab label="Fee Deposit" />
               <Tab label="Print Voucher" />
+              <Tab label="Fee Deposit" />
             </Tabs>
           </Box>
 
@@ -1548,7 +1910,100 @@ const FeeManagement = () => {
         )}
 
         {/* Tab Panel 2: Misc Fee Operations */}
+        {/* Tab Panel 2: Assign Fee Structure */}
         {activeTab === 2 && (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                ASSIGN FEE STRUCTURE
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={fetchStudentsWithoutFeeStructure}
+                disabled={assignFeeStructureLoading}
+                sx={{ borderColor: '#667eea', color: '#667eea' }}
+              >
+                Refresh
+              </Button>
+            </Box>
+
+            {/* Academic Year Filter */}
+            <Box sx={{ mb: 3 }}>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Academic Year</InputLabel>
+                <Select
+                  value={assignFeeStructureForm.academicYear}
+                  label="Academic Year"
+                  onChange={(e) => {
+                    setAssignFeeStructureForm(prev => ({ ...prev, academicYear: e.target.value }));
+                    setTimeout(() => fetchStudentsWithoutFeeStructure(), 100);
+                  }}
+                >
+                  <MenuItem value={`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}>
+                    {`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
+                  </MenuItem>
+                  <MenuItem value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
+                    {`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}
+                  </MenuItem>
+                  <MenuItem value={`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}>
+                    {`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {assignFeeStructureLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : studentsWithoutFeeStructure.length === 0 ? (
+              <Alert severity="info">No students found without fee structure assignment.</Alert>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#667eea' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Enrollment #</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Roll #</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission #</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Name</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Section</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Academic Year</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {studentsWithoutFeeStructure.map((student) => (
+                      <TableRow key={student._id} hover>
+                        <TableCell>{student.enrollmentNumber}</TableCell>
+                        <TableCell>{student.rollNumber}</TableCell>
+                        <TableCell>{student.admissionNumber}</TableCell>
+                        <TableCell>{capitalizeFirstOnly(student.name)}</TableCell>
+                        <TableCell>{capitalizeFirstOnly(student.class)}</TableCell>
+                        <TableCell>{capitalizeFirstOnly(student.section)}</TableCell>
+                        <TableCell>{student.academicYear}</TableCell>
+                        <TableCell align="center">
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleOpenAssignFeeStructureDialog(student)}
+                            sx={{ bgcolor: '#667eea', '&:hover': { bgcolor: '#5568d3' } }}
+                          >
+                            Assign Fee Structure
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        )}
+
+        {/* Tab Panel 3: Misc Fee Operations */}
+        {activeTab === 3 && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               MISC FEE OPERATIONS
@@ -1815,15 +2270,15 @@ const FeeManagement = () => {
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={11} align="center">
+                          <TableCell colSpan={9} align="center">
                             <CircularProgress />
                           </TableCell>
                         </TableRow>
                       ) : generateVoucherStudents.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={11} align="center">
+                          <TableCell colSpan={9} align="center">
                             <Typography variant="body2" color="textSecondary">
-                              No data found
+                              {error ? error : 'No students found with fee structures assigned. Please assign fee structures to students first.'}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -1884,7 +2339,8 @@ const FeeManagement = () => {
         )}
 
         {/* Tab Panel 3: Print Voucher */}
-        {activeTab === 3 && (
+        {/* Tab Panel 4: Print Voucher */}
+        {activeTab === 4 && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               PRINT VOUCHER
@@ -1900,7 +2356,11 @@ const FeeManagement = () => {
                       label="Month/Year"
                       type="month"
                       value={printVoucherFilters.monthYear}
-                      onChange={(e) => setPrintVoucherFilters({ ...printVoucherFilters, monthYear: e.target.value })}
+                      onChange={(e) => {
+                        setPrintVoucherFilters({ ...printVoucherFilters, monthYear: e.target.value });
+                        // Auto-fetch when month/year changes
+                        setTimeout(() => fetchPrintVoucherStudents(), 300);
+                      }}
                       InputLabelProps={{ shrink: true }}
                     />
                   </Grid>
@@ -2034,7 +2494,8 @@ const FeeManagement = () => {
         )}
 
         {/* Tab Panel 4: Fee Deposit */}
-        {activeTab === 4 && (
+        {/* Tab Panel 5: Fee Deposit */}
+        {activeTab === 5 && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               FEE DEPOSIT
@@ -2882,6 +3343,135 @@ const FeeManagement = () => {
             </Button>
             <Button variant="contained" startIcon={<Print />} sx={{ bgcolor: '#667eea' }}>
               Print
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Assign Fee Structure Dialog */}
+        <Dialog
+          open={assignFeeStructureDialog}
+          onClose={handleCloseAssignFeeStructureDialog}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight="bold">
+                Assign Fee Structure
+              </Typography>
+              <IconButton onClick={handleCloseAssignFeeStructureDialog} size="small">
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {selectedStudentForAssignment && (
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Student Information
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2"><strong>Name:</strong> {capitalizeFirstOnly(selectedStudentForAssignment.name)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2"><strong>Enrollment #:</strong> {selectedStudentForAssignment.enrollmentNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2"><strong>Roll #:</strong> {selectedStudentForAssignment.rollNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2"><strong>Class:</strong> {capitalizeFirstOnly(selectedStudentForAssignment.class)}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Class *</InputLabel>
+                  <Select
+                    value={assignFeeStructureForm.classId}
+                    onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, classId: e.target.value })}
+                    label="Class *"
+                  >
+                    {availableClasses.map((cls) => (
+                      <MenuItem key={cls._id} value={cls._id}>
+                        {cls.name} {cls.code ? `(${cls.code})` : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                  All fee structures for the selected class will be assigned to the student
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Academic Year</InputLabel>
+                  <Select
+                    value={assignFeeStructureForm.academicYear}
+                    onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, academicYear: e.target.value })}
+                    label="Academic Year"
+                  >
+                    <MenuItem value={`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}>
+                      {`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
+                    </MenuItem>
+                    <MenuItem value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
+                      {`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}
+                    </MenuItem>
+                    <MenuItem value={`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}>
+                      {`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Discount"
+                  value={assignFeeStructureForm.discount}
+                  onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, discount: e.target.value })}
+                  InputProps={{
+                    inputProps: { min: 0, step: 0.01 }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Discount Type</InputLabel>
+                  <Select
+                    value={assignFeeStructureForm.discountType}
+                    onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, discountType: e.target.value })}
+                    label="Discount Type"
+                  >
+                    <MenuItem value="amount">Amount (Rs.)</MenuItem>
+                    <MenuItem value="percentage">Percentage (%)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Discount Reason (Optional)"
+                  value={assignFeeStructureForm.discountReason}
+                  onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, discountReason: e.target.value })}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseAssignFeeStructureDialog}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleAssignFeeStructure}
+              disabled={assignFeeStructureLoading || !assignFeeStructureForm.classId}
+              sx={{ bgcolor: '#667eea', '&:hover': { bgcolor: '#5568d3' } }}
+            >
+              {assignFeeStructureLoading ? <CircularProgress size={24} /> : 'Assign Fee Structure'}
             </Button>
           </DialogActions>
         </Dialog>
