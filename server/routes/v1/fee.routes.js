@@ -16,4 +16,9 @@ router.use(authenticate);
 router.get('/structures/matrix', feeController.getFeeStructureMatrix);
 router.post('/structures/bulk-save', isAdmin, feeController.bulkSaveFeeStructure);
 
+// Student fee assignment routes
+router.get('/students/without-fee-structure', feeController.getStudentsWithoutFeeStructure);
+router.post('/assign-structure', isAdmin, feeController.assignFeeStructure);
+router.get('/student-fees', feeController.getStudentFees);
+
 module.exports = router;

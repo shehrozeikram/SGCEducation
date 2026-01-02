@@ -839,7 +839,7 @@ const FeeManagement = () => {
         const studentId = studentFee.student?._id || studentFee.student;
         if (studentId && !uniqueStudentsMap.has(studentId.toString())) {
           const student = studentFee.student;
-          const admission = studentFee.admission;
+          const admission = studentFee.student?.admission;
           
           // Get student name - Student model has user reference, not direct name
           // We'll need to get it from admission or user
@@ -1455,6 +1455,9 @@ const FeeManagement = () => {
     }
     if (activeTab === 1) {
       fetchFeeStructureMatrix();
+    }
+    if (activeTab === 2) {
+      fetchStudentsWithoutFeeStructure();
     }
     if (activeTab === 3) {
       if (miscFeeSubTab === 0) {
