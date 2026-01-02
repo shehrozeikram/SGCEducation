@@ -12,7 +12,6 @@ const { asyncHandler } = require('../middleware/error.middleware');
  */
 const getFeeStructureMatrix = asyncHandler(async (req, res) => {
   const filters = {
-    academicYear: req.query.academicYear,
     institution: req.query.institution
   };
 
