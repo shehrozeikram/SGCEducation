@@ -262,6 +262,7 @@ class AdmissionService {
       admissionDate: Date.now(),
       academicYear: admission.academicYear,
       program: admission.program,
+      rollNumber: admission.rollNumber,
       personalDetails: {
         bloodGroup: admission.personalInfo.bloodGroup,
         nationality: admission.personalInfo.nationality,

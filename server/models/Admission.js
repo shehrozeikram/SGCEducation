@@ -30,6 +30,11 @@ const admissionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Section'
   },
+  rollNumber: {
+    type: String,
+    uppercase: true,
+    trim: true
+  },
 
   // Personal Information
   personalInfo: {
