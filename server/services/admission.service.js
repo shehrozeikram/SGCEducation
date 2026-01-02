@@ -32,8 +32,7 @@ class AdmissionService {
     if (filters.search) {
       query.$or = [
         { applicationNumber: { $regex: filters.search, $options: 'i' } },
-        { 'personalInfo.firstName': { $regex: filters.search, $options: 'i' } },
-        { 'personalInfo.lastName': { $regex: filters.search, $options: 'i' } },
+        { 'personalInfo.name': { $regex: filters.search, $options: 'i' } },
         { 'contactInfo.email': { $regex: filters.search, $options: 'i' } }
       ];
     }
@@ -227,7 +226,7 @@ class AdmissionService {
       // Create user account
       const tempPassword = Math.random().toString(36).slice(-8);
       user = await User.create({
-        name: `${admission.personalInfo.firstName} ${admission.personalInfo.lastName}`,
+        name: admission.personalInfo.name || 'Student',
         email: admission.contactInfo.email,
         password: tempPassword,
         role: 'student',
@@ -248,7 +247,6 @@ class AdmissionService {
       academicYear: admission.academicYear,
       program: admission.program,
       personalDetails: {
-        middleName: admission.personalInfo.middleName,
         bloodGroup: admission.personalInfo.bloodGroup,
         nationality: admission.personalInfo.nationality,
         religion: admission.personalInfo.religion,
@@ -1042,12 +1040,8 @@ class AdmissionService {
 
     // Transform data for the report
     const reportData = admissions.map((admission, index) => {
-      // Build full name from personalInfo
-      const fullName = [
-        admission.personalInfo?.firstName,
-        admission.personalInfo?.middleName,
-        admission.personalInfo?.lastName
-      ].filter(Boolean).join(' ') || 'N/A';
+      // Get full name from personalInfo
+      const fullName = admission.personalInfo?.name || 'N/A';
 
       // Get program and section info
       const className = admission.class?.name || admission.program || 'N/A';
@@ -1119,12 +1113,8 @@ class AdmissionService {
 
     // Transform data for the report with all required fields
     const reportData = admissions.map((admission, index) => {
-      // Build full name from personalInfo
-      const fullName = [
-        admission.personalInfo?.firstName,
-        admission.personalInfo?.middleName,
-        admission.personalInfo?.lastName
-      ].filter(Boolean).join(' ') || 'N/A';
+      // Get full name from personalInfo
+      const fullName = admission.personalInfo?.name || 'N/A';
 
       // Get guardian name (can be father, mother, or guardian)
       let guardianName = admission.guardianInfo?.fatherName || '';

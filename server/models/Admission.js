@@ -33,18 +33,9 @@ const admissionSchema = new mongoose.Schema({
 
   // Personal Information
   personalInfo: {
-    firstName: {
+    name: {
       type: String,
-      required: [true, 'Please provide first name'],
-      trim: true
-    },
-    middleName: {
-      type: String,
-      trim: true
-    },
-    lastName: {
-      type: String,
-      required: [true, 'Please provide last name'],
+      required: [true, 'Please provide name'],
       trim: true
     },
     dateOfBirth: {
@@ -312,14 +303,9 @@ admissionSchema.index({ applicationNumber: 1 }, { unique: true });
 admissionSchema.index({ 'contactInfo.email': 1 });
 admissionSchema.index({ createdAt: -1 });
 
-// Virtual for full name
+// Virtual for full name (returns the single name field)
 admissionSchema.virtual('fullName').get(function() {
-  const parts = [
-    this.personalInfo.firstName,
-    this.personalInfo.middleName,
-    this.personalInfo.lastName
-  ].filter(Boolean);
-  return parts.join(' ');
+  return this.personalInfo?.name || '';
 });
 
 // Enable virtuals in JSON

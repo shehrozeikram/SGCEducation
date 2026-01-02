@@ -87,9 +87,10 @@ import {
   CalendarMonth,
   FileDownload,
   Edit,
+  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
+import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission } from '../services/admissionService';
 import axios from 'axios';
 import AdmissionCharts from '../components/admissions/AdmissionCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
@@ -225,7 +226,7 @@ const Admissions = () => {
 
   // Helper to build row data for "Search Student All Data"
   const buildStudentAllDataRow = (admission, index) => {
-    const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+    const fullName = admission.personalInfo?.name || '';
     const dob = admission.personalInfo?.dateOfBirth
       ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0]
       : '';
@@ -484,6 +485,27 @@ const Admissions = () => {
     }
   };
 
+  const handleDeleteAdmission = async (admissionId, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete the admission for ${studentName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      await deleteAdmission(admissionId);
+      setError(''); // Clear any previous errors
+      // Show success message (you can add a success state if needed)
+      alert('Admission deleted successfully');
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting admission:', err);
+      setError(err.response?.data?.message || 'Failed to delete admission');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openActionDialog = (admission, type) => {
     setSelectedAdmission(admission);
     setActionDialog({ open: true, type, remarks: '' });
@@ -629,12 +651,12 @@ const Admissions = () => {
       case 'applicationNumber':
         return admission.applicationNumber?.toLowerCase().includes(searchLower);
       case 'name':
-        const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim().toLowerCase();
+        const fullName = (admission.personalInfo?.name || '').toLowerCase();
         return fullName.includes(searchLower);
       case 'email':
         return admission.contactInfo?.email?.toLowerCase().includes(searchLower);
       default:
-        const defaultFullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim().toLowerCase();
+        const defaultFullName = (admission.personalInfo?.name || '').toLowerCase();
         return (
           admission.applicationNumber?.toLowerCase().includes(searchLower) ||
           defaultFullName.includes(searchLower) ||
@@ -1293,7 +1315,7 @@ const Admissions = () => {
                 <TableCell><strong>Applicant Name</strong></TableCell>
                 <TableCell><strong>Email</strong></TableCell>
                 {isSuperAdmin && <TableCell><strong>Institution</strong></TableCell>}
-                <TableCell><strong>Program</strong></TableCell>
+                <TableCell><strong>Class</strong></TableCell>
                 <TableCell><strong>Applied On</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell align="center"><strong>Actions</strong></TableCell>
@@ -1318,7 +1340,12 @@ const Admissions = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {`${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim() || 'N/A'}
+                        {admission.personalInfo?.name || 'N/A'}
+                        {admission.guardianInfo?.fatherName && (
+                          <Typography component="span" variant="body2" sx={{ color: 'text.secondary', ml: 0.5 }}>
+                            {admission.guardianInfo.fatherName}
+                          </Typography>
+                        )}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -1330,7 +1357,7 @@ const Admissions = () => {
                       </TableCell>
                     )}
                     <TableCell>
-                      <Typography variant="body2">{admission.program || 'N/A'}</Typography>
+                      <Typography variant="body2">{admission.class?.name || admission.program || 'N/A'}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -2725,7 +2752,6 @@ const Admissions = () => {
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#0d6efd' }}>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Admission</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission No</TableCell>
@@ -2742,6 +2768,7 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class From Which Withdrawn</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Withdrawal</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -2768,7 +2795,7 @@ const Admissions = () => {
                                  phone.includes(search);
                         })
                         .map((admission, index) => {
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+                          const studentName = admission.personalInfo?.name || '';
                           const dateOfBirth = admission.personalInfo?.dateOfBirth 
                             ? new Date(admission.personalInfo.dateOfBirth).toLocaleDateString('en-GB', {
                                 day: 'numeric',
@@ -2786,15 +2813,6 @@ const Admissions = () => {
                           
                           return (
                             <TableRow key={admission._id} hover>
-                              <TableCell>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => navigate(`/admissions/${admission._id}/edit`)}
-                                  sx={{ color: '#0d6efd' }}
-                                >
-                                  <Edit fontSize="small" />
-                                </IconButton>
-                              </TableCell>
                               <TableCell>{index + 1}</TableCell>
                               <TableCell>{admissionDate}</TableCell>
                               <TableCell>{admission.applicationNumber || 'N/A'}</TableCell>
@@ -2828,6 +2846,27 @@ const Admissions = () => {
                               </TableCell>
                               <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {admission.remarks || ''}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => navigate(`/admissions/${admission._id}/edit`)}
+                                    sx={{ color: '#0d6efd' }}
+                                    title="Edit"
+                                  >
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeleteAdmission(admission._id, studentName || admission.applicationNumber)}
+                                    sx={{ color: '#dc3545' }}
+                                    title="Delete"
+                                    disabled={admission.status === 'enrolled'}
+                                  >
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                </Box>
                               </TableCell>
                             </TableRow>
                           );
@@ -2911,7 +2950,7 @@ const Admissions = () => {
             {selectedAdmission && (
               <Box sx={{ mb: 2, p: 1, bgcolor: '#ffebee', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#c62828' }}>
-                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({`${selectedAdmission.personalInfo?.firstName || ''} ${selectedAdmission.personalInfo?.lastName || ''}`.trim() || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
+                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({selectedAdmission.personalInfo?.name || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
                 </Typography>
               </Box>
             )}
@@ -2955,7 +2994,7 @@ const Admissions = () => {
                       .filter(admission => {
                         if (searchTerm) {
                           const search = searchTerm.toLowerCase();
-                          const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                          const name = (admission.personalInfo?.name || '').toLowerCase();
                           const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                           const admissionNo = (admission.applicationNumber || '').toLowerCase();
                           return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2976,7 +3015,7 @@ const Admissions = () => {
                         .filter(admission => {
                           if (searchTerm) {
                             const search = searchTerm.toLowerCase();
-                            const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                            const name = (admission.personalInfo?.name || '').toLowerCase();
                             const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                             const admissionNo = (admission.applicationNumber || '').toLowerCase();
                             return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2984,7 +3023,7 @@ const Admissions = () => {
                           return true;
                         })
                         .map((admission, index) => {
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
+                          const studentName = admission.personalInfo?.name || '';
                           const isMenuOpen = studentMenuAnchor && selectedStudentForMenu?._id === admission._id;
                           
                           return (

@@ -157,7 +157,41 @@ const AdmissionForm = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
 
-  const [formData, setFormData] = useState(() => createInitialFormData(user));
+  // Helper function to get institution ID from various sources
+  const getInstitutionId = () => {
+    // First priority: selectedInstitution from localStorage (navbar selection)
+    const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+    if (selectedInstitutionStr) {
+      try {
+        const parsed = JSON.parse(selectedInstitutionStr);
+        if (parsed && parsed._id) {
+          return parsed._id;
+        } else if (typeof parsed === 'string') {
+          return parsed;
+        }
+      } catch (e) {
+        // If it's not JSON, it might be a plain string ID
+        return selectedInstitutionStr;
+      }
+    }
+    
+    // Second priority: user.institution (extract _id if it's an object)
+    if (user.institution) {
+      return typeof user.institution === 'object' ? user.institution._id : user.institution;
+    }
+    
+    return null;
+  };
+
+  const [formData, setFormData] = useState(() => {
+    const initialData = createInitialFormData(user);
+    // Override institution with selected institution from navbar if available
+    const institutionId = getInstitutionId();
+    if (institutionId) {
+      initialData.institution = institutionId;
+    }
+    return initialData;
+  });
 
   useEffect(() => {
     fetchClasses();
@@ -166,19 +200,33 @@ const AdmissionForm = () => {
     if (isEditMode) {
       fetchAdmissionData();
     }
-  }, [id]);
+    
+    // Update institution when selectedInstitution changes
+    const handleStorageChange = () => {
+      const institutionId = getInstitutionId();
+      if (institutionId && !isEditMode) {
+        setFormData(prev => ({ ...prev, institution: institutionId }));
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('institutionChanged', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('institutionChanged', handleStorageChange);
+    };
+  }, [id, isEditMode]);
 
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
       const params = {};
       
-      // For super_admin, include institution filter if available
-      if (isSuperAdmin && user.institution) {
-        const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
-        if (institutionId) {
-          params.institution = institutionId;
-        }
+      // Get institution from navbar selection or user
+      const institutionId = getInstitutionId();
+      if (institutionId) {
+        params.institution = institutionId;
       }
       
       const response = await axios.get('http://localhost:5000/api/v1/classes', {
@@ -197,12 +245,10 @@ const AdmissionForm = () => {
       const token = localStorage.getItem('token');
       const params = {};
       
-      // For super_admin, include institution filter if available
-      if (isSuperAdmin && user.institution) {
-        const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
-        if (institutionId) {
-          params.institution = institutionId;
-        }
+      // Get institution from navbar selection or user
+      const institutionId = getInstitutionId();
+      if (institutionId) {
+        params.institution = institutionId;
       }
       
       const response = await axios.get('http://localhost:5000/api/v1/sections', {
@@ -444,19 +490,28 @@ const AdmissionForm = () => {
       // We only have a single "Name" field, so store it directly in personalInfo.name
       const name = formData.studentName.trim();
 
-      // Get institution ID - use formData if super admin and it's set, otherwise use user's institution
-      let institutionId;
-      if (isSuperAdmin && formData.institution) {
+      // Get institution ID - check multiple sources
+      let institutionId = getInstitutionId();
+      
+      // If still no institution, try formData
+      if (!institutionId && formData.institution) {
         institutionId = formData.institution;
-      } else {
-        // For non-super admins, always use user's institution
+      }
+      
+      // If still no institution and not super admin, use user's institution
+      if (!institutionId && !isSuperAdmin && user.institution) {
         institutionId = typeof user.institution === 'object' && user.institution?._id 
           ? user.institution._id 
           : user.institution;
       }
 
+      // Ensure institutionId is a string
+      if (institutionId && typeof institutionId !== 'string') {
+        institutionId = String(institutionId);
+      }
+
       if (!institutionId) {
-        setError('Institution is required. Please contact administrator.');
+        setError('Institution is required. Please select an institution from the navbar or contact administrator.');
         setLoading(false);
         return;
       }
