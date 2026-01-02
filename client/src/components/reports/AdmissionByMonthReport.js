@@ -199,7 +199,10 @@ const AdmissionByMonthReport = () => {
       'Date Of Birth': row.dateOfBirth || '',
       'Mobile Number': row.mobileNumber || '',
       'Age': row.age || '',
+      'Blood Group': row.bloodGroup || '',
       'Hobbies': row.hobbies || '',
+      'Category Name': row.categoryName || '',
+      'Family Number': row.familyNumber || '',
       'Admission Date': row.admissionDate || '',
       'Admission Effective Date': row.admissionEffectiveDate || '',
       'Gender': row.gender || '',
@@ -225,7 +228,10 @@ const AdmissionByMonthReport = () => {
       { wch: 15 }, // Date Of Birth
       { wch: 15 }, // Mobile Number
       { wch: 8 }, // Age
+      { wch: 12 }, // Blood Group
       { wch: 20 }, // Hobbies
+      { wch: 15 }, // Category Name
+      { wch: 15 }, // Family Number
       { wch: 15 }, // Admission Date
       { wch: 20 }, // Admission Effective Date
       { wch: 10 }, // Gender

@@ -68,6 +68,11 @@ const studentSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    bloodGroup: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+      trim: true
+    },
     nationality: {
       type: String,
       default: 'Pakistani',
@@ -76,6 +81,11 @@ const studentSchema = new mongoose.Schema({
     religion: {
       type: String,
       trim: true
+    },
+    category: {
+      type: String,
+      enum: ['General', 'OBC', 'SC', 'ST', 'Other'],
+      default: 'General'
     },
     aadharNumber: {
       type: String,

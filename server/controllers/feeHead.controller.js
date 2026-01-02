@@ -2,7 +2,7 @@ const feeHeadService = require('../services/feeHead.service');
 const { asyncHandler } = require('../middleware/error.middleware');
 
 /**
- * Fee Head Controller - Handles HTTP requests for fee head management
+ * FeeHead Controller - Handles HTTP requests for fee head management
  */
 
 /**
@@ -11,12 +11,12 @@ const { asyncHandler } = require('../middleware/error.middleware');
  * @access  Private
  */
 const getFeeHeads = asyncHandler(async (req, res) => {
-  const { institution, isActive, search } = req.query;
+  const filters = {
+    institution: req.query.institution,
+    search: req.query.search
+  };
 
-  const feeHeads = await feeHeadService.getAllFeeHeads(
-    { institution, isActive, search },
-    req.user
-  );
+  const feeHeads = await feeHeadService.getAllFeeHeads(filters, req.user);
 
   res.json({
     success: true,
@@ -31,10 +31,7 @@ const getFeeHeads = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const getFeeHeadById = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.getFeeHeadById(
-    req.params.id,
-    req.user
-  );
+  const feeHead = await feeHeadService.getFeeHeadById(req.params.id, req.user);
 
   res.json({
     success: true,
@@ -48,10 +45,7 @@ const getFeeHeadById = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const createFeeHead = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.createFeeHead(
-    req.body,
-    req.user
-  );
+  const feeHead = await feeHeadService.createFeeHead(req.body, req.user);
 
   res.status(201).json({
     success: true,
@@ -85,10 +79,7 @@ const updateFeeHead = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const deleteFeeHead = asyncHandler(async (req, res) => {
-  const result = await feeHeadService.deleteFeeHead(
-    req.params.id,
-    req.user
-  );
+  const result = await feeHeadService.deleteFeeHead(req.params.id, req.user);
 
   res.json({
     success: true,
@@ -102,10 +93,7 @@ const deleteFeeHead = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const reactivateFeeHead = asyncHandler(async (req, res) => {
-  const feeHead = await feeHeadService.reactivateFeeHead(
-    req.params.id,
-    req.user
-  );
+  const feeHead = await feeHeadService.reactivateFeeHead(req.params.id, req.user);
 
   res.json({
     success: true,
@@ -116,16 +104,11 @@ const reactivateFeeHead = asyncHandler(async (req, res) => {
 
 /**
  * @route   GET /api/v1/fee-heads/priorities/available
- * @desc    Get available priorities for fee heads
+ * @desc    Get available priorities
  * @access  Private
  */
 const getAvailablePriorities = asyncHandler(async (req, res) => {
-  const { institution } = req.query;
-
-  const priorities = await feeHeadService.getAvailablePriorities(
-    { institution },
-    req.user
-  );
+  const priorities = await feeHeadService.getAvailablePriorities(req.user);
 
   res.json({
     success: true,

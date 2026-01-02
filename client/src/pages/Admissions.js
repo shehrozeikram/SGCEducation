@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -75,14 +75,22 @@ import {
   PictureAsPdf,
   TableChart,
   Verified,
+  Lock,
+  Info,
+  ContactPhone,
+  CreditCard,
+  Description,
+  Phone,
+  TrendingUp,
+  Cake,
+  Group,
+  CalendarMonth,
   FileDownload,
   Edit,
-  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission } from '../services/admissionService';
+import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission } from '../services/admissionService';
 import axios from 'axios';
-import { capitalizeFirstOnly } from '../utils/textUtils';
 import AdmissionCharts from '../components/admissions/AdmissionCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
 import AdmissionByDateReport from '../components/reports/AdmissionByDateReport';
@@ -101,6 +109,7 @@ const Admissions = () => {
     if (path === '/admissions/analytics') return 'analytics';
     if (path === '/admissions/students/search') return 'search-student';
     if (path === '/admissions/students/search-all') return 'search-all-data';
+    if (path === '/admissions/students/bulk-signup') return 'bulk-signup';
     return 'list'; // Default
   };
 
@@ -114,6 +123,7 @@ const Admissions = () => {
       'analytics': '/admissions/analytics',
       'search-student': '/admissions/students/search',
       'search-all-data': '/admissions/students/search-all',
+      'bulk-signup': '/admissions/students/bulk-signup',
     };
     return urlMap[section] || '/admissions';
   };
@@ -127,11 +137,12 @@ const Admissions = () => {
   const [admissions, setAdmissions] = useState([]);
   const [stats, setStats] = useState({});
   const [institutions, setInstitutions] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInstitution, setSelectedInstitution] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(''); // For list page - single status
   const [studentStatusFilter, setStudentStatusFilter] = useState([]); // For search student page - multi-select
   const [selectedAdmission, setSelectedAdmission] = useState(null);
@@ -161,7 +172,10 @@ const Admissions = () => {
     { id: 'studentName', label: 'Student Name' },
     { id: 'fatherName', label: 'Father Name' },
     { id: 'dateOfBirth', label: 'Date Of Birth' },
+    { id: 'bloodGroup', label: 'Blood Group' },
     { id: 'hobbies', label: 'Hobbies' },
+    { id: 'category', label: 'Student Category Name' },
+    { id: 'familyNumber', label: 'Family Number' },
     { id: 'admissionDate', label: 'Admission Date' },
     { id: 'gender', label: 'Gender Name' },
     { id: 'packageName', label: 'Package Name' },
@@ -196,12 +210,22 @@ const Admissions = () => {
     'class-wise-comparison': null,
     'date-wise-admission': null,
     'sanctioned-strength': null,
+    'student-credentials': null,
+    'student-information-list': null,
+    'guardian-detail': null,
+    'students-card': null,
+    'certificates': null,
+    'phone-list': null,
+    'student-strength-month-wise': null,
+    'student-birthday-message': null,
+    'siblings-list': null,
+    'monthly-strength-report': null,
   });
   const [reportLoading, setReportLoading] = useState(false);
 
   // Helper to build row data for "Search Student All Data"
   const buildStudentAllDataRow = (admission, index) => {
-    const fullName = capitalizeFirstOnly(admission.personalInfo?.name || '');
+    const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
     const dob = admission.personalInfo?.dateOfBirth
       ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0]
       : '';
@@ -217,9 +241,12 @@ const Admissions = () => {
       index: index + 1,
       studentId: admission.studentId?.enrollmentNumber || '',
       studentName: fullName || 'N/A',
-      fatherName: capitalizeFirstOnly(admission.guardianInfo?.fatherName || 'N/A'),
+      fatherName: admission.guardianInfo?.fatherName || 'N/A',
       dateOfBirth: dob,
+      bloodGroup: admission.personalInfo?.bloodGroup || '',
       hobbies: admission.hobbies || '',
+      category: admission.personalInfo?.category || 'Default',
+      familyNumber: admission.familyNumber || '',
       admissionDate: admission.createdAt
         ? new Date(admission.createdAt).toISOString().split('T')[0]
         : '',
@@ -359,26 +386,6 @@ const Admissions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, admissions]);
 
-  // Fetch data when register section is active (especially for super admin)
-  useEffect(() => {
-    if (activeSection === 'register') {
-      // For super admin, always fetch data (even if no institution selected)
-      // For regular admin, fetchData will be called by the existing useEffect
-      if (isSuperAdmin) {
-        fetchData();
-      } else if (!isSuperAdmin && user.institution) {
-        // For regular admin, ensure institution is set and fetch
-        const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
-        if (!selectedInstitution) {
-          setSelectedInstitution(institutionId);
-        } else {
-          fetchData();
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection]);
-
   // Fetch data when filters change
   useEffect(() => {
     // For admin users, require institution to be set
@@ -398,7 +405,7 @@ const Admissions = () => {
     if (isSuperAdmin || selectedInstitution) {
       fetchData();
     }
-  }, [selectedInstitution, selectedStatus]);
+  }, [selectedInstitution, selectedDepartment, selectedStatus]);
 
   const fetchData = async () => {
     try {
@@ -418,9 +425,23 @@ const Admissions = () => {
         setInstitutions(instResponse.data.data || []);
       }
 
+      // Fetch departments
+      if (selectedInstitution) {
+        try {
+          const deptResponse = await axios.get(`http://localhost:5000/api/v1/departments?institution=${selectedInstitution}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setDepartments(deptResponse.data.data || []);
+        } catch (deptErr) {
+          console.error('Failed to fetch departments:', deptErr);
+          setDepartments([]);
+        }
+      }
+
       // Fetch admissions
       const filters = {};
       if (selectedInstitution) filters.institution = selectedInstitution;
+      if (selectedDepartment) filters.department = selectedDepartment;
       if (selectedStatus) filters.status = selectedStatus;
       if (searchTerm) filters.search = searchTerm;
 
@@ -509,22 +530,6 @@ const Admissions = () => {
     alert('Export functionality coming soon!');
   };
 
-  const handleDeleteAdmission = async (admissionId, studentName) => {
-    if (!window.confirm(`Are you sure you want to delete the admission for ${studentName || 'this student'}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      await deleteAdmission(admissionId);
-      setSuccess('Admission deleted successfully');
-      fetchData();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete admission');
-      setTimeout(() => setError(''), 5000);
-    }
-  };
-
   // Report type mapping
   const reportTypes = [
     'admission-by-date',
@@ -533,6 +538,16 @@ const Admissions = () => {
     'class-wise-comparison',
     'date-wise-admission',
     'sanctioned-strength',
+    'student-credentials',
+    'student-information-list',
+    'guardian-detail',
+    'students-card',
+    'certificates',
+    'phone-list',
+    'student-strength-month-wise',
+    'student-birthday-message',
+    'siblings-list',
+    'monthly-strength-report'
   ];
 
   // Fetch report data based on selected report type
@@ -588,56 +603,6 @@ const Admissions = () => {
     alert('Excel export coming soon!');
   };
 
-  const sidebarWidth = 280;
-  const [appBarHeight, setAppBarHeight] = useState(64);
-
-  // Measure AppBar height when it changes (e.g., when wrapping)
-  const appBarRef = useRef(null);
-
-  useEffect(() => {
-    const updateAppBarHeight = () => {
-      if (appBarRef.current) {
-        // Use requestAnimationFrame to ensure DOM is fully rendered
-        requestAnimationFrame(() => {
-          if (appBarRef.current) {
-            const height = appBarRef.current.offsetHeight;
-            setAppBarHeight(height);
-          }
-        });
-      }
-    };
-
-    // Initial measurement with delays to ensure AppBar is fully rendered
-    const timeoutId1 = setTimeout(updateAppBarHeight, 0);
-    const timeoutId2 = setTimeout(updateAppBarHeight, 100);
-    const timeoutId3 = setTimeout(updateAppBarHeight, 300);
-    
-    window.addEventListener('resize', updateAppBarHeight);
-    
-    // Use MutationObserver to detect when AppBar content changes
-    const observer = new MutationObserver(() => {
-      // Debounce the update
-      setTimeout(updateAppBarHeight, 50);
-    });
-    
-    if (appBarRef.current) {
-      observer.observe(appBarRef.current, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
-    }
-
-    return () => {
-      clearTimeout(timeoutId1);
-      clearTimeout(timeoutId2);
-      clearTimeout(timeoutId3);
-      window.removeEventListener('resize', updateAppBarHeight);
-      observer.disconnect();
-    };
-  }, [isSuperAdmin]);
-
   const filteredAdmissions = admissions.filter((admission) => {
     // Apply status filter first
     if (selectedStatus && admission.status !== selectedStatus) {
@@ -664,7 +629,7 @@ const Admissions = () => {
       case 'applicationNumber':
         return admission.applicationNumber?.toLowerCase().includes(searchLower);
       case 'name':
-        const fullName = (admission.personalInfo?.name || '').toLowerCase();
+        const fullName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim().toLowerCase();
         return fullName.includes(searchLower);
       case 'email':
         return admission.contactInfo?.email?.toLowerCase().includes(searchLower);
@@ -698,18 +663,13 @@ const Admissions = () => {
     );
   }
 
+  const sidebarWidth = 280;
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       {/* Top Navigation Bar */}
-      <AppBar 
-        ref={appBarRef}
-        position="fixed" 
-        sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-          zIndex: 1300 
-        }}
-      >
-        <Toolbar sx={{ px: { xs: 2, sm: 3 }, flexWrap: 'wrap', gap: 2, minHeight: { xs: '56px !important', sm: '64px !important' } }}>
+      <AppBar position="fixed" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', zIndex: 1300 }}>
+        <Toolbar sx={{ px: { xs: 2, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
           <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
             Admissions Management
@@ -878,9 +838,9 @@ const Admissions = () => {
               width: sidebarWidth,
               boxSizing: 'border-box',
               position: 'fixed',
-              top: `${appBarHeight}px`,
+              top: 64,
               left: 0,
-              height: `calc(100vh - ${appBarHeight}px)`,
+              height: 'calc(100vh - 64px)',
               borderRight: '1px solid #e0e0e0',
               overflowY: 'auto',
               bgcolor: 'white',
@@ -1072,6 +1032,15 @@ const Admissions = () => {
               </List>
             )}
 
+            {/* Student Bulk SignUp */}
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => navigateToSection('bulk-signup')}>
+                <ListItemIcon>
+                  <GroupAdd />
+                </ListItemIcon>
+                <ListItemText primary="Student Bulk SignUp" />
+              </ListItemButton>
+            </ListItem>
           </List>
         </Drawer>
 
@@ -1079,15 +1048,15 @@ const Admissions = () => {
         <Box 
           sx={{ 
             flexGrow: 1, 
-            pt: `${Math.max(appBarHeight, 64) + 32}px`,
+            pt: '80px',
             pr: 3,
             pb: 3,
-            minHeight: `calc(100vh - ${Math.max(appBarHeight, 64)}px)`,
+            minHeight: '100vh',
             bgcolor: '#f5f5f5',
           }}
         >
       {/* Quick Links for Academic Setup */}
-      <Paper sx={{ p: 2, mb: 3, mx: 3, mt: 2, background: 'linear-gradient(135deg, #667eea15 0%, #764ba205 100%)', border: '1px solid #667eea30' }}>
+      <Paper sx={{ p: 2, mb: 3, mx: 3, background: 'linear-gradient(135deg, #667eea15 0%, #764ba205 100%)', border: '1px solid #667eea30' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, color: '#667eea' }}>
             Academic Setup
@@ -1137,21 +1106,6 @@ const Admissions = () => {
               }}
             >
               👥 Manage Groups
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => navigate('/student-promotion')}
-              sx={{
-                borderColor: '#43e97b',
-                color: '#43e97b',
-                '&:hover': {
-                  borderColor: '#3dd16b',
-                  bgcolor: '#43e97b15',
-                },
-              }}
-            >
-              🎓 Student Promote/Transfer/Passout
             </Button>
           </Box>
         </Box>
@@ -1292,7 +1246,10 @@ const Admissions = () => {
               <InputLabel>Institution/Campus</InputLabel>
               <Select
                 value={selectedInstitution}
-                onChange={(e) => setSelectedInstitution(e.target.value)}
+                onChange={(e) => {
+                  setSelectedInstitution(e.target.value);
+                  setSelectedDepartment('');
+                }}
                 label="Institution/Campus"
                 startAdornment={
                   <InputAdornment position="start">
@@ -1336,7 +1293,7 @@ const Admissions = () => {
                 <TableCell><strong>Applicant Name</strong></TableCell>
                 <TableCell><strong>Email</strong></TableCell>
                 {isSuperAdmin && <TableCell><strong>Institution</strong></TableCell>}
-                <TableCell><strong>Class</strong></TableCell>
+                <TableCell><strong>Program</strong></TableCell>
                 <TableCell><strong>Applied On</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell align="center"><strong>Actions</strong></TableCell>
@@ -1361,7 +1318,7 @@ const Admissions = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {capitalizeFirstOnly(admission.personalInfo?.name || 'N/A')}
+                        {`${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim() || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -1369,11 +1326,11 @@ const Admissions = () => {
                     </TableCell>
                     {isSuperAdmin && (
                       <TableCell>
-                        <Typography variant="body2">{capitalizeFirstOnly(admission.institution?.name || 'N/A')}</Typography>
+                        <Typography variant="body2">{admission.institution?.name || 'N/A'}</Typography>
                       </TableCell>
                     )}
                     <TableCell>
-                      <Typography variant="body2">{admission.class?.name || 'N/A'}</Typography>
+                      <Typography variant="body2">{admission.program || 'N/A'}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -1552,13 +1509,13 @@ const Admissions = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#667eea' }}>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr</TableCell>
+                    <TableRow>
+                      <TableCell><strong>Sr</strong></TableCell>
                       {allDataFieldOptions
                         .filter((field) => selectedAllDataFields.includes(field.id))
                         .map((field) => (
-                          <TableCell key={field.id} sx={{ color: 'white', fontWeight: 'bold' }}>
-                            {field.label}
+                          <TableCell key={field.id}>
+                            <strong>{field.label}</strong>
                           </TableCell>
                         ))}
                     </TableRow>
@@ -1667,6 +1624,16 @@ const Admissions = () => {
                 { icon: <School />, label: "New Admission Strength Comparison Class Wise", index: 3 },
                 { icon: <ListIcon />, label: "New Admission Date Wise", index: 4 },
                 { icon: <Verified />, label: "Sanctioned Strength Report", index: 5 },
+                { icon: <Lock />, label: "Student User Name And Password Report", index: 6 },
+                { icon: <Info />, label: "Student Information List", index: 7 },
+                { icon: <ContactPhone />, label: "Guardian Detail", index: 8 },
+                { icon: <CreditCard />, label: "Students Card", index: 9 },
+                { icon: <Description />, label: "Certificates", index: 10 },
+                { icon: <Phone />, label: "Phone List", index: 11 },
+                { icon: <TrendingUp />, label: "Student's Strength Month Wise", index: 12 },
+                { icon: <Cake />, label: "Student Birthday Message", index: 13 },
+                { icon: <Group />, label: "Siblings List", index: 14 },
+                { icon: <CalendarMonth />, label: "Monthly Strength Report", index: 15 },
               ].map((tab) => (
                 <Button
                   key={tab.index}
@@ -2105,6 +2072,598 @@ const Admissions = () => {
               </Box>
             </Paper>
           )}
+
+          {/* Tab Panel 6: Student User Name And Password Report */}
+          {selectedReportTab === 6 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Student User Name And Password Report
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Section</InputLabel>
+                    <Select
+                      value=""
+                      label="Select Section"
+                    >
+                      <MenuItem value="">All Sections</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('student-credentials')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Lock sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 7: Student Information List */}
+          {selectedReportTab === 7 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Student Information List
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Section</InputLabel>
+                    <Select
+                      value=""
+                      label="Select Section"
+                    >
+                      <MenuItem value="">All Sections</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('student-information-list')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Info sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 8: Guardian Detail */}
+          {selectedReportTab === 8 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Guardian Detail
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Section</InputLabel>
+                    <Select
+                      value=""
+                      label="Select Section"
+                    >
+                      <MenuItem value="">All Sections</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('guardian-detail')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <ContactPhone sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 9: Students Card */}
+          {selectedReportTab === 9 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Students Card
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Section</InputLabel>
+                    <Select
+                      value=""
+                      label="Select Section"
+                    >
+                      <MenuItem value="">All Sections</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('students-card')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <CreditCard sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 10: Certificates */}
+          {selectedReportTab === 10 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Certificates
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Certificate Type</InputLabel>
+                    <Select
+                      value=""
+                      label="Certificate Type"
+                    >
+                      <MenuItem value="">Select Type</MenuItem>
+                      <MenuItem value="enrollment">Enrollment Certificate</MenuItem>
+                      <MenuItem value="transfer">Transfer Certificate</MenuItem>
+                      <MenuItem value="character">Character Certificate</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('certificates')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Description sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 11: Phone List */}
+          {selectedReportTab === 11 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Phone List
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Class</InputLabel>
+                    <Select
+                      value={reportFilters.class}
+                      onChange={(e) => setReportFilters({ ...reportFilters, class: e.target.value })}
+                      label="Select Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Section</InputLabel>
+                    <Select
+                      value=""
+                      label="Select Section"
+                    >
+                      <MenuItem value="">All Sections</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('phone-list')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Phone sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 12: Student's Strength Month Wise */}
+          {selectedReportTab === 12 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Student's Strength Month Wise
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Month</InputLabel>
+                    <Select
+                      value={reportFilters.month}
+                      onChange={(e) => setReportFilters({ ...reportFilters, month: e.target.value })}
+                      label="Month"
+                    >
+                      <MenuItem value="">All Months</MenuItem>
+                      <MenuItem value="1">January</MenuItem>
+                      <MenuItem value="2">February</MenuItem>
+                      <MenuItem value="3">March</MenuItem>
+                      <MenuItem value="4">April</MenuItem>
+                      <MenuItem value="5">May</MenuItem>
+                      <MenuItem value="6">June</MenuItem>
+                      <MenuItem value="7">July</MenuItem>
+                      <MenuItem value="8">August</MenuItem>
+                      <MenuItem value="9">September</MenuItem>
+                      <MenuItem value="10">October</MenuItem>
+                      <MenuItem value="11">November</MenuItem>
+                      <MenuItem value="12">December</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Year"
+                    type="number"
+                    value={reportFilters.year}
+                    onChange={(e) => setReportFilters({ ...reportFilters, year: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('student-strength-month-wise')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <TrendingUp sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 13: Student Birthday Message */}
+          {selectedReportTab === 13 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Student Birthday Message
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Month</InputLabel>
+                    <Select
+                      value={reportFilters.month}
+                      onChange={(e) => setReportFilters({ ...reportFilters, month: e.target.value })}
+                      label="Month"
+                    >
+                      <MenuItem value="">All Months</MenuItem>
+                      <MenuItem value="1">January</MenuItem>
+                      <MenuItem value="2">February</MenuItem>
+                      <MenuItem value="3">March</MenuItem>
+                      <MenuItem value="4">April</MenuItem>
+                      <MenuItem value="5">May</MenuItem>
+                      <MenuItem value="6">June</MenuItem>
+                      <MenuItem value="7">July</MenuItem>
+                      <MenuItem value="8">August</MenuItem>
+                      <MenuItem value="9">September</MenuItem>
+                      <MenuItem value="10">October</MenuItem>
+                      <MenuItem value="11">November</MenuItem>
+                      <MenuItem value="12">December</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Date (Optional)"
+                    type="number"
+                    placeholder="1-31"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('student-birthday-message')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Cake sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 14: Siblings List */}
+          {selectedReportTab === 14 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Siblings List
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={10}>
+                  <FormControl fullWidth>
+                    <InputLabel>Filter By</InputLabel>
+                    <Select
+                      value=""
+                      label="Filter By"
+                    >
+                      <MenuItem value="">All Siblings</MenuItem>
+                      <MenuItem value="active">Active Only</MenuItem>
+                      <MenuItem value="same-class">Same Class</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('siblings-list')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Group sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Tab Panel 15: Monthly Strength Report */}
+          {selectedReportTab === 15 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold" color="#667eea">
+                Monthly Strength Report
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={5}>
+                  <FormControl fullWidth>
+                    <InputLabel>Month</InputLabel>
+                    <Select
+                      value={reportFilters.month}
+                      onChange={(e) => setReportFilters({ ...reportFilters, month: e.target.value })}
+                      label="Month"
+                    >
+                      <MenuItem value="">Select Month</MenuItem>
+                      <MenuItem value="1">January</MenuItem>
+                      <MenuItem value="2">February</MenuItem>
+                      <MenuItem value="3">March</MenuItem>
+                      <MenuItem value="4">April</MenuItem>
+                      <MenuItem value="5">May</MenuItem>
+                      <MenuItem value="6">June</MenuItem>
+                      <MenuItem value="7">July</MenuItem>
+                      <MenuItem value="8">August</MenuItem>
+                      <MenuItem value="9">September</MenuItem>
+                      <MenuItem value="10">October</MenuItem>
+                      <MenuItem value="11">November</MenuItem>
+                      <MenuItem value="12">December</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <TextField
+                    fullWidth
+                    label="Year"
+                    type="number"
+                    value={reportFilters.year}
+                    onChange={(e) => setReportFilters({ ...reportFilters, year: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Assessment />}
+                    onClick={() => handleGenerateReport('monthly-strength-report')}
+                    fullWidth
+                    sx={{
+                      height: '56px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    }}
+                  >
+                    Generate
+                  </Button>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <CalendarMonth sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Report functionality will be implemented based on requirements
+                </Typography>
+              </Box>
+            </Paper>
+          )}
         </Box>
       )}
 
@@ -2154,28 +2713,19 @@ const Admissions = () => {
               />
             </Box>
 
-            {/* Success/Error Messages */}
-            {success && (
-              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-                {success}
-              </Alert>
-            )}
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-                {error}
-              </Alert>
-            )}
-
             {/* Table */}
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
+            ) : error ? (
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
             ) : (
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#667eea' }}>
+                    <TableRow sx={{ bgcolor: '#0d6efd' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Admission</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission No</TableCell>
@@ -2183,6 +2733,7 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Father Name</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Birth</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Phone No</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Category Or Tribe</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Religion</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Residence</TableCell>
@@ -2191,7 +2742,6 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class From Which Withdrawn</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Withdrawal</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -2218,7 +2768,7 @@ const Admissions = () => {
                                  phone.includes(search);
                         })
                         .map((admission, index) => {
-                          const studentName = admission.personalInfo?.name || '';
+                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
                           const dateOfBirth = admission.personalInfo?.dateOfBirth 
                             ? new Date(admission.personalInfo.dateOfBirth).toLocaleDateString('en-GB', {
                                 day: 'numeric',
@@ -2236,6 +2786,15 @@ const Admissions = () => {
                           
                           return (
                             <TableRow key={admission._id} hover>
+                              <TableCell>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => navigate(`/admissions/${admission._id}/edit`)}
+                                  sx={{ color: '#0d6efd' }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              </TableCell>
                               <TableCell>{index + 1}</TableCell>
                               <TableCell>{admissionDate}</TableCell>
                               <TableCell>{admission.applicationNumber || 'N/A'}</TableCell>
@@ -2243,6 +2802,7 @@ const Admissions = () => {
                               <TableCell>{admission.guardianInfo?.fatherName || 'N/A'}</TableCell>
                               <TableCell>{dateOfBirth}</TableCell>
                               <TableCell>{admission.contactInfo?.phone || 'N/A'}</TableCell>
+                              <TableCell>{admission.personalInfo?.category || ''}</TableCell>
                               <TableCell>{admission.personalInfo?.religion || 'N/A'}</TableCell>
                               <TableCell>
                                 <Chip
@@ -2268,28 +2828,6 @@ const Admissions = () => {
                               </TableCell>
                               <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {admission.remarks || ''}
-                              </TableCell>
-                              <TableCell>
-                                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => navigate(`/admissions/${admission._id}/edit`)}
-                                    sx={{ color: '#667eea' }}
-                                    title="Edit"
-                                  >
-                                    <Edit fontSize="small" />
-                                  </IconButton>
-                                  {admission.status !== 'enrolled' && (
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleDeleteAdmission(admission._id, studentName)}
-                                      sx={{ color: '#f44336' }}
-                                      title="Delete"
-                                    >
-                                      <Delete fontSize="small" />
-                                    </IconButton>
-                                  )}
-                                </Box>
                               </TableCell>
                             </TableRow>
                           );
@@ -2373,7 +2911,7 @@ const Admissions = () => {
             {selectedAdmission && (
               <Box sx={{ mb: 2, p: 1, bgcolor: '#ffebee', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#c62828' }}>
-                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({selectedAdmission.personalInfo?.name || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
+                  ID: ({selectedAdmission._id?.slice(-3) || 'N/A'}) Name: ({`${selectedAdmission.personalInfo?.firstName || ''} ${selectedAdmission.personalInfo?.lastName || ''}`.trim() || 'N/A'}) Father Name: ({selectedAdmission.guardianInfo?.fatherName || 'N/A'}) Class: ({selectedAdmission.class?.name || selectedAdmission.program || 'N/A'})
                 </Typography>
               </Box>
             )}
@@ -2389,7 +2927,7 @@ const Admissions = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#667eea' }}>
+                    <TableRow sx={{ bgcolor: '#0d6efd' }}>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ID</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Roll #</TableCell>
@@ -2400,6 +2938,8 @@ const Admissions = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Section</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Group</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Age</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Student Category</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Family Number</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Fee After Discount</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Gender</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Religion</TableCell>
@@ -2415,7 +2955,7 @@ const Admissions = () => {
                       .filter(admission => {
                         if (searchTerm) {
                           const search = searchTerm.toLowerCase();
-                          const name = (admission.personalInfo?.name || '').toLowerCase();
+                          const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
                           const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                           const admissionNo = (admission.applicationNumber || '').toLowerCase();
                           return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2436,7 +2976,7 @@ const Admissions = () => {
                         .filter(admission => {
                           if (searchTerm) {
                             const search = searchTerm.toLowerCase();
-                            const name = (admission.personalInfo?.name || '').toLowerCase();
+                            const name = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
                             const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
                             const admissionNo = (admission.applicationNumber || '').toLowerCase();
                             return name.includes(search) || fatherName.includes(search) || admissionNo.includes(search);
@@ -2444,7 +2984,7 @@ const Admissions = () => {
                           return true;
                         })
                         .map((admission, index) => {
-                          const studentName = admission.personalInfo?.name || '';
+                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.trim();
                           const isMenuOpen = studentMenuAnchor && selectedStudentForMenu?._id === admission._id;
                           
                           return (
@@ -2581,6 +3121,8 @@ const Admissions = () => {
                                   ? `${Math.floor((new Date() - new Date(admission.personalInfo.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))} Years`
                                   : 'N/A'}
                               </TableCell>
+                              <TableCell>{admission.personalInfo?.category || 'Default'}</TableCell>
+                              <TableCell>{admission.familyNumber || 'N/A'}</TableCell>
                               <TableCell>{admission.applicationFee?.amount || '0'}</TableCell>
                               <TableCell>{admission.personalInfo?.gender ? admission.personalInfo.gender.charAt(0).toUpperCase() + admission.personalInfo.gender.slice(1) : 'N/A'}</TableCell>
                               <TableCell>{admission.personalInfo?.religion || 'N/A'}</TableCell>

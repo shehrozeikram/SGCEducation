@@ -16,6 +16,7 @@ export const getAllAdmissions = async (filters = {}) => {
   const params = new URLSearchParams();
   if (filters.institution) params.append('institution', filters.institution);
   if (filters.status) params.append('status', filters.status);
+  if (filters.department) params.append('department', filters.department);
   if (filters.academicYear) params.append('academicYear', filters.academicYear);
   if (filters.search) params.append('search', filters.search);
 
@@ -99,7 +100,13 @@ export const getAdmissionStats = async (filters = {}) => {
   return response.data;
 };
 
-// Removed: getAdmissionsByDepartment - department field no longer exists in admissions
+// Get admissions by department
+export const getAdmissionsByDepartment = async (departmentId) => {
+  const response = await axios.get(`${API_URL}/departments/${departmentId}/admissions`, {
+    headers: getAuthHeader()
+  });
+  return response.data;
+};
 
 // Get admission analytics for charts
 export const getAdmissionAnalytics = async (filters = {}) => {
@@ -124,5 +131,6 @@ export default {
   rejectAdmission,
   deleteAdmission,
   getAdmissionStats,
+  getAdmissionsByDepartment,
   getAdmissionAnalytics
 };

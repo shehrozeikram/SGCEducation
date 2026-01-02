@@ -210,9 +210,7 @@ const FeeManagement = () => {
   const [feeStructureMatrix, setFeeStructureMatrix] = useState(null);
   const [feeStructureLoading, setFeeStructureLoading] = useState(false);
   const [feeStructureSaving, setFeeStructureSaving] = useState(false);
-  const [feeStructureAcademicYear, setFeeStructureAcademicYear] = useState(`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`);
   const [feeStructureMatrixData, setFeeStructureMatrixData] = useState({});
-  const [feeStructureSelectedInstitution, setFeeStructureSelectedInstitution] = useState(null);
 
   // Print Voucher
   const [printVoucherFilters, setPrintVoucherFilters] = useState({
@@ -233,7 +231,6 @@ const FeeManagement = () => {
   const [availableClasses, setAvailableClasses] = useState([]);
   const [assignFeeStructureForm, setAssignFeeStructureForm] = useState({
     classId: '',
-    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     discount: 0,
     discountType: 'amount',
     discountReason: ''
@@ -406,34 +403,17 @@ const FeeManagement = () => {
       }
       
       // Fee structures are shared, but we still need institution to get classes
-      // For super admin, ensure institution is selected
-      if (isSuperAdmin) {
-        const institutionId = feeStructureSelectedInstitution || getInstitutionId();
-        if (!institutionId) {
-          setError('Please select an institution first to view classes');
-          setFeeStructureLoading(false);
-          return;
-        }
+      // Get institution from user context (navbar selection)
+      const institutionId = getInstitutionId();
+      if (!institutionId) {
+        setError('No institution found. Please contact administrator.');
+        setFeeStructureLoading(false);
+        return;
       }
       
       const params = {
-        academicYear: feeStructureAcademicYear
+        institution: institutionId // For getting classes only (fee structures are shared)
       };
-      
-      // Institution is still needed to get classes (classes are institution-specific)
-      // But fee structures themselves are shared
-      if (isSuperAdmin) {
-        const institutionId = feeStructureSelectedInstitution || getInstitutionId();
-        if (institutionId) {
-          params.institution = institutionId; // For getting classes only
-        }
-      } else {
-        // For admin users, get their institution for classes
-        const institutionId = getInstitutionId();
-        if (institutionId) {
-          params.institution = institutionId; // For getting classes only
-        }
-      }
 
       const response = await axios.get(`${API_URL}/fees/structures/matrix`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -609,12 +589,11 @@ const FeeManagement = () => {
       setError('');
       setSuccess('');
       const token = localStorage.getItem('token');
-      // Fee structures are institution-specific
-      const institutionId = feeStructureSelectedInstitution || getInstitutionId();
+      // Get institution from user context (navbar selection)
+      const institutionId = getInstitutionId();
       
       const payload = {
         institution: institutionId,
-        academicYear: feeStructureAcademicYear,
         data: feeStructureMatrixData
       };
 
@@ -1324,8 +1303,7 @@ const FeeManagement = () => {
       const institutionId = getInstitutionId();
 
       const params = {
-        institution: institutionId,
-        academicYear: assignFeeStructureForm.academicYear
+        institution: institutionId
       };
 
       const response = await axios.get(`${API_URL}/fees/students/without-fee-structure`, {
@@ -1350,7 +1328,6 @@ const FeeManagement = () => {
 
       const params = {
         institution: institutionId,
-        academicYear: assignFeeStructureForm.academicYear,
         isActive: true
       };
 
@@ -1371,7 +1348,6 @@ const FeeManagement = () => {
     setSelectedStudentForAssignment(student);
     setAssignFeeStructureForm({
       classId: '',
-      academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
       discount: 0,
       discountType: 'amount',
       discountReason: ''
@@ -1386,7 +1362,6 @@ const FeeManagement = () => {
     setSelectedStudentForAssignment(null);
     setAssignFeeStructureForm({
       classId: '',
-      academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
       discount: 0,
       discountType: 'amount',
       discountReason: ''
@@ -1408,7 +1383,6 @@ const FeeManagement = () => {
       const payload = {
         studentId: selectedStudentForAssignment._id,
         classId: assignFeeStructureForm.classId,
-        academicYear: assignFeeStructureForm.academicYear,
         discount: parseFloat(assignFeeStructureForm.discount) || 0,
         discountType: assignFeeStructureForm.discountType,
         discountReason: assignFeeStructureForm.discountReason
@@ -1492,7 +1466,7 @@ const FeeManagement = () => {
     if (activeTab === 4) {
       fetchPrintVoucherStudents();
     }
-  }, [activeTab, miscFeeSubTab, miscFeeFilters, generateVoucherFilters, printVoucherFilters, feeHeadSearchTerm, feeStructureAcademicYear, feeStructureSelectedInstitution]);
+  }, [activeTab, miscFeeSubTab, miscFeeFilters, generateVoucherFilters, printVoucherFilters, feeHeadSearchTerm]);
 
   // Status color helper
   const getStatusColor = (status) => {
@@ -1748,38 +1722,6 @@ const FeeManagement = () => {
               FEE STRUCTURE
             </Typography>
 
-            {/* Filters */}
-            <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              {isSuperAdmin && (
-                <FormControl sx={{ minWidth: 200 }}>
-                  <InputLabel>Schools</InputLabel>
-                  <Select
-                    value={feeStructureSelectedInstitution || ''}
-                    onChange={(e) => {
-                      setFeeStructureSelectedInstitution(e.target.value);
-                      setTimeout(() => fetchFeeStructureMatrix(), 100);
-                    }}
-                    label="Schools"
-                  >
-                    {institutions.map((inst) => (
-                      <MenuItem key={inst._id} value={inst._id}>
-                        {capitalizeFirstOnly(inst.name)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-              <TextField
-                label="Academic Year"
-                value={feeStructureAcademicYear}
-                onChange={(e) => {
-                  setFeeStructureAcademicYear(e.target.value);
-                  fetchFeeStructureMatrix();
-                }}
-                placeholder="2024-2025"
-                sx={{ minWidth: 200 }}
-              />
-            </Box>
 
             {feeStructureLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -1927,30 +1869,6 @@ const FeeManagement = () => {
               </Button>
             </Box>
 
-            {/* Academic Year Filter */}
-            <Box sx={{ mb: 3 }}>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Academic Year</InputLabel>
-                <Select
-                  value={assignFeeStructureForm.academicYear}
-                  label="Academic Year"
-                  onChange={(e) => {
-                    setAssignFeeStructureForm(prev => ({ ...prev, academicYear: e.target.value }));
-                    setTimeout(() => fetchStudentsWithoutFeeStructure(), 100);
-                  }}
-                >
-                  <MenuItem value={`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}>
-                    {`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
-                  </MenuItem>
-                  <MenuItem value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
-                    {`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}
-                  </MenuItem>
-                  <MenuItem value={`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}>
-                    {`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
 
             {assignFeeStructureLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -3405,26 +3323,6 @@ const FeeManagement = () => {
                 <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
                   All fee structures for the selected class will be assigned to the student
                 </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Academic Year</InputLabel>
-                  <Select
-                    value={assignFeeStructureForm.academicYear}
-                    onChange={(e) => setAssignFeeStructureForm({ ...assignFeeStructureForm, academicYear: e.target.value })}
-                    label="Academic Year"
-                  >
-                    <MenuItem value={`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}>
-                      {`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}
-                    </MenuItem>
-                    <MenuItem value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
-                      {`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}
-                    </MenuItem>
-                    <MenuItem value={`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}>
-                      {`${new Date().getFullYear() + 1}-${new Date().getFullYear() + 2}`}
-                    </MenuItem>
-                  </Select>
-                </FormControl>
               </Grid>
               <Grid item xs={6}>
                 <TextField

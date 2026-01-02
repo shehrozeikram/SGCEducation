@@ -1,9 +1,8 @@
 const FeeHead = require('../models/FeeHead');
 const { ApiError } = require('../middleware/error.middleware');
-const mongoose = require('mongoose');
 
 /**
- * Fee Head Service - Handles fee head-related business logic
+ * FeeHead Service - Handles fee head-related business logic
  */
 class FeeHeadService {
   /**
@@ -12,22 +11,26 @@ class FeeHeadService {
   async getAllFeeHeads(filters = {}, currentUser) {
     const query = {};
 
-    // Fee heads are now shared across all institutions
-    // No institution filtering - return all shared fee heads
-    // (institution field is null for shared fee heads)
-
-    // Apply additional filters
-    if (filters.isActive !== undefined) {
-      query.isActive = filters.isActive;
-    } else {
-      // By default, show only active fee heads
-      query.isActive = true;
+    // Apply institution filter based on role
+    if (currentUser.role !== 'super_admin') {
+      if (currentUser.institution) {
+        query.$or = [
+          { institution: currentUser.institution },
+          { institution: null } // Global fee heads
+        ];
+      }
+    } else if (filters.institution) {
+      query.$or = [
+        { institution: filters.institution },
+        { institution: null } // Global fee heads
+      ];
     }
 
+    // Apply search filter
     if (filters.search) {
       query.$or = [
         { name: { $regex: filters.search, $options: 'i' } },
-        { accountType: { $regex: filters.search, $options: 'i' } },
+        { glAccount: { $regex: filters.search, $options: 'i' } },
         { frequencyType: { $regex: filters.search, $options: 'i' } }
       ];
     }
@@ -52,32 +55,51 @@ class FeeHeadService {
       throw new ApiError(404, 'Fee head not found');
     }
 
-    // Fee heads are shared across all institutions, so no access check needed
+    // Check access permissions
+    if (currentUser.role !== 'super_admin') {
+      if (feeHead.institution && 
+          feeHead.institution._id.toString() !== currentUser.institution?.toString()) {
+        throw new ApiError(403, 'Access denied to this fee head');
+      }
+    }
+
     return feeHead;
   }
 
   /**
    * Create new fee head
-   * Fee heads are now shared across all institutions (institution is set to null)
    */
-  async createFeeHead(feeHeadData, createdBy) {
-    const { priority } = feeHeadData;
+  async createFeeHead(feeHeadData, currentUser) {
+    const { institution, priority } = feeHeadData;
 
-    // Check if priority already exists (globally unique)
-    const existingFeeHead = await FeeHead.findOne({
+    // If not super admin, set institution from user
+    // If super admin and no institution provided, set to null (global)
+    const targetInstitution = currentUser.role !== 'super_admin' 
+      ? currentUser.institution 
+      : (institution || null);
+
+    // Check if priority is already taken
+    // If targetInstitution is null (global), check globally
+    // If targetInstitution exists, check only within that institution
+    const priorityQuery = targetInstitution 
+      ? { institution: targetInstitution }
+      : { institution: null };
+    
+    const existingPriority = await FeeHead.findOne({
       priority,
+      ...priorityQuery,
       isActive: true
     });
 
-    if (existingFeeHead) {
-      throw new ApiError(400, `Priority ${priority} is already assigned to another fee head`);
+    if (existingPriority) {
+      throw new ApiError(400, `Priority ${priority} is already taken`);
     }
 
-    // Create fee head with institution set to null (shared across all institutions)
+    // Create fee head
     const feeHead = await FeeHead.create({
       ...feeHeadData,
-      institution: null,  // Shared across all institutions
-      createdBy: createdBy._id
+      institution: targetInstitution,
+      createdBy: currentUser._id
     });
 
     return await FeeHead.findById(feeHead._id)
@@ -88,33 +110,42 @@ class FeeHeadService {
   /**
    * Update fee head
    */
-  async updateFeeHead(feeHeadId, feeHeadData, currentUser) {
+  async updateFeeHead(feeHeadId, updateData, currentUser) {
     const feeHead = await FeeHead.findById(feeHeadId);
 
     if (!feeHead) {
       throw new ApiError(404, 'Fee head not found');
     }
 
-    // Fee heads are shared, so no institution-based access check needed
-    // All authenticated users can update shared fee heads
+    // Check permissions
+    if (currentUser.role !== 'super_admin') {
+      if (feeHead.institution && 
+          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+        throw new ApiError(403, 'You can only update fee heads in your institution');
+      }
+    }
 
-    // If priority is being changed, check if new priority exists (globally)
-    if (feeHeadData.priority && feeHeadData.priority !== feeHead.priority) {
-      const existingFeeHead = await FeeHead.findOne({
-        priority: feeHeadData.priority,
+    // Check if priority is being changed and already exists
+    if (updateData.priority && updateData.priority !== feeHead.priority) {
+      const targetInstitution = feeHead.institution || null;
+      const priorityQuery = targetInstitution 
+        ? { institution: targetInstitution }
+        : { institution: null };
+      
+      const existingPriority = await FeeHead.findOne({
+        priority: updateData.priority,
+        ...priorityQuery,
         isActive: true,
         _id: { $ne: feeHeadId }
       });
 
-      if (existingFeeHead) {
-        throw new ApiError(400, `Priority ${feeHeadData.priority} is already assigned to another fee head`);
+      if (existingPriority) {
+        throw new ApiError(400, `Priority ${updateData.priority} is already taken`);
       }
     }
 
-    // Ensure institution remains null (shared)
-    feeHeadData.institution = null;
-    
-    Object.assign(feeHead, feeHeadData);
+    // Update fee head
+    Object.assign(feeHead, updateData);
     await feeHead.save();
 
     return await FeeHead.findById(feeHead._id)
@@ -132,8 +163,13 @@ class FeeHeadService {
       throw new ApiError(404, 'Fee head not found');
     }
 
-    // Fee heads are shared, so no institution-based access check needed
-    // All authenticated users can delete shared fee heads
+    // Check permissions
+    if (currentUser.role !== 'super_admin') {
+      if (feeHead.institution && 
+          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+        throw new ApiError(403, 'You can only delete fee heads in your institution');
+      }
+    }
 
     // Soft delete
     feeHead.isActive = false;
@@ -152,17 +188,29 @@ class FeeHeadService {
       throw new ApiError(404, 'Fee head not found');
     }
 
-    // Fee heads are shared, so no institution-based access check needed
+    // Check permissions
+    if (currentUser.role !== 'super_admin') {
+      if (feeHead.institution && 
+          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+        throw new ApiError(403, 'You can only reactivate fee heads in your institution');
+      }
+    }
 
-    // Check if priority is available (globally)
-    const existingFeeHead = await FeeHead.findOne({
+    // Check if priority is available
+    const targetInstitution = feeHead.institution || null;
+    const priorityQuery = targetInstitution 
+      ? { institution: targetInstitution }
+      : { institution: null };
+    
+    const existingPriority = await FeeHead.findOne({
       priority: feeHead.priority,
+      ...priorityQuery,
       isActive: true,
       _id: { $ne: feeHeadId }
     });
 
-    if (existingFeeHead) {
-      throw new ApiError(400, `Priority ${feeHead.priority} is already assigned to another active fee head`);
+    if (existingPriority) {
+      throw new ApiError(400, `Cannot reactivate: Priority ${feeHead.priority} is already taken`);
     }
 
     feeHead.isActive = true;
@@ -174,18 +222,31 @@ class FeeHeadService {
   }
 
   /**
-   * Get available priorities (globally, since fee heads are shared)
+   * Get available priorities
    */
-  async getAvailablePriorities(filters = {}, currentUser) {
-    // Fee heads are shared across all institutions, so check globally
-    const usedPriorities = await FeeHead.find({ isActive: true }).distinct('priority');
+  async getAvailablePriorities(currentUser) {
+    const targetInstitution = currentUser.role !== 'super_admin' 
+      ? currentUser.institution 
+      : null;
+
+    // Get all used priorities
+    // If targetInstitution is null (super_admin), return all priorities as available
+    // Otherwise, get priorities for the specific institution
+    const priorityQuery = targetInstitution 
+      ? { institution: targetInstitution }
+      : { institution: null };
     
-    // Generate list of available priorities (assuming max priority of 100)
-    const maxPriority = 100;
+    const usedPriorities = await FeeHead.find({
+      ...priorityQuery,
+      isActive: true
+    }).select('priority');
+
+    const usedPrioritySet = new Set(usedPriorities.map(fh => fh.priority));
+
+    // Return available priorities (1-20)
     const availablePriorities = [];
-    
-    for (let i = 1; i <= maxPriority; i++) {
-      if (!usedPriorities.includes(i)) {
+    for (let i = 1; i <= 20; i++) {
+      if (!usedPrioritySet.has(i)) {
         availablePriorities.push(i);
       }
     }

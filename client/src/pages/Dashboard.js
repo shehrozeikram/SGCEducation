@@ -140,6 +140,7 @@ const Dashboard = () => {
     { name: 'HR Management', icon: <People />, color: '#667eea', route: null },
     { name: 'Library', icon: <LocalLibrary />, color: '#f093fb', route: null },
     { name: 'Assets Management', icon: <Inventory />, color: '#4facfe', route: null },
+    { name: 'Finance Management', icon: <AccountBalance />, color: '#43e97b', route: '/financial' },
     { name: 'User & Privilege', icon: <SupervisorAccount />, color: '#feca57', route: '/users' },
     { name: 'Configuration', icon: <Settings />, color: '#fa709a', route: '/settings' },
     { name: 'Transport', icon: <DirectionsBus />, color: '#ee5a6f', route: null },

@@ -1,47 +1,32 @@
 const mongoose = require('mongoose');
 
 const feeStructureSchema = new mongoose.Schema({
-  institution: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Institution',
-    required: [true, 'Please provide institution']
-  },
-  academicYear: {
-    type: String,
-    required: [true, 'Please provide academic year'],
-    trim: true
-  },
   class: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
     required: [true, 'Please provide class']
   },
-  feeType: {
+  feeHead: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'FeeType',
-    required: [true, 'Please provide fee type']
+    ref: 'FeeHead',
+    required: [true, 'Please provide fee head']
+  },
+  academicYear: {
+    type: String,
+    trim: true,
+    default: ''
   },
   amount: {
     type: Number,
-    required: [true, 'Please provide fee amount'],
-    min: 0
+    required: [true, 'Please provide amount'],
+    min: 0,
+    default: 0
   },
-  dueDate: {
-    type: Date,
-    required: [true, 'Please provide due date']
-  },
-  frequency: {
-    type: String,
-    enum: ['one-time', 'monthly', 'quarterly', 'half-yearly', 'yearly'],
-    default: 'monthly'
-  },
-  isOptional: {
-    type: Boolean,
-    default: false
-  },
-  description: {
-    type: String,
-    trim: true
+  // Fee structures are shared globally (not institution-specific)
+  // Institution is stored for reference but structures are shared across all institutions
+  institution: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Institution'
   },
   isActive: {
     type: Boolean,
@@ -67,14 +52,11 @@ feeStructureSchema.pre('save', function() {
   this.updatedAt = Date.now();
 });
 
+// Compound index for unique fee structure per class and fee head (academic year removed)
+feeStructureSchema.index({ class: 1, feeHead: 1 }, { unique: true });
+
 // Indexes for better query performance
-feeStructureSchema.index({ institution: 1, academicYear: 1, class: 1 });
-feeStructureSchema.index({ institution: 1, class: 1, isActive: 1 });
-feeStructureSchema.index({ feeType: 1 });
+feeStructureSchema.index({ class: 1 });
+feeStructureSchema.index({ feeHead: 1 });
 
 module.exports = mongoose.model('FeeStructure', feeStructureSchema);
-
-
-
-
-
