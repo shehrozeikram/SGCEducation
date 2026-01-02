@@ -196,31 +196,6 @@ const AdmissionCharts = ({ filters = {} }) => {
           </Paper>
         </Grid>
 
-        {/* Department Breakdown */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Applications by Department
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {analyticsData.departmentBreakdown.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No data available
-              </Typography>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analyticsData.departmentBreakdown}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} style={{ fontSize: '12px' }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#667eea" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </Paper>
-        </Grid>
-
         {/* Gender Breakdown */}
         <Grid item xs={12} md={6}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
@@ -266,44 +241,6 @@ const AdmissionCharts = ({ filters = {} }) => {
                   <Tooltip />
                   <Bar dataKey="count" fill="#4facfe" />
                 </BarChart>
-              </ResponsiveContainer>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Category Breakdown */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Applications by Category
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {analyticsData.categoryBreakdown.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No data available
-              </Typography>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={analyticsData.categoryBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ category, percent }) => `${category}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {analyticsData.categoryBreakdown.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={['#667eea', '#f093fb', '#4facfe', '#43e97b', '#feca57'][index % 5]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
               </ResponsiveContainer>
             )}
           </Paper>

@@ -34,7 +34,7 @@ import {
   Print,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createAdmission, updateAdmission, getAdmissionById } from '../services/admissionService';
+import { createAdmission, updateAdmission, getAdmissionById, updateAdmissionStatus, approveAndEnroll } from '../services/admissionService';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
 import { capitalizeFirstOnly } from '../utils/textUtils';
@@ -194,11 +194,14 @@ const AdmissionForm = () => {
   });
 
   useEffect(() => {
-    fetchClasses();
-    fetchSections();
-    fetchGroups();
     if (isEditMode) {
-      fetchAdmissionData();
+      // For edit/view mode: fetch admission data first, then fetch dropdowns with correct institution
+      fetchAdmissionDataAndDropdowns();
+    } else {
+      // For new admission: fetch dropdowns with current institution
+      fetchClasses();
+      fetchSections();
+      fetchGroups();
     }
     
     // Update institution when selectedInstitution changes
@@ -219,47 +222,13 @@ const AdmissionForm = () => {
   }, [id, isEditMode]);
 
   const fetchClasses = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const params = {};
-      
-      // Get institution from navbar selection or user
-      const institutionId = getInstitutionId();
-      if (institutionId) {
-        params.institution = institutionId;
-      }
-      
-      const response = await axios.get('http://localhost:5000/api/v1/classes', {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
-      setClasses(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching classes:', err);
-      setError('Failed to load classes. Please refresh the page.');
-    }
+    const institutionId = getInstitutionId();
+    return fetchClassesWithInstitution(institutionId);
   };
 
   const fetchSections = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const params = {};
-      
-      // Get institution from navbar selection or user
-      const institutionId = getInstitutionId();
-      if (institutionId) {
-        params.institution = institutionId;
-      }
-      
-      const response = await axios.get('http://localhost:5000/api/v1/sections', {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
-      setSections(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching sections:', err);
-      setError('Failed to load sections. Please refresh the page.');
-    }
+    const institutionId = getInstitutionId();
+    return fetchSectionsWithInstitution(institutionId);
   };
 
   const fetchGroups = async () => {
@@ -315,49 +284,130 @@ const AdmissionForm = () => {
     return digits.length === 13;
   };
 
-  const fetchAdmissionData = async () => {
+  // Fetch classes with specific institution
+  const fetchClassesWithInstitution = async (institutionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = {};
+      
+      if (institutionId) {
+        params.institution = institutionId;
+      }
+      
+      const response = await axios.get('http://localhost:5000/api/v1/classes', {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+      setClasses(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching classes:', err);
+      setError('Failed to load classes. Please refresh the page.');
+    }
+  };
+
+  // Fetch sections with specific institution
+  const fetchSectionsWithInstitution = async (institutionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const params = {};
+      
+      if (institutionId) {
+        params.institution = institutionId;
+      }
+      
+      const response = await axios.get('http://localhost:5000/api/v1/sections', {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+      setSections(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching sections:', err);
+      setError('Failed to load sections. Please refresh the page.');
+    }
+  };
+
+  // Fetch admission data and then fetch dropdowns with the correct institution
+  const fetchAdmissionDataAndDropdowns = async () => {
     try {
       setLoading(true);
       const response = await getAdmissionById(id);
       const admission = response.data;
+      
+      // Get institution from admission (prioritize admission's institution)
+      const admissionInstitutionId = admission.institution?._id || admission.institution;
+      const institutionId = admissionInstitutionId || getInstitutionId();
+      
+      // Fetch dropdowns with the admission's institution
+      await Promise.all([
+        fetchClassesWithInstitution(institutionId),
+        fetchSectionsWithInstitution(institutionId),
+        fetchGroups()
+      ]);
+      
       // Map backend data to form structure
+      // If studentId exists (enrolled), prefer data from Student model, otherwise use Admission model
+      const student = admission.studentId;
+      const guardianInfo = student?.guardianInfo || admission.guardianInfo;
+      
       setFormData(prev => ({
         ...prev,
-        class: admission.class?._id || '',
-        section: admission.section?._id || '',
-        group: admission.group?._id || '',
-        admissionDate: admission.admissionDate || prev.admissionDate,
+        class: admission.class?._id || admission.class || '',
+        section: admission.section?._id || admission.section || student?.section || '',
+        // Group comes from the class if available
+        group: admission.class?.group?._id || admission.class?.group || admission.group?._id || admission.group || '',
+        admissionDate: admission.admissionDate ? new Date(admission.admissionDate).toISOString().split('T')[0] : prev.admissionDate,
         // Use the name field from personalInfo
-        studentName: admission.personalInfo.name || '',
-        fatherName: admission.guardianInfo?.fatherName || '',
-        dateOfBirth: admission.personalInfo.dateOfBirth ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
-        rollNumber: admission.rollNumber || '',
-        religion: admission.personalInfo.religion || 'Islam',
-        gender: admission.personalInfo.gender || 'Male',
-        institution: admission.institution._id,
-        academicYear: admission.academicYear,
-        program: admission.program,
+        studentName: admission.personalInfo?.name || '',
+        fatherName: guardianInfo?.fatherName || '',
+        dateOfBirth: admission.personalInfo?.dateOfBirth ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
+        // Roll number comes from Student model if enrolled, otherwise empty
+        rollNumber: student?.rollNumber || prev.rollNumber || '',
+        religion: admission.personalInfo?.religion || 'Islam',
+        gender: admission.personalInfo?.gender ? admission.personalInfo.gender.charAt(0).toUpperCase() + admission.personalInfo.gender.slice(1) : 'Male',
+        admEffectNo: admission.admissionDate ? new Date(admission.admissionDate).toISOString().split('T')[0] : prev.admEffectNo,
+        institution: admission.institution?._id || admission.institution || prev.institution,
+        academicYear: admission.academicYear || student?.academicYear || prev.academicYear,
+        program: admission.program || student?.program || prev.program,
+        // Address - Present (from currentAddress)
+        presentAddress: {
+          address: admission.contactInfo?.currentAddress?.street || '',
+          country: admission.contactInfo?.currentAddress?.country || 'Pakistan',
+          city: admission.contactInfo?.currentAddress?.city || 'Sialkot',
+        },
+        // Address - Permanent (from permanentAddress)
+        permanentAddress: {
+          address: admission.contactInfo?.permanentAddress?.street || '',
+          country: admission.contactInfo?.permanentAddress?.country || 'Pakistan',
+          city: admission.contactInfo?.permanentAddress?.city || 'Sialkot',
+        },
         father: {
           ...prev.father,
-          name: admission.guardianInfo?.fatherName || '',
-          occupation: admission.guardianInfo?.fatherOccupation || '',
-          mobileNumber: admission.guardianInfo?.fatherPhone || '',
-          cnic: admission.guardianInfo?.fatherCnic ? formatCNIC(admission.guardianInfo.fatherCnic) : '',
+          name: guardianInfo?.fatherName || '',
+          occupation: guardianInfo?.fatherOccupation || '',
+          mobileNumber: guardianInfo?.fatherPhone || '',
+          // CNIC doesn't exist in either model
+          cnic: '',
+          // Father email exists in Student model but not in Admission model
+          emailAddress: guardianInfo?.fatherEmail || '',
         },
         mother: {
           ...prev.mother,
-          name: admission.guardianInfo?.motherName || '',
-          occupation: admission.guardianInfo?.motherOccupation || '',
-          mobileNumber: admission.guardianInfo?.motherPhone || '',
-          cnic: admission.guardianInfo?.motherCnic ? formatCNIC(admission.guardianInfo.motherCnic) : '',
+          name: guardianInfo?.motherName || '',
+          occupation: guardianInfo?.motherOccupation || '',
+          mobileNumber: guardianInfo?.motherPhone || '',
+          // CNIC doesn't exist in either model
+          cnic: '',
+          // Mother email exists in Student model but not in Admission model
+          emailAddress: guardianInfo?.motherEmail || '',
         },
         guardian: {
           ...prev.guardian,
-          name: admission.guardianInfo?.guardianName || '',
-          relation: admission.guardianInfo?.guardianRelation || '',
-          mobileNumber: admission.guardianInfo?.guardianPhone || '',
-          emailAddress: admission.guardianInfo?.guardianEmail || '',
-          cnic: admission.guardianInfo?.guardianCnic ? formatCNIC(admission.guardianInfo.guardianCnic) : '',
+          name: guardianInfo?.guardianName || '',
+          relation: guardianInfo?.guardianRelation || '',
+          mobileNumber: guardianInfo?.guardianPhone || '',
+          emailAddress: guardianInfo?.guardianEmail || '',
+          // CNIC doesn't exist in either model
+          cnic: '',
         },
       }));
     } catch (err) {
@@ -365,6 +415,11 @@ const AdmissionForm = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Legacy function for backward compatibility (used in new admission mode)
+  const fetchAdmissionData = async () => {
+    return fetchAdmissionDataAndDropdowns();
   };
 
   const handleChange = (field, value) => {
@@ -562,12 +617,36 @@ const AdmissionForm = () => {
         },
       };
 
+      let admissionId;
       if (isEditMode) {
-        await updateAdmission(id, admissionData);
+        const response = await updateAdmission(id, admissionData);
+        admissionId = id;
         setSuccess('Admission updated successfully');
       } else {
-        await createAdmission(admissionData);
+        const response = await createAdmission(admissionData);
+        admissionId = response.data._id;
         setSuccess('Admission application submitted successfully');
+      }
+
+      // If "Mark as Enrolled" is checked, enroll the student
+      if (formData.markAsEnrolled && admissionId) {
+        try {
+          // First, update status to 'approved' if not already approved
+          const currentAdmission = await getAdmissionById(admissionId);
+          if (currentAdmission.data.status !== 'approved' && currentAdmission.data.status !== 'enrolled') {
+            await updateAdmissionStatus(admissionId, 'approved', 'Auto-approved during enrollment');
+          }
+          
+          // Then enroll the student
+          if (currentAdmission.data.status !== 'enrolled') {
+            await approveAndEnroll(admissionId);
+            setSuccess('Admission created and student enrolled successfully');
+          }
+        } catch (enrollError) {
+          // If enrollment fails, still show success for admission creation
+          console.error('Enrollment error:', enrollError);
+          setError(enrollError.response?.data?.message || 'Admission created but enrollment failed. Please enroll manually.');
+        }
       }
 
       setTimeout(() => {

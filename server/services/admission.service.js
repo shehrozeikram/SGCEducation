@@ -57,7 +57,23 @@ class AdmissionService {
       .populate('institution', 'name type code')
       .populate('reviewedBy', 'name email')
       .populate('createdBy', 'name email')
-      .populate('studentId', 'enrollmentNumber rollNumber user');
+      .populate({
+        path: 'studentId',
+        select: 'enrollmentNumber rollNumber guardianInfo section program batch',
+        populate: {
+          path: 'user',
+          select: 'name email'
+        }
+      })
+      .populate({
+        path: 'class',
+        select: 'name code group',
+        populate: {
+          path: 'group',
+          select: 'name code'
+        }
+      })
+      .populate('section', 'name code');
 
     if (!admission) {
       throw new ApiError(404, 'Admission not found');

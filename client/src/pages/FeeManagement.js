@@ -731,7 +731,7 @@ const FeeManagement = () => {
         const studentId = studentFee.student?._id || studentFee.student;
         if (studentId && !uniqueStudentsMap.has(studentId.toString())) {
           const student = studentFee.student;
-          const admission = studentFee.admission;
+          const admission = studentFee.student?.admission;
           
           // Get student name
           let studentName = 'N/A';
@@ -1898,7 +1898,7 @@ const FeeManagement = () => {
                     {studentsWithoutFeeStructure.map((student) => (
                       <TableRow key={student._id} hover>
                         <TableCell>{student.enrollmentNumber}</TableCell>
-                        <TableCell>{student.rollNumber}</TableCell>
+                        <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                         <TableCell>{student.admissionNumber}</TableCell>
                         <TableCell>{capitalizeFirstOnly(student.name)}</TableCell>
                         <TableCell>{capitalizeFirstOnly(student.class)}</TableCell>

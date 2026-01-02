@@ -1310,15 +1310,15 @@ const Admissions = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell><strong>Application No.</strong></TableCell>
-                <TableCell><strong>Applicant Name</strong></TableCell>
-                <TableCell><strong>Email</strong></TableCell>
-                {isSuperAdmin && <TableCell><strong>Institution</strong></TableCell>}
-                <TableCell><strong>Class</strong></TableCell>
-                <TableCell><strong>Applied On</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell align="center"><strong>Actions</strong></TableCell>
+              <TableRow sx={{ bgcolor: '#667eea' }}>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Application No.</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Applicant Name</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Email</TableCell>
+                {isSuperAdmin && <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Institution</TableCell>}
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Applied On</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
+                <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1511,8 +1511,8 @@ const Admissions = () => {
                   variant="contained"
                   onClick={handleSearchStudentAllData}
                   sx={{
-                    bgcolor: '#0d6efd',
-                    '&:hover': { bgcolor: '#0b5ed7' },
+                    bgcolor: '#667eea',
+                    '&:hover': { bgcolor: '#5568d3' },
                     textTransform: 'none',
                     px: 4,
                     py: 1.25,
@@ -1536,13 +1536,13 @@ const Admissions = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Sr</strong></TableCell>
+                    <TableRow sx={{ bgcolor: '#667eea' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr</TableCell>
                       {allDataFieldOptions
                         .filter((field) => selectedAllDataFields.includes(field.id))
                         .map((field) => (
-                          <TableCell key={field.id}>
-                            <strong>{field.label}</strong>
+                          <TableCell key={field.id} sx={{ color: 'white', fontWeight: 'bold' }}>
+                            {field.label}
                           </TableCell>
                         ))}
                     </TableRow>
@@ -2751,7 +2751,7 @@ const Admissions = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#0d6efd' }}>
+                    <TableRow sx={{ bgcolor: '#667eea' }}>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Admission</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission No</TableCell>
@@ -2966,7 +2966,7 @@ const Admissions = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#0d6efd' }}>
+                    <TableRow sx={{ bgcolor: '#667eea' }}>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Action</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ID</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Roll #</TableCell>
