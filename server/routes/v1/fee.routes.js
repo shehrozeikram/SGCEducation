@@ -23,4 +23,8 @@ router.post('/assign-structure', isAdmin, feeController.assignFeeStructure);
 router.get('/student-fees', feeController.getStudentFees);
 router.post('/generate-vouchers', isAdmin, feeController.generateVouchers);
 
+// Payment routes
+router.post('/record-payment', isAdmin, feeController.recordPayment);
+router.get('/outstanding-balances', feeController.getOutstandingBalances);
+
 module.exports = router;

@@ -50,6 +50,27 @@ const studentFeeSchema = new mongoose.Schema({
     required: [true, 'Please provide final amount'],
     min: 0
   },
+  paidAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  remainingAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'partial', 'paid', 'overdue'],
+    default: 'pending'
+  },
+  dueDate: {
+    type: Date
+  },
+  lastPaymentDate: {
+    type: Date
+  },
   academicYear: {
     type: String,
     trim: true,
@@ -115,6 +136,36 @@ studentFeeSchema.pre('save', function() {
     if (this.finalAmount < 0) {
       this.finalAmount = 0;
     }
+    // Reset paidAmount and remainingAmount when finalAmount changes
+    if (this.isNew || this.isModified('finalAmount')) {
+      this.paidAmount = 0;
+      this.remainingAmount = this.finalAmount;
+      this.status = 'pending';
+    }
+  }
+  
+  // Calculate remaining amount and update status
+  if (this.isModified('paidAmount') || this.isModified('finalAmount')) {
+    this.remainingAmount = Math.max(0, this.finalAmount - this.paidAmount);
+    
+    // Update status based on payment
+    if (this.remainingAmount <= 0) {
+      this.status = 'paid';
+    } else if (this.paidAmount > 0) {
+      this.status = 'partial';
+    } else {
+      // Check if overdue
+      if (this.dueDate && new Date() > this.dueDate) {
+        this.status = 'overdue';
+      } else {
+        this.status = 'pending';
+      }
+    }
+  }
+  
+  // Update status to overdue if due date has passed
+  if (this.dueDate && this.status !== 'paid' && new Date() > this.dueDate) {
+    this.status = 'overdue';
   }
 });
 

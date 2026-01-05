@@ -68,7 +68,6 @@ const FeeManagement = () => {
   // Tab name mappings
   const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit'];
   const miscSubTabNames = ['student-operations', 'generate-voucher'];
-  const feeDepositSubTabNames = ['manual', 'voucher'];
 
   // Tab management - initialize from URL or default
   const getTabFromURL = () => {
@@ -86,16 +85,12 @@ const FeeManagement = () => {
       if (tabIndex === 3) { // misc-operations
         const subtabIndex = miscSubTabNames.indexOf(subtabParam);
         return subtabIndex >= 0 ? subtabIndex : 0;
-      } else if (tabIndex === 5) { // fee-deposit
-        const subtabIndex = feeDepositSubTabNames.indexOf(subtabParam);
-        return subtabIndex >= 0 ? subtabIndex : 0;
       }
     }
     return 0;
   };
 
   const [activeTab, setActiveTab] = useState(getTabFromURL());
-  const [feeDepositSubTab, setFeeDepositSubTab] = useState(getSubTabFromURL(5));
   const [miscFeeSubTab, setMiscFeeSubTab] = useState(getSubTabFromURL(3));
 
   // Update URL when tabs change
@@ -106,8 +101,6 @@ const FeeManagement = () => {
     if (subtabIndex !== null) {
       if (tabIndex === 3) { // misc-operations
         params.set('subtab', miscSubTabNames[subtabIndex]);
-      } else if (tabIndex === 5) { // fee-deposit
-        params.set('subtab', feeDepositSubTabNames[subtabIndex]);
       }
     }
     
@@ -126,11 +119,6 @@ const FeeManagement = () => {
     updateURL(3, newValue);
   };
 
-  // Handle fee deposit sub-tab change
-  const handleFeeDepositSubTabChange = (event, newValue) => {
-    setFeeDepositSubTab(newValue);
-    updateURL(5, newValue);
-  };
 
   // Initialize URL on mount if no params exist
   useEffect(() => {
@@ -151,8 +139,6 @@ const FeeManagement = () => {
     
     if (tabFromURL === 3 && subtabFromURL !== miscFeeSubTab) {
       setMiscFeeSubTab(subtabFromURL);
-    } else if (tabFromURL === 5 && subtabFromURL !== feeDepositSubTab) {
-      setFeeDepositSubTab(subtabFromURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -241,16 +227,19 @@ const FeeManagement = () => {
     feeHeadDiscounts: {} // { feeHeadId: { discount, discountType, discountReason } }
   });
 
-  // Manual Fee Deposit
+  // Fee Deposit
   const [manualDepositSearch, setManualDepositSearch] = useState({
     id: '',
     admissionNumber: '',
     rollNumber: '',
     studentName: '',
-    phoneNumber: ''
+    voucherNumber: ''
   });
   const [manualDepositStudents, setManualDepositStudents] = useState([]);
   const [selectedManualDepositStudent, setSelectedManualDepositStudent] = useState(null);
+  const [outstandingFees, setOutstandingFees] = useState([]);
+  const [loadingOutstandingFees, setLoadingOutstandingFees] = useState(false);
+  const [selectedFeePayments, setSelectedFeePayments] = useState({}); // { studentFeeId: amount }
   const [manualDepositForm, setManualDepositForm] = useState({
     paymentMethod: 'cash',
     bankAccount: '',
@@ -259,8 +248,12 @@ const FeeManagement = () => {
     fineAmount: '',
     preFineAmount: '',
     absentFineAmount: '',
-    remarks: ''
+    remarks: '',
+    chequeNumber: '',
+    bankName: '',
+    transactionId: ''
   });
+  const [recordingPayment, setRecordingPayment] = useState(false);
 
   // Institutions
   const [institutions, setInstitutions] = useState([]);
@@ -910,6 +903,14 @@ const FeeManagement = () => {
       const transformedStudents = Array.from(uniqueStudentsMap.values());
       setGenerateVoucherStudents(transformedStudents);
       
+      // Remove students with Generated status from selected list
+      setSelectedGenerateVoucherStudents(prevSelected => 
+        prevSelected.filter(selected => {
+          const student = transformedStudents.find(s => s._id === selected._id);
+          return student && student.voucherStatus !== 'Generated';
+        })
+      );
+      
       if (transformedStudents.length === 0) {
         setError('No students found with fee structures assigned for the selected academic year');
       }
@@ -1124,7 +1125,13 @@ const FeeManagement = () => {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const institutionId = user.institution?._id || user.institution;
+      const institutionId = getInstitutionId();
+
+      if (!institutionId) {
+        setError('Institution ID not found');
+        setLoading(false);
+        return;
+      }
 
       // Check if any search filter is provided
       const hasSearchFilters = Object.values(manualDepositSearch).some(value => value && value.trim() !== '');
@@ -1139,12 +1146,54 @@ const FeeManagement = () => {
         institution: institutionId
       };
 
+      let studentIdsFromVoucher = [];
+
+      // If voucher number is provided, search by voucher first
+      if (manualDepositSearch.voucherNumber) {
+        try {
+          // Get all student fees for the institution
+          const studentFeesResponse = await axios.get(`${API_URL}/fees/student-fees`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: {
+              institution: institutionId
+            }
+          });
+
+          const studentFees = studentFeesResponse.data.data || [];
+          
+          // Find student fees with matching voucher number
+          const matchingFees = studentFees.filter(sf => 
+            sf.vouchers && sf.vouchers.some(v => 
+              v.voucherNumber && v.voucherNumber.toLowerCase().includes(manualDepositSearch.voucherNumber.toLowerCase())
+            )
+          );
+
+          // Extract unique student IDs
+          const studentIdArray = matchingFees
+            .map(sf => sf.student?._id || sf.student)
+            .filter(id => id);
+          studentIdsFromVoucher = [...new Set(studentIdArray)];
+
+          if (studentIdsFromVoucher.length === 0) {
+            setError('No students found with the provided voucher number');
+            setManualDepositStudents([]);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error('Error searching by voucher:', err);
+          setError('Failed to search by voucher number');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Use search parameter for general search (API supports searching by applicationNumber, firstName, lastName, email)
       // We'll fetch all and filter client-side for specific fields
       const searchTerms = [];
-      if (manualDepositSearch.id) searchTerms.push(manualDepositSearch.id);
-      if (manualDepositSearch.admissionNumber) searchTerms.push(manualDepositSearch.admissionNumber);
-      if (manualDepositSearch.studentName) searchTerms.push(manualDepositSearch.studentName);
+      if (manualDepositSearch.studentName) {
+        searchTerms.push(manualDepositSearch.studentName);
+      }
       
       if (searchTerms.length > 0) {
         params.search = searchTerms.join(' ');
@@ -1158,6 +1207,14 @@ const FeeManagement = () => {
 
       let admissions = response.data.data || [];
       
+      // Filter by student IDs from voucher search if applicable
+      if (studentIdsFromVoucher.length > 0) {
+        admissions = admissions.filter(admission => {
+          const studentId = admission.studentId?._id || admission.studentId;
+          return studentId && studentIdsFromVoucher.some(id => id.toString() === studentId.toString());
+        });
+      }
+      
       // Client-side filtering for specific fields
       if (manualDepositSearch.rollNumber) {
         admissions = admissions.filter(admission => 
@@ -1166,23 +1223,24 @@ const FeeManagement = () => {
         );
       }
       
-      if (manualDepositSearch.phoneNumber) {
-        admissions = admissions.filter(admission => 
-          admission.personalInfo?.phone?.includes(manualDepositSearch.phoneNumber) ||
-          admission.contactInfo?.phone?.includes(manualDepositSearch.phoneNumber)
-        );
+      // Filter by ID - check enrollment number, application number, student ID, and admission ID
+      if (manualDepositSearch.id) {
+        const idLower = manualDepositSearch.id.toLowerCase().trim();
+        admissions = admissions.filter(admission => {
+          const enrollmentNumber = admission.studentId?.enrollmentNumber?.toLowerCase() || '';
+          const applicationNumber = admission.applicationNumber?.toLowerCase() || '';
+          const studentId = admission.studentId?._id?.toString() || '';
+          const admissionId = admission._id?.toString() || '';
+          
+          return enrollmentNumber.includes(idLower) ||
+                 applicationNumber.includes(idLower) ||
+                 studentId.includes(idLower) ||
+                 admissionId.includes(idLower);
+        });
       }
       
-
-      // Additional filtering for ID and admission number if they were used in general search
-      if (manualDepositSearch.id && !searchTerms.includes(manualDepositSearch.id)) {
-        admissions = admissions.filter(admission => 
-          admission.studentId?.enrollmentNumber?.toLowerCase().includes(manualDepositSearch.id.toLowerCase()) ||
-          admission.applicationNumber?.toLowerCase().includes(manualDepositSearch.id.toLowerCase())
-        );
-      }
-      
-      if (manualDepositSearch.admissionNumber && !searchTerms.includes(manualDepositSearch.admissionNumber)) {
+      // Filter by admission number
+      if (manualDepositSearch.admissionNumber) {
         admissions = admissions.filter(admission => 
           admission.applicationNumber?.toLowerCase().includes(manualDepositSearch.admissionNumber.toLowerCase())
         );
@@ -1219,6 +1277,179 @@ const FeeManagement = () => {
       setError(err.response?.data?.message || 'Failed to search students');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch outstanding fees for a student
+  const fetchOutstandingFees = async (studentId) => {
+    if (!studentId) {
+      setOutstandingFees([]);
+      return;
+    }
+
+    try {
+      setLoadingOutstandingFees(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      const institutionId = getInstitutionId();
+
+      const response = await axios.get(`${API_URL}/fees/outstanding-balances`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          institution: institutionId,
+          studentId: studentId
+        }
+      });
+
+      const result = response.data.data || {};
+      setOutstandingFees(result.fees || []);
+      
+      // Initialize selected payments with 0
+      const initialPayments = {};
+      (result.fees || []).forEach(fee => {
+        initialPayments[fee._id] = 0;
+      });
+      setSelectedFeePayments(initialPayments);
+    } catch (err) {
+      console.error('Error fetching outstanding fees:', err);
+      setError(err.response?.data?.message || 'Failed to fetch outstanding fees');
+      setOutstandingFees([]);
+    } finally {
+      setLoadingOutstandingFees(false);
+    }
+  };
+
+  // Handle student selection for manual deposit
+  const handleManualDepositStudentSelect = async (student) => {
+    setSelectedManualDepositStudent(student);
+    // Get student ID from admission
+    if (student._id) {
+      // Try to get actual student ID from admission
+      try {
+        const token = localStorage.getItem('token');
+        const admissionResponse = await axios.get(`${API_URL}/admissions/${student._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const admission = admissionResponse.data.data;
+        const studentId = admission?.studentId?._id || admission?.studentId;
+        if (studentId) {
+          await fetchOutstandingFees(studentId);
+        }
+      } catch (err) {
+        console.error('Error fetching student ID:', err);
+      }
+    }
+  };
+
+  // Handle fee payment amount change
+  const handleFeePaymentChange = (studentFeeId, amount) => {
+    setSelectedFeePayments(prev => ({
+      ...prev,
+      [studentFeeId]: parseFloat(amount) || 0
+    }));
+  };
+
+  // Calculate total payment amount
+  const calculateTotalPayment = () => {
+    const feesTotal = Object.values(selectedFeePayments).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
+    const finesTotal = 
+      parseFloat(manualDepositForm.fineAmount || 0) +
+      parseFloat(manualDepositForm.preFineAmount || 0) +
+      parseFloat(manualDepositForm.absentFineAmount || 0);
+    return feesTotal + finesTotal;
+  };
+
+  // Handle save payment
+  const handleSavePayment = async () => {
+    if (!selectedManualDepositStudent) {
+      setError('Please select a student');
+      return;
+    }
+
+    const totalPayment = calculateTotalPayment();
+    if (totalPayment <= 0) {
+      setError('Please enter at least one payment amount');
+      return;
+    }
+
+    try {
+      setRecordingPayment(true);
+      setError('');
+      const token = localStorage.getItem('token');
+
+      // Get student ID
+      const admissionResponse = await axios.get(`${API_URL}/admissions/${selectedManualDepositStudent._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const admission = admissionResponse.data.data;
+      const studentId = admission?.studentId?._id || admission?.studentId;
+
+      if (!studentId) {
+        setError('Student ID not found');
+        setRecordingPayment(false);
+        return;
+      }
+
+      // Record payments for each selected fee
+      const paymentPromises = [];
+      Object.entries(selectedFeePayments).forEach(([studentFeeId, amount]) => {
+        if (amount > 0) {
+          const fee = outstandingFees.find(f => f._id === studentFeeId);
+          if (fee && amount <= (fee.remainingAmount || fee.finalAmount)) {
+            paymentPromises.push(
+              axios.post(
+                `${API_URL}/fees/record-payment`,
+                {
+                  studentFeeId: studentFeeId,
+                  amount: amount,
+                  paymentMethod: manualDepositForm.paymentMethod === 'bank' ? 'bank_transfer' : 'cash',
+                  paymentDate: manualDepositForm.paymentDate,
+                  remarks: manualDepositForm.remarks,
+                  chequeNumber: manualDepositForm.chequeNumber,
+                  bankName: manualDepositForm.bankName,
+                  transactionId: manualDepositForm.transactionId
+                },
+                {
+                  headers: { Authorization: `Bearer ${token}` }
+                }
+              )
+            );
+          }
+        }
+      });
+
+      if (paymentPromises.length === 0) {
+        setError('Please select at least one fee to pay');
+        setRecordingPayment(false);
+        return;
+      }
+
+      await Promise.all(paymentPromises);
+
+      setSuccess(`Successfully recorded payment(s) totaling Rs. ${totalPayment.toLocaleString()}`);
+      
+      // Reset form
+      setManualDepositForm({
+        paymentMethod: 'cash',
+        bankAccount: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        feeAmount: '',
+        fineAmount: '',
+        preFineAmount: '',
+        absentFineAmount: '',
+        remarks: '',
+        chequeNumber: '',
+        bankName: '',
+        transactionId: ''
+      });
+      
+      // Refresh outstanding fees (this will also reset selected payments)
+      await fetchOutstandingFees(studentId);
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      setError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setRecordingPayment(false);
     }
   };
 
@@ -1280,80 +1511,121 @@ const FeeManagement = () => {
         // Filter to only include StudentFee records that have vouchers for the selected month/year
         // This ensures we only show fee heads that were selected during voucher generation
         const feesWithVouchers = studentFees.filter(fee => {
-          if (!fee.vouchers || !Array.isArray(fee.vouchers)) {
+          // Check if vouchers array exists and has items
+          if (!fee.vouchers || !Array.isArray(fee.vouchers) || fee.vouchers.length === 0) {
             return false;
           }
+          
           // Check if this fee has a voucher for the selected month/year
-          return fee.vouchers.some(v => v.month === month && v.year === year);
+          // Ensure month and year match exactly (handle both number and string comparisons)
+          const hasVoucher = fee.vouchers.some(v => {
+            if (!v || v.month === undefined || v.year === undefined) {
+              return false;
+            }
+            const vMonth = typeof v.month === 'string' ? parseInt(v.month, 10) : Number(v.month);
+            const vYear = typeof v.year === 'string' ? parseInt(v.year, 10) : Number(v.year);
+            const checkMonth = Number(month);
+            const checkYear = Number(year);
+            return vMonth === checkMonth && vYear === checkYear;
+          });
+          
+          return hasVoucher;
         });
 
-        // Group fees by fee head and calculate totals
-        // Use feeHead name instead of feeType
-        const feeHeadMap = {};
-        feesWithVouchers.forEach(fee => {
-          const feeHeadName = fee.feeHead?.name || 'Fee';
-          if (!feeHeadMap[feeHeadName]) {
-            feeHeadMap[feeHeadName] = 0;
+        // If no fees with vouchers found, return empty fee heads
+        if (feesWithVouchers.length === 0) {
+          feeHeads = [];
+        } else {
+          // Group fees by fee head and calculate totals
+          // Use feeHead name instead of feeType
+          const feeHeadMap = {};
+          feesWithVouchers.forEach(fee => {
+            const feeHeadName = fee.feeHead?.name || 'Fee';
+            if (!feeHeadMap[feeHeadName]) {
+              feeHeadMap[feeHeadName] = 0;
+            }
+            // Use finalAmount (after discount) if available, otherwise baseAmount
+            feeHeadMap[feeHeadName] += fee.finalAmount || fee.baseAmount || 0;
+          });
+
+          // Convert to array and sort by fee head priority if available
+          feeHeads = Object.entries(feeHeadMap)
+            .map(([name, amount]) => {
+              // Find the fee head to get its priority for sorting
+              const feeHead = feesWithVouchers.find(f => (f.feeHead?.name || 'Fee') === name)?.feeHead;
+              return {
+                name: name,
+                amount: amount || 0,
+                priority: feeHead?.priority || 999
+              };
+            })
+            .sort((a, b) => a.priority - b.priority)
+            .map(({ name, amount }) => ({ name, amount }))
+            .filter(h => h.amount > 0);
+
+          // Get due date from first fee with voucher
+          if (feesWithVouchers.length > 0) {
+            const firstFee = feesWithVouchers[0];
+            if (firstFee.dueDate) {
+              dueDate = new Date(firstFee.dueDate);
+            }
           }
-          // Use finalAmount (after discount) if available, otherwise baseAmount
-          feeHeadMap[feeHeadName] += fee.finalAmount || fee.baseAmount || 0;
-        });
 
-        // Convert to array and sort by fee head priority if available
-        feeHeads = Object.entries(feeHeadMap)
-          .map(([name, amount]) => {
-            // Find the fee head to get its priority for sorting
-            const feeHead = feesWithVouchers.find(f => (f.feeHead?.name || 'Fee') === name)?.feeHead;
-            return {
-              name: name,
-              amount: amount || 0,
-              priority: feeHead?.priority || 999
-            };
-          })
-          .sort((a, b) => a.priority - b.priority)
-          .map(({ name, amount }) => ({ name, amount }))
-          .filter(h => h.amount > 0);
+          // Calculate arrears (unpaid/partial payments from previous months)
+          // Get all outstanding fees from previous months (not just those with vouchers for current month)
+          const previousMonthFees = studentFees.filter(f => {
+            // Exclude fees that have vouchers for current month (they're already included above)
+            const hasCurrentVoucher = f.vouchers && f.vouchers.some(v => {
+              const vMonth = typeof v.month === 'string' ? parseInt(v.month, 10) : Number(v.month);
+              const vYear = typeof v.year === 'string' ? parseInt(v.year, 10) : Number(v.year);
+              return vMonth === month && vYear === year;
+            });
+            
+            if (hasCurrentVoucher) return false;
+            
+            // Include fees with remaining balance from previous months
+            const remainingAmount = f.remainingAmount || (f.finalAmount - (f.paidAmount || 0));
+            if (remainingAmount <= 0 || f.status === 'paid') return false;
+            
+            // Check if fee is from a previous month
+            if (f.dueDate) {
+              const feeDate = new Date(f.dueDate);
+              return feeDate < startDate;
+            }
+            
+            // If no due date, check creation date
+            if (f.createdAt) {
+              const createdDate = new Date(f.createdAt);
+              return createdDate < startDate;
+            }
+            
+            return false;
+          });
+          
+          // Calculate total arrears from previous months
+          arrears = previousMonthFees.reduce((sum, f) => {
+            const remaining = f.remainingAmount || (f.finalAmount - (f.paidAmount || 0));
+            return sum + Math.max(0, remaining);
+          }, 0);
 
-        // Get due date from first fee with voucher
-        if (feesWithVouchers.length > 0) {
-          const firstFee = feesWithVouchers[0];
-          if (firstFee.dueDate) {
-            dueDate = new Date(firstFee.dueDate);
+          // Calculate late fee fine if due date has passed
+          const now = new Date();
+          if (dueDate < now) {
+            // Calculate days overdue
+            const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+            lateFeeFine = Math.max(0, daysOverdue * 50); // Rs. 50 per day (adjust as needed)
           }
+
+          totalAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
         }
-
-        // Calculate arrears (unpaid fees before the selected month)
-        // Only consider fees that have vouchers generated
-        const unpaidFees = feesWithVouchers.filter(f => {
-          if (!f.dueDate || f.status === 'paid') return false;
-          const feeDate = new Date(f.dueDate);
-          return feeDate < startDate && (f.status === 'pending' || f.status === 'overdue' || f.status === 'partial');
-        });
-        arrears = unpaidFees.reduce((sum, f) => sum + (f.finalAmount || f.baseAmount || 0), 0);
-
-        // Calculate late fee fine if due date has passed
-        const now = new Date();
-        if (dueDate < now) {
-          // Calculate days overdue
-          const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
-          lateFeeFine = Math.max(0, daysOverdue * 50); // Rs. 50 per day (adjust as needed)
-        }
-
-        totalAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
       } catch (err) {
         console.error('Error fetching student fees:', err);
       }
 
-      // If no fees found, set default
-      if (feeHeads.length === 0) {
-        feeHeads = [
-          { name: 'Tuition Fee', amount: 0 }
-        ];
-      }
-
-      const tuitionFee = feeHeads.find(h => h.name.toLowerCase().includes('tuition'))?.amount ||
-                        feeHeads.reduce((sum, h) => sum + h.amount, 0) || 0;
-      const payableWithinDueDate = tuitionFee + arrears;
+      // Calculate payable amounts based on fees with vouchers only
+      // If no fees found with vouchers, show empty voucher
+      const totalFeeAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
+      const payableWithinDueDate = totalFeeAmount + arrears;
       const payableAfterDueDate = payableWithinDueDate + lateFeeFine + absentFine;
 
       // Format dates correctly
@@ -2357,10 +2629,17 @@ const FeeManagement = () => {
                         <TableCell padding="checkbox">
                           <input
                             type="checkbox"
-                            checked={selectedGenerateVoucherStudents.length === generateVoucherStudents.length && generateVoucherStudents.length > 0}
+                            checked={
+                              generateVoucherStudents.length > 0 &&
+                              generateVoucherStudents
+                                .filter(s => s.voucherStatus !== 'Generated')
+                                .every(s => selectedGenerateVoucherStudents.some(sel => sel._id === s._id))
+                            }
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedGenerateVoucherStudents([...generateVoucherStudents]);
+                                // Only select students without Generated status
+                                const selectableStudents = generateVoucherStudents.filter(s => s.voucherStatus !== 'Generated');
+                                setSelectedGenerateVoucherStudents(selectableStudents);
                               } else {
                                 setSelectedGenerateVoucherStudents([]);
                               }
@@ -2393,12 +2672,23 @@ const FeeManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        generateVoucherStudents.map((student) => (
-                          <TableRow key={student._id}>
+                        generateVoucherStudents.map((student) => {
+                          const isGenerated = student.voucherStatus === 'Generated';
+                          const isSelected = selectedGenerateVoucherStudents.some(s => s._id === student._id);
+                          
+                          return (
+                          <TableRow 
+                            key={student._id}
+                            sx={{
+                              opacity: isGenerated ? 0.6 : 1,
+                              bgcolor: isGenerated ? 'action.hover' : 'inherit'
+                            }}
+                          >
                             <TableCell padding="checkbox">
                               <input
                                 type="checkbox"
-                                checked={selectedGenerateVoucherStudents.some(s => s._id === student._id)}
+                                checked={isSelected}
+                                disabled={isGenerated}
                                 onChange={(e) => {
                                   if (e.target.checked) {
                                     setSelectedGenerateVoucherStudents([...selectedGenerateVoucherStudents, student]);
@@ -2431,7 +2721,8 @@ const FeeManagement = () => {
                               />
                             </TableCell>
                           </TableRow>
-                        ))
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -2585,7 +2876,6 @@ const FeeManagement = () => {
           </Box>
         )}
 
-        {/* Tab Panel 4: Fee Deposit */}
         {/* Tab Panel 5: Fee Deposit */}
         {activeTab === 5 && (
           <Box>
@@ -2593,74 +2883,63 @@ const FeeManagement = () => {
               FEE DEPOSIT
             </Typography>
 
-            {/* Sub-tabs for Fee Deposit */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs value={feeDepositSubTab} onChange={handleFeeDepositSubTabChange}>
-                <Tab label="Manual Fee Deposit" />
-                <Tab label="Fee Deposit by Voucher" />
-              </Tabs>
-            </Box>
-
-            {/* Sub-tab Panel 0: Manual Fee Deposit */}
-            {feeDepositSubTab === 0 && (
-              <Box>
-                {/* Search Section */}
-                <Card sx={{ mb: 3 }}>
-                  <CardContent>
-                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold', color: '#667eea' }}>
-                      Search Student
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="ID"
-                          value={manualDepositSearch.id}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, id: e.target.value })}
-                          placeholder="Enter ID"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Admission Number"
-                          value={manualDepositSearch.admissionNumber}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, admissionNumber: e.target.value })}
-                          placeholder="Enter admission number"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Roll Number"
-                          value={manualDepositSearch.rollNumber}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, rollNumber: e.target.value })}
-                          placeholder="Enter roll number"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Student Name"
-                          value={manualDepositSearch.studentName}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, studentName: e.target.value })}
-                          placeholder="Enter student name"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={4} lg={2}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Phone Number"
-                          value={manualDepositSearch.phoneNumber}
-                          onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, phoneNumber: e.target.value })}
-                          placeholder="Enter phone number"
-                        />
-                      </Grid>
+            {/* Search Section */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold', color: '#667eea' }}>
+                  Search Student
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="ID"
+                      value={manualDepositSearch.id}
+                      onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, id: e.target.value })}
+                      placeholder="Enter ID"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Admission Number"
+                      value={manualDepositSearch.admissionNumber}
+                      onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, admissionNumber: e.target.value })}
+                      placeholder="Enter admission number"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Roll Number"
+                      value={manualDepositSearch.rollNumber}
+                      onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, rollNumber: e.target.value })}
+                      placeholder="Enter roll number"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Student Name"
+                      value={manualDepositSearch.studentName}
+                      onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, studentName: e.target.value })}
+                      placeholder="Enter student name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Voucher Number"
+                      value={manualDepositSearch.voucherNumber}
+                      onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, voucherNumber: e.target.value })}
+                      placeholder="Enter voucher number"
+                    />
+                  </Grid>
                       <Grid item xs={12}>
                         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
                           <Typography variant="body2" color="textSecondary">
@@ -2730,7 +3009,7 @@ const FeeManagement = () => {
                               manualDepositStudents.map((student) => (
                                 <TableRow
                                   key={student._id}
-                                  onClick={() => setSelectedManualDepositStudent(student)}
+                                  onClick={() => handleManualDepositStudentSelect(student)}
                                   sx={{
                                     cursor: 'pointer',
                                     bgcolor: selectedManualDepositStudent?._id === student._id ? '#e3f2fd' : 'inherit',
@@ -2801,18 +3080,44 @@ const FeeManagement = () => {
                             <FormControlLabel value="bank" control={<Radio />} label="Bank" />
                           </RadioGroup>
                           {manualDepositForm.paymentMethod === 'bank' && (
-                            <FormControl fullWidth sx={{ mt: 2 }}>
-                              <InputLabel>Select Bank Account</InputLabel>
-                              <Select
-                                value={manualDepositForm.bankAccount}
-                                onChange={(e) => setManualDepositForm({ ...manualDepositForm, bankAccount: e.target.value })}
-                                label="Select Bank Account"
-                              >
-                                <MenuItem value="">Select Bank Account</MenuItem>
-                                <MenuItem value="allied">Allied Bank - 0010000070780246</MenuItem>
-                                <MenuItem value="bankislami">Bank Islami - 0108000000000001</MenuItem>
-                              </Select>
-                            </FormControl>
+                            <>
+                              <FormControl fullWidth sx={{ mt: 2 }}>
+                                <InputLabel>Select Bank Account</InputLabel>
+                                <Select
+                                  value={manualDepositForm.bankAccount}
+                                  onChange={(e) => setManualDepositForm({ ...manualDepositForm, bankAccount: e.target.value })}
+                                  label="Select Bank Account"
+                                >
+                                  <MenuItem value="">Select Bank Account</MenuItem>
+                                  <MenuItem value="allied">Allied Bank - 0010000070780246</MenuItem>
+                                  <MenuItem value="bankislami">Bank Islami - 0108000000000001</MenuItem>
+                                </Select>
+                              </FormControl>
+                              <TextField
+                                fullWidth
+                                sx={{ mt: 2 }}
+                                label="Bank Name"
+                                value={manualDepositForm.bankName}
+                                onChange={(e) => setManualDepositForm({ ...manualDepositForm, bankName: e.target.value })}
+                                placeholder="Enter bank name"
+                              />
+                              <TextField
+                                fullWidth
+                                sx={{ mt: 2 }}
+                                label="Cheque Number (if applicable)"
+                                value={manualDepositForm.chequeNumber}
+                                onChange={(e) => setManualDepositForm({ ...manualDepositForm, chequeNumber: e.target.value })}
+                                placeholder="Enter cheque number"
+                              />
+                              <TextField
+                                fullWidth
+                                sx={{ mt: 2 }}
+                                label="Transaction ID (if applicable)"
+                                value={manualDepositForm.transactionId}
+                                onChange={(e) => setManualDepositForm({ ...manualDepositForm, transactionId: e.target.value })}
+                                placeholder="Enter transaction ID"
+                              />
+                            </>
                           )}
                         </Grid>
 
@@ -2827,26 +3132,88 @@ const FeeManagement = () => {
                           />
                         </Grid>
 
-                        {/* Fee Amount Fields */}
+                        {/* Outstanding Fees Section */}
                         <Grid item xs={12}>
                           <Divider sx={{ my: 2 }} />
                           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                            Fee Amounts
+                            Outstanding Fees
                           </Typography>
+                          {loadingOutstandingFees ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                              <CircularProgress size={24} />
+                            </Box>
+                          ) : outstandingFees.length === 0 ? (
+                            <Alert severity="info">No outstanding fees found for this student.</Alert>
+                          ) : (
+                            <TableContainer component={Paper} variant="outlined">
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Fee Head</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Amount</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Paid</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Remaining</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Payment Amount</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {outstandingFees.map((fee) => {
+                                    const remaining = fee.remainingAmount || (fee.finalAmount - (fee.paidAmount || 0));
+                                    const paymentAmount = selectedFeePayments[fee._id] || 0;
+                                    return (
+                                      <TableRow key={fee._id}>
+                                        <TableCell>{fee.feeHead?.name || 'N/A'}</TableCell>
+                                        <TableCell align="right">Rs. {(fee.finalAmount || 0).toLocaleString()}</TableCell>
+                                        <TableCell align="right">Rs. {(fee.paidAmount || 0).toLocaleString()}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: remaining > 0 ? 'error.main' : 'success.main' }}>
+                                          Rs. {remaining.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                          <TextField
+                                            size="small"
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => {
+                                              const amount = parseFloat(e.target.value) || 0;
+                                              if (amount <= remaining && amount >= 0) {
+                                                handleFeePaymentChange(fee._id, amount);
+                                              }
+                                            }}
+                                            InputProps={{
+                                              inputProps: { min: 0, max: remaining, step: 0.01 },
+                                              startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
+                                              sx: { width: '150px' }
+                                            }}
+                                            helperText={`Max: Rs. ${remaining.toLocaleString()}`}
+                                          />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Chip
+                                            label={fee.status || 'pending'}
+                                            size="small"
+                                            color={
+                                              fee.status === 'paid' ? 'success' :
+                                              fee.status === 'partial' ? 'warning' :
+                                              fee.status === 'overdue' ? 'error' : 'default'
+                                            }
+                                          />
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          )}
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={3}>
-                          <TextField
-                            fullWidth
-                            label="Fee Amount"
-                            type="number"
-                            value={manualDepositForm.feeAmount}
-                            onChange={(e) => setManualDepositForm({ ...manualDepositForm, feeAmount: e.target.value })}
-                            placeholder="0.00"
-                            InputProps={{
-                              startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
-                            }}
-                          />
+                        {/* Fee Amount Fields (for fines) */}
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
+                            Fine Amounts (Optional)
+                          </Typography>
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={3}>
@@ -2923,14 +3290,25 @@ const FeeManagement = () => {
                             borderRadius: 1,
                             border: '1px solid #4caf50'
                           }}>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
-                              Total Amount: Rs. {(
-                                parseFloat(manualDepositForm.feeAmount || 0) +
-                                parseFloat(manualDepositForm.fineAmount || 0) +
-                                parseFloat(manualDepositForm.preFineAmount || 0) +
-                                parseFloat(manualDepositForm.absentFineAmount || 0)
-                              ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </Typography>
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} md={6}>
+                                <Typography variant="body2" color="textSecondary">
+                                  Fee Payments: Rs. {Object.values(selectedFeePayments).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0).toLocaleString()}
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+                                  Fine Amounts: Rs. {(
+                                    parseFloat(manualDepositForm.fineAmount || 0) +
+                                    parseFloat(manualDepositForm.preFineAmount || 0) +
+                                    parseFloat(manualDepositForm.absentFineAmount || 0)
+                                  ).toLocaleString()}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2e7d32', textAlign: { xs: 'left', md: 'right' } }}>
+                                  Total Amount: Rs. {calculateTotalPayment().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
+                              </Grid>
+                            </Grid>
                           </Box>
                         </Grid>
 
@@ -2962,9 +3340,14 @@ const FeeManagement = () => {
                                   fineAmount: '',
                                   preFineAmount: '',
                                   absentFineAmount: '',
-                                  remarks: ''
+                                  remarks: '',
+                                  chequeNumber: '',
+                                  bankName: '',
+                                  transactionId: ''
                                 });
                                 setSelectedManualDepositStudent(null);
+                                setOutstandingFees([]);
+                                setSelectedFeePayments({});
                               }}
                             >
                               Reset
@@ -2973,11 +3356,10 @@ const FeeManagement = () => {
                               variant="contained"
                               size="large"
                               sx={{ bgcolor: '#667eea', minWidth: 150 }}
-                              onClick={() => {
-                                setSuccess('Payment saved successfully');
-                              }}
+                              onClick={handleSavePayment}
+                              disabled={recordingPayment || calculateTotalPayment() <= 0}
                             >
-                              Save Payment
+                              {recordingPayment ? <CircularProgress size={24} /> : 'Save Payment'}
                             </Button>
                           </Box>
                         </Grid>
@@ -2998,18 +3380,6 @@ const FeeManagement = () => {
                     </CardContent>
                   </Card>
                 )}
-              </Box>
-            )}
-
-            {/* Sub-tab Panel 1: Fee Deposit by Voucher */}
-            {feeDepositSubTab === 1 && (
-              <Box>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Fee Deposit by Voucher
-                </Typography>
-                <Alert severity="info">Content for "Fee Deposit by Voucher" will be implemented here.</Alert>
-              </Box>
-            )}
           </Box>
         )}
 

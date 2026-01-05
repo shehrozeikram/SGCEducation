@@ -392,6 +392,13 @@ class FeeService {
         }
       }
 
+      // Set default due date (20th of current month, or next month if past 20th)
+      const now = new Date();
+      let dueDate = new Date(now.getFullYear(), now.getMonth(), 20);
+      if (now.getDate() > 20) {
+        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 20);
+      }
+
       const studentFee = await StudentFee.create({
         institution: institutionId,
         student: studentId,
@@ -403,6 +410,10 @@ class FeeService {
         discountType: appliedDiscountType,
         discountReason: appliedDiscountReason,
         finalAmount: finalAmount,
+        paidAmount: 0,
+        remainingAmount: finalAmount,
+        status: 'pending',
+        dueDate: dueDate,
         academicYear: student.academicYear || '',
         isActive: true,
         createdBy: currentUser._id
@@ -422,7 +433,7 @@ class FeeService {
    * Returns all StudentFee records for the institution with proper population
    */
   async getStudentFees(filters = {}, currentUser) {
-    const { institution, academicYear } = filters;
+    const { institution, academicYear, student } = filters;
 
     // Get institution ID
     let institutionId;
@@ -445,6 +456,11 @@ class FeeService {
       institution: institutionId,
       isActive: true
     };
+
+    // Optional student filter
+    if (student) {
+      query.student = student;
+    }
 
     // Optional academic year filter
     if (academicYear) {
@@ -614,6 +630,135 @@ class FeeService {
       totalGenerated: updatedStudentFees.length,
       totalErrors: errors.length,
       errors: errors.length > 0 ? errors : undefined
+    };
+  }
+
+  /**
+   * Record fee payment (supports partial payments)
+   * Updates StudentFee paidAmount and status
+   */
+  async recordPayment(paymentData, currentUser) {
+    const { studentFeeId, amount, paymentMethod = 'cash', paymentDate, remarks, chequeNumber, bankName, transactionId } = paymentData;
+
+    if (!studentFeeId || !amount || amount <= 0) {
+      throw new ApiError(400, 'Student fee ID and valid payment amount are required');
+    }
+
+    // Get the StudentFee record
+    const studentFee = await StudentFee.findById(studentFeeId)
+      .populate('student')
+      .populate('institution');
+
+    if (!studentFee) {
+      throw new ApiError(404, 'Student fee not found');
+    }
+
+    if (!studentFee.isActive) {
+      throw new ApiError(400, 'Student fee is not active');
+    }
+
+    // Check if payment exceeds remaining amount
+    const remainingAmount = studentFee.finalAmount - (studentFee.paidAmount || 0);
+    if (amount > remainingAmount) {
+      throw new ApiError(400, `Payment amount (${amount}) exceeds remaining amount (${remainingAmount})`);
+    }
+
+    // Create FeePayment record
+    const FeePayment = require('../models/FeePayment');
+    const feePayment = await FeePayment.create({
+      institution: studentFee.institution,
+      student: studentFee.student,
+      studentFee: studentFeeId,
+      amount: amount,
+      paymentDate: paymentDate || new Date(),
+      paymentMethod: paymentMethod,
+      chequeNumber: chequeNumber,
+      bankName: bankName,
+      transactionId: transactionId,
+      remarks: remarks,
+      status: 'completed',
+      collectedBy: currentUser._id
+    });
+
+    // Update StudentFee payment tracking
+    const newPaidAmount = (studentFee.paidAmount || 0) + amount;
+    studentFee.paidAmount = newPaidAmount;
+    studentFee.remainingAmount = Math.max(0, studentFee.finalAmount - newPaidAmount);
+    studentFee.lastPaymentDate = paymentDate || new Date();
+
+    // Update status
+    if (studentFee.remainingAmount <= 0) {
+      studentFee.status = 'paid';
+    } else {
+      studentFee.status = 'partial';
+      // Check if overdue
+      if (studentFee.dueDate && new Date() > studentFee.dueDate) {
+        studentFee.status = 'overdue';
+      }
+    }
+
+    await studentFee.save();
+
+    return {
+      payment: feePayment,
+      studentFee: studentFee,
+      remainingAmount: studentFee.remainingAmount
+    };
+  }
+
+  /**
+   * Get outstanding balances for a student
+   * Returns all StudentFee records with remaining balance
+   */
+  async getOutstandingBalances(filters = {}, currentUser) {
+    const { institution, studentId, academicYear } = filters;
+
+    // Get institution ID
+    let institutionId;
+    if (currentUser.role !== 'super_admin') {
+      institutionId = getInstitutionId(currentUser);
+      if (!institutionId) {
+        throw new ApiError(400, 'Institution not found for user');
+      }
+    } else if (institution) {
+      institutionId = extractInstitutionId(institution);
+      if (!institutionId) {
+        throw new ApiError(400, 'Invalid institution');
+      }
+    } else {
+      throw new ApiError(400, 'Institution is required');
+    }
+
+    // Build query
+    const query = {
+      institution: institutionId,
+      isActive: true,
+      status: { $in: ['pending', 'partial', 'overdue'] },
+      remainingAmount: { $gt: 0 }
+    };
+
+    if (studentId) {
+      query.student = studentId;
+    }
+
+    if (academicYear) {
+      query.academicYear = academicYear;
+    }
+
+    // Get outstanding fees
+    const outstandingFees = await StudentFee.find(query)
+      .populate('student', 'enrollmentNumber rollNumber user')
+      .populate('feeHead', 'name priority')
+      .populate('class', 'name code')
+      .sort({ dueDate: 1, createdAt: 1 });
+
+    // Calculate total outstanding
+    const totalOutstanding = outstandingFees.reduce((sum, fee) => sum + (fee.remainingAmount || 0), 0);
+
+    return {
+      fees: outstandingFees,
+      totalOutstanding: totalOutstanding,
+      count: outstandingFees.length
     };
   }
 }

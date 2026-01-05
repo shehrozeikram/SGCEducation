@@ -95,7 +95,8 @@ const assignFeeStructure = asyncHandler(async (req, res) => {
 const getStudentFees = asyncHandler(async (req, res) => {
   const filters = {
     institution: req.query.institution,
-    academicYear: req.query.academicYear
+    academicYear: req.query.academicYear,
+    student: req.query.student
   };
 
   const studentFees = await feeService.getStudentFees(filters, req.user);
@@ -121,6 +122,41 @@ const generateVouchers = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   POST /api/v1/fees/record-payment
+ * @desc    Record a fee payment (supports partial payments)
+ * @access  Private (Admin)
+ */
+const recordPayment = asyncHandler(async (req, res) => {
+  const result = await feeService.recordPayment(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: 'Payment recorded successfully',
+    data: result
+  });
+});
+
+/**
+ * @route   GET /api/v1/fees/outstanding-balances
+ * @desc    Get outstanding balances for students
+ * @access  Private
+ */
+const getOutstandingBalances = asyncHandler(async (req, res) => {
+  const filters = {
+    institution: req.query.institution,
+    studentId: req.query.studentId,
+    academicYear: req.query.academicYear
+  };
+
+  const result = await feeService.getOutstandingBalances(filters, req.user);
+
+  res.json({
+    success: true,
+    data: result
+  });
+});
+
 module.exports = {
   getFeeStructureMatrix,
   getFeeStructureByClass,
@@ -128,5 +164,7 @@ module.exports = {
   getStudentsWithoutFeeStructure,
   assignFeeStructure,
   getStudentFees,
-  generateVouchers
+  generateVouchers,
+  recordPayment,
+  getOutstandingBalances
 };
