@@ -236,6 +236,7 @@ const FeeManagement = () => {
     voucherNumber: ''
   });
   const [manualDepositStudents, setManualDepositStudents] = useState([]);
+  const [hasSearchedStudents, setHasSearchedStudents] = useState(false);
   const [selectedManualDepositStudent, setSelectedManualDepositStudent] = useState(null);
   const [outstandingFees, setOutstandingFees] = useState([]);
   const [loadingOutstandingFees, setLoadingOutstandingFees] = useState(false);
@@ -1124,6 +1125,7 @@ const FeeManagement = () => {
     try {
       setLoading(true);
       setError('');
+      setHasSearchedStudents(true);
       const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
@@ -1148,9 +1150,11 @@ const FeeManagement = () => {
 
       let studentIdsFromVoucher = [];
 
-      // If voucher number is provided, search by voucher first
+      // If voucher number is provided, search by voucher number only
       if (manualDepositSearch.voucherNumber) {
         try {
+          const searchTerm = manualDepositSearch.voucherNumber.trim();
+          
           // Get all student fees for the institution
           const studentFeesResponse = await axios.get(`${API_URL}/fees/student-fees`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -1164,11 +1168,11 @@ const FeeManagement = () => {
           // Find student fees with matching voucher number
           const matchingFees = studentFees.filter(sf => 
             sf.vouchers && sf.vouchers.some(v => 
-              v.voucherNumber && v.voucherNumber.toLowerCase().includes(manualDepositSearch.voucherNumber.toLowerCase())
+              v.voucherNumber && v.voucherNumber.toLowerCase().includes(searchTerm.toLowerCase())
             )
           );
 
-          // Extract unique student IDs
+          // Extract unique student IDs from voucher matches
           const studentIdArray = matchingFees
             .map(sf => sf.student?._id || sf.student)
             .filter(id => id);
@@ -1281,7 +1285,9 @@ const FeeManagement = () => {
   };
 
   // Fetch outstanding fees for a student
-  const fetchOutstandingFees = async (studentId) => {
+  // If voucherNumber is provided, only show fees with that specific voucher
+  // Otherwise, show all vouchers sorted by latest first
+  const fetchOutstandingFees = async (studentId, voucherNumber = null) => {
     if (!studentId) {
       setOutstandingFees([]);
       return;
@@ -1302,11 +1308,51 @@ const FeeManagement = () => {
       });
 
       const result = response.data.data || {};
-      setOutstandingFees(result.fees || []);
+      let fees = result.fees || [];
+      
+      // If voucher number is provided, filter to show only fees with that specific voucher
+      if (voucherNumber) {
+        const searchTerm = voucherNumber.toLowerCase().trim();
+        fees = fees.filter(fee => {
+          if (!fee.vouchers || fee.vouchers.length === 0) return false;
+          return fee.vouchers.some(v => 
+            v.voucherNumber && v.voucherNumber.toLowerCase().includes(searchTerm)
+          );
+        });
+      } else {
+        // Sort by latest voucher first (most recent generatedAt date)
+        fees = fees.sort((a, b) => {
+          const aLatestVoucher = a.vouchers && a.vouchers.length > 0
+            ? a.vouchers.reduce((latest, v) => {
+                const vDate = new Date(v.generatedAt || 0);
+                const latestDate = new Date(latest.generatedAt || 0);
+                return vDate > latestDate ? v : latest;
+              })
+            : null;
+          
+          const bLatestVoucher = b.vouchers && b.vouchers.length > 0
+            ? b.vouchers.reduce((latest, v) => {
+                const vDate = new Date(v.generatedAt || 0);
+                const latestDate = new Date(latest.generatedAt || 0);
+                return vDate > latestDate ? v : latest;
+              })
+            : null;
+          
+          if (!aLatestVoucher && !bLatestVoucher) return 0;
+          if (!aLatestVoucher) return 1;
+          if (!bLatestVoucher) return -1;
+          
+          const aDate = new Date(aLatestVoucher.generatedAt || 0);
+          const bDate = new Date(bLatestVoucher.generatedAt || 0);
+          return bDate - aDate; // Descending order (latest first)
+        });
+      }
+      
+      setOutstandingFees(fees);
       
       // Initialize selected payments with 0
       const initialPayments = {};
-      (result.fees || []).forEach(fee => {
+      fees.forEach(fee => {
         initialPayments[fee._id] = 0;
       });
       setSelectedFeePayments(initialPayments);
@@ -1333,7 +1379,9 @@ const FeeManagement = () => {
         const admission = admissionResponse.data.data;
         const studentId = admission?.studentId?._id || admission?.studentId;
         if (studentId) {
-          await fetchOutstandingFees(studentId);
+          // If voucher number was used in search, pass it to filter fees
+          const voucherNumber = manualDepositSearch.voucherNumber || null;
+          await fetchOutstandingFees(studentId, voucherNumber);
         }
       } catch (err) {
         console.error('Error fetching student ID:', err);
@@ -2937,7 +2985,7 @@ const FeeManagement = () => {
                       label="Voucher Number"
                       value={manualDepositSearch.voucherNumber}
                       onChange={(e) => setManualDepositSearch({ ...manualDepositSearch, voucherNumber: e.target.value })}
-                      placeholder="Enter voucher number"
+                      placeholder="Enter voucher number (e.g., VCH-2024-01-000001)"
                     />
                   </Grid>
                       <Grid item xs={12}>
@@ -2947,6 +2995,7 @@ const FeeManagement = () => {
                           </Typography>
                           <Button
                             variant="contained"
+                            fullWidth
                             startIcon={<Search />}
                             sx={{ bgcolor: '#667eea' }}
                             onClick={fetchManualDepositStudents}
@@ -2960,97 +3009,99 @@ const FeeManagement = () => {
                   </CardContent>
                 </Card>
 
-                {/* Student Table Section */}
-                <Card sx={{ mb: 3 }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
-                        Student List
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
-                        *Click on student row to select
-                      </Typography>
-                    </Box>
-
-                    {loading ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                        <CircularProgress />
+                {/* Student Table Section - Only show after search */}
+                {hasSearchedStudents && (
+                  <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          Student List
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                          *Click on student row to select
+                        </Typography>
                       </Box>
-                    ) : (
-                      <TableContainer sx={{ maxHeight: 500 }}>
-                        <Table stickyHeader>
-                          <TableHead>
-                            <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
-                              <TableCell>ID</TableCell>
-                              <TableCell>Roll #</TableCell>
-                              <TableCell>Name</TableCell>
-                              <TableCell>Status</TableCell>
-                              <TableCell>School</TableCell>
-                              <TableCell>Class</TableCell>
-                              <TableCell>Section</TableCell>
-                              <TableCell>Mobile #</TableCell>
-                              <TableCell>Admission #</TableCell>
-                              <TableCell>Admission Date</TableCell>
-                              <TableCell>Admission Effective Date</TableCell>
-                              <TableCell>Adv. Fee</TableCell>
-                              <TableCell>Last Voucher</TableCell>
+
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
+                            <TableCell>ID</TableCell>
+                            <TableCell>Roll #</TableCell>
+                            <TableCell>Name</TableCell>
+                            <TableCell>Status</TableCell>
+                            <TableCell>School</TableCell>
+                            <TableCell>Class</TableCell>
+                            <TableCell>Section</TableCell>
+                            <TableCell>Mobile #</TableCell>
+                            <TableCell>Admission #</TableCell>
+                            <TableCell>Admission Date</TableCell>
+                            <TableCell>Admission Effective Date</TableCell>
+                            <TableCell>Adv. Fee</TableCell>
+                            <TableCell>Last Voucher</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {loading ? (
+                            <TableRow>
+                              <TableCell colSpan={13} align="center" sx={{ py: 4 }}>
+                                <CircularProgress />
+                              </TableCell>
                             </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {manualDepositStudents.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={14} align="center" sx={{ py: 4 }}>
-                                  <Typography variant="body2" color="textSecondary">
-                                    No data found. Please search for students.
-                                  </Typography>
+                          ) : manualDepositStudents.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={13} align="center" sx={{ py: 4 }}>
+                                <Typography variant="body2" color="textSecondary">
+                                  No data found. Please search for students.
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            manualDepositStudents.map((student) => (
+                              <TableRow
+                                key={student._id}
+                                onClick={() => handleManualDepositStudentSelect(student)}
+                                sx={{
+                                  cursor: 'pointer',
+                                  bgcolor: selectedManualDepositStudent?._id === student._id ? '#e3f2fd' : 'inherit',
+                                  '&:hover': { bgcolor: selectedManualDepositStudent?._id === student._id ? '#e3f2fd' : '#f5f5f5' }
+                                }}
+                              >
+                                <TableCell>{student.id || 'N/A'}</TableCell>
+                                <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                                <TableCell sx={{ fontWeight: selectedManualDepositStudent?._id === student._id ? 'bold' : 'normal' }}>
+                                  {capitalizeFirstOnly(student.name || 'N/A')}
+                                  {student.fatherName && (
+                                    <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
+                                      {capitalizeFirstOnly(student.fatherName)}
+                                    </Typography>
+                                  )}
                                 </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={capitalizeFirstOnly(student.status || 'pending')}
+                                    color={getStatusColor(student.status)}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>{student.school || 'N/A'}</TableCell>
+                                <TableCell>{capitalizeFirstOnly(student.class || 'N/A')}</TableCell>
+                                <TableCell>{capitalizeFirstOnly(student.section || 'N/A')}</TableCell>
+                                <TableCell>{student.mobileNumber || 'N/A'}</TableCell>
+                                <TableCell>{student.admissionNo || 'N/A'}</TableCell>
+                                <TableCell>{student.admissionDate || 'N/A'}</TableCell>
+                                <TableCell>{student.admissionEffectiveDate || 'N/A'}</TableCell>
+                                <TableCell>{student.advanceFee || '0'}</TableCell>
+                                <TableCell>{student.lastVoucher || 'N/A'}</TableCell>
                               </TableRow>
-                            ) : (
-                              manualDepositStudents.map((student) => (
-                                <TableRow
-                                  key={student._id}
-                                  onClick={() => handleManualDepositStudentSelect(student)}
-                                  sx={{
-                                    cursor: 'pointer',
-                                    bgcolor: selectedManualDepositStudent?._id === student._id ? '#e3f2fd' : 'inherit',
-                                    '&:hover': { bgcolor: selectedManualDepositStudent?._id === student._id ? '#e3f2fd' : '#f5f5f5' }
-                                  }}
-                                >
-                                  <TableCell>{student.id || 'N/A'}</TableCell>
-                                  <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                                  <TableCell sx={{ fontWeight: selectedManualDepositStudent?._id === student._id ? 'bold' : 'normal' }}>
-                                    {capitalizeFirstOnly(student.name || 'N/A')}
-                                    {student.fatherName && (
-                                      <Typography component="span" variant="body2" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
-                                        {capitalizeFirstOnly(student.fatherName)}
-                                      </Typography>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={capitalizeFirstOnly(student.status || 'pending')}
-                                      color={getStatusColor(student.status)}
-                                      size="small"
-                                    />
-                                  </TableCell>
-                                  <TableCell>{student.school || 'N/A'}</TableCell>
-                                  <TableCell>{capitalizeFirstOnly(student.class || 'N/A')}</TableCell>
-                                  <TableCell>{capitalizeFirstOnly(student.section || 'N/A')}</TableCell>
-                                  <TableCell>{student.mobileNumber || 'N/A'}</TableCell>
-                                  <TableCell>{student.admissionNo || 'N/A'}</TableCell>
-                                  <TableCell>{student.admissionDate || 'N/A'}</TableCell>
-                                  <TableCell>{student.admissionEffectiveDate || 'N/A'}</TableCell>
-                                  <TableCell>{student.advanceFee || '0'}</TableCell>
-                                  <TableCell>{student.lastVoucher || 'N/A'}</TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
                   </CardContent>
                 </Card>
+                )}
 
                 {/* Selected Student Info & Fee Collection */}
                 {selectedManualDepositStudent && (

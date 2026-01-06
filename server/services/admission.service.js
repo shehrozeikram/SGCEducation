@@ -238,6 +238,15 @@ class AdmissionService {
     // Check if user already exists with this email
     let user = await User.findOne({ email: admission.contactInfo.email });
 
+    if (user) {
+      // Check if student already exists for this user
+      const existingStudent = await Student.findOne({ user: user._id });
+      
+      if (existingStudent) {
+        throw new ApiError(400, `A student with email "${admission.contactInfo.email}" already exists. Please use a different email address.`);
+      }
+    }
+
     if (!user) {
       // Create user account
       const tempPassword = Math.random().toString(36).slice(-8);
@@ -254,7 +263,7 @@ class AdmissionService {
       });
     }
 
-    // Create student record
+    // Create new student record
     const student = await Student.create({
       user: user._id,
       institution: admission.institution._id,

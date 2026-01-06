@@ -584,6 +584,40 @@ class FeeService {
       throw new ApiError(400, errorMsg);
     }
 
+    // Get institution ID from the first student (all students should be from same institution)
+    const institutionId = students[0]?.institution?._id || students[0]?.institution;
+    
+    if (!institutionId) {
+      throw new ApiError(400, 'Institution ID not found');
+    }
+
+    // Count existing vouchers for this institution, month, and year to generate unique sequential number
+    const existingVouchersCount = await StudentFee.aggregate([
+      {
+        $match: {
+          institution: institutionId,
+          isActive: true
+        }
+      },
+      {
+        $unwind: {
+          path: '$vouchers',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $match: {
+          'vouchers.month': month,
+          'vouchers.year': year
+        }
+      },
+      {
+        $count: 'total'
+      }
+    ]);
+
+    let voucherCounter = existingVouchersCount.length > 0 ? existingVouchersCount[0].total : 0;
+
     // Generate vouchers for each StudentFee
     const updatedStudentFees = [];
     const errors = [];
@@ -600,8 +634,13 @@ class FeeService {
           continue;
         }
 
-        // Generate voucher number
-        const voucherNumber = `VCH-${year}-${String(month).padStart(2, '0')}-${studentFee._id.toString().substring(0, 8).toUpperCase()}`;
+        // Increment counter for unique voucher number
+        voucherCounter++;
+        
+        // Generate unique voucher number: VCH-YYYY-MM-INST-SEQ
+        // Format: VCH-2024-01-000001 (institution prefix + sequential number)
+        const institutionPrefix = institutionId.toString().substring(0, 6).toUpperCase();
+        const voucherNumber = `VCH-${year}-${String(month).padStart(2, '0')}-${String(voucherCounter).padStart(6, '0')}`;
 
         // Add voucher to the array
         if (!studentFee.vouchers) {

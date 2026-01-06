@@ -32,6 +32,18 @@ import {
   Search,
   Close,
   Print,
+  Person,
+  Home,
+  FamilyRestroom,
+  School,
+  CalendarToday,
+  PhotoCamera,
+  LocationOn,
+  Phone,
+  Email,
+  Work,
+  AccountCircle,
+  Info,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createAdmission, updateAdmission, getAdmissionById, updateAdmissionStatus, approveAndEnroll } from '../services/admissionService';
@@ -697,29 +709,78 @@ const AdmissionForm = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f0f2f5', pb: 4 }}>
       <TopBar title={isEditMode ? 'Edit Admission' : 'New Admission'} />
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Paper sx={{ p: 4 }}>
-          {/* Header */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
-            <Box display="flex" alignItems="center" gap={2}>
-              <Button startIcon={<ArrowBack />} onClick={() => navigate('/admissions')} sx={{ mr: 2 }}>
-                Back
+        {/* Enhanced Header with Gradient */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            mb: 3,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: 3,
+            overflow: 'hidden',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+              opacity: 0.1,
+            }
+          }}
+        >
+          <Box sx={{ p: 4, position: 'relative', zIndex: 1 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Button 
+                  startIcon={<ArrowBack />} 
+                  onClick={() => navigate('/admissions')} 
+                  sx={{ 
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
+                  }}
+                >
+                  Back
+                </Button>
+                <Box>
+                  <Typography variant="h4" fontWeight="bold" sx={{ color: 'white', mb: 0.5 }}>
+                    {isEditMode ? 'Edit Admission' : 'New Student Admission'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                    {isEditMode ? 'Update student admission information' : 'Fill in the details to create a new admission'}
+                  </Typography>
+                </Box>
+              </Box>
+              <Button
+                variant="contained"
+                sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  backdropFilter: 'blur(10px)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
+                }}
+                startIcon={<Print />}
+                onClick={handlePrintBlankForm}
+              >
+                Print Blank Form
               </Button>
-              <Typography variant="h4" fontWeight="bold">
-                {isEditMode ? 'Edit Admission' : 'New Admission'}
-              </Typography>
             </Box>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<Print />}
-              onClick={handlePrintBlankForm}
-            >
-              Print Blank Form
-            </Button>
           </Box>
+        </Paper>
+
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4,
+            borderRadius: 3,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          }}
+        >
 
           {error && (
             <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
@@ -735,10 +796,38 @@ const AdmissionForm = () => {
 
           <Box component="form" onSubmit={handleSubmit}>
             {/* BASIC INFO Section */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                BASIC INFO
-              </Typography>
+            <Box 
+              sx={{ 
+                mb: 4,
+                p: 3,
+                borderRadius: 2,
+                bgcolor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={2} mb={3}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Person sx={{ fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold" sx={{ color: '#2c3e50' }}>
+                    Basic Information
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#6c757d', mt: 0.5 }}>
+                    Student personal and academic details
+                  </Typography>
+                </Box>
+              </Box>
               
               <Grid container spacing={2}>
                 {/* Row 1 */}
@@ -750,6 +839,14 @@ const AdmissionForm = () => {
                         value={formData.class}
                         onChange={(e) => handleChange('class', e.target.value)}
                         label="CLASS*"
+                        sx={{
+                          bgcolor: 'white',
+                          '&:hover': {
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'primary.main',
+                            },
+                          },
+                        }}
                       >
                         <MenuItem value="">Select Class</MenuItem>
                         {classes.map((cls) => (
@@ -772,6 +869,14 @@ const AdmissionForm = () => {
                         onChange={(e) => handleChange('section', e.target.value)}
                         label="SECTION*"
                         disabled={!formData.class}
+                        sx={{
+                          bgcolor: 'white',
+                          '&:hover': {
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'primary.main',
+                            },
+                          },
+                        }}
                       >
                         <MenuItem value="">Select Section</MenuItem>
                         {sections
@@ -800,6 +905,14 @@ const AdmissionForm = () => {
                         value={formData.group}
                         onChange={(e) => handleChange('group', e.target.value)}
                         label="GROUP*"
+                        sx={{
+                          bgcolor: 'white',
+                          '&:hover': {
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'primary.main',
+                            },
+                          },
+                        }}
                       >
                         <MenuItem value="">Select Groups</MenuItem>
                         {groups.map((group) => (
@@ -822,6 +935,16 @@ const AdmissionForm = () => {
                     value={formData.admissionDate}
                     onChange={(e) => handleChange('admissionDate', e.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
 
@@ -834,6 +957,16 @@ const AdmissionForm = () => {
                     value={formData.studentName}
                     onChange={(e) => handleChange('studentName', e.target.value)}
                     placeholder="Student Name"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
                 
@@ -845,6 +978,16 @@ const AdmissionForm = () => {
                     value={formData.fatherName}
                     onChange={(e) => handleChange('fatherName', e.target.value)}
                     placeholder="Father Name"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
                 
@@ -857,6 +1000,16 @@ const AdmissionForm = () => {
                     value={formData.dateOfBirth}
                     onChange={(e) => handleChange('dateOfBirth', e.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
 
@@ -868,6 +1021,16 @@ const AdmissionForm = () => {
                     value={formData.rollNumber}
                     onChange={(e) => handleChange('rollNumber', e.target.value)}
                     placeholder="Roll Number"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
                 
@@ -878,6 +1041,14 @@ const AdmissionForm = () => {
                       value={formData.religion}
                       onChange={(e) => handleChange('religion', e.target.value)}
                       label="RELIGION*"
+                      sx={{
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      }}
                     >
                       {religions.map((rel) => (
                         <MenuItem key={rel} value={rel}>
@@ -895,6 +1066,14 @@ const AdmissionForm = () => {
                       value={formData.gender}
                       onChange={(e) => handleChange('gender', e.target.value)}
                       label="GENDER*"
+                      sx={{
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      }}
                     >
                       <MenuItem value="Male">Male</MenuItem>
                       <MenuItem value="Female">Female</MenuItem>
@@ -913,6 +1092,16 @@ const AdmissionForm = () => {
                     value={formData.admEffectNo}
                     onChange={(e) => handleChange('admEffectNo', e.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'white',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                      },
+                    }}
                   />
                 </Grid>
                 
@@ -948,11 +1137,23 @@ const AdmissionForm = () => {
                 
                 <Grid item xs={12} md={3}>
                   <Box>
-                    <Typography variant="body2" sx={{ mb: 1 }}>STUDENT PICTURE</Typography>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: '#495057' }}>
+                      STUDENT PICTURE
+                    </Typography>
                     <Button
                       variant="outlined"
                       component="label"
                       fullWidth
+                      startIcon={<PhotoCamera />}
+                      sx={{
+                        borderColor: '#dee2e6',
+                        color: '#495057',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          bgcolor: 'rgba(102, 126, 234, 0.04)',
+                        },
+                        py: 1.5,
+                      }}
                     >
                       Choose File
                       <input
@@ -963,8 +1164,16 @@ const AdmissionForm = () => {
                       />
                     </Button>
                     {formData.studentPicture && (
-                      <Typography variant="caption" color="text.secondary">
-                        {formData.studentPicture.name}
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: 'success.main',
+                          display: 'block',
+                          mt: 1,
+                          fontWeight: 500,
+                        }}
+                      >
+                        ✓ {formData.studentPicture.name}
                       </Typography>
                     )}
                   </Box>
@@ -974,14 +1183,59 @@ const AdmissionForm = () => {
             </Box>
 
             {/* ADDRESS Section */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                ADDRESS
-              </Typography>
+            <Box 
+              sx={{ 
+                mb: 4,
+                p: 3,
+                borderRadius: 2,
+                bgcolor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={2} mb={3}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'success.main',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <LocationOn sx={{ fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold" sx={{ color: '#2c3e50' }}>
+                    Address Information
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#6c757d', mt: 0.5 }}>
+                    Present and permanent address details
+                  </Typography>
+                </Box>
+              </Box>
               
-              <Tabs value={addressTab} onChange={(e, newValue) => setAddressTab(newValue)} sx={{ mb: 2 }}>
-                <Tab label="Present" />
-                <Tab label="Permanent" />
+              <Tabs 
+                value={addressTab} 
+                onChange={(e, newValue) => setAddressTab(newValue)} 
+                sx={{ 
+                  mb: 3,
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                  },
+                  '& .Mui-selected': {
+                    color: 'success.main',
+                  },
+                }}
+                TabIndicatorProps={{
+                  sx: { bgcolor: 'success.main', height: 3 }
+                }}
+              >
+                <Tab icon={<Home />} iconPosition="start" label="Present Address" />
+                <Tab icon={<Home />} iconPosition="start" label="Permanent Address" />
               </Tabs>
               
               {addressTab === 0 && (
@@ -1082,15 +1336,60 @@ const AdmissionForm = () => {
             </Box>
 
             {/* GUARDIAN Section */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                GUARDIAN
-              </Typography>
+            <Box 
+              sx={{ 
+                mb: 4,
+                p: 3,
+                borderRadius: 2,
+                bgcolor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={2} mb={3}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'warning.main',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FamilyRestroom sx={{ fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold" sx={{ color: '#2c3e50' }}>
+                    Guardian Information
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#6c757d', mt: 0.5 }}>
+                    Father, mother, and guardian contact details
+                  </Typography>
+                </Box>
+              </Box>
               
-              <Tabs value={guardianTab} onChange={(e, newValue) => setGuardianTab(newValue)} sx={{ mb: 2 }}>
-                <Tab label="Father" />
-                <Tab label="Mother" />
-                <Tab label="Guardian" />
+              <Tabs 
+                value={guardianTab} 
+                onChange={(e, newValue) => setGuardianTab(newValue)} 
+                sx={{ 
+                  mb: 3,
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                  },
+                  '& .Mui-selected': {
+                    color: 'warning.main',
+                  },
+                }}
+                TabIndicatorProps={{
+                  sx: { bgcolor: 'warning.main', height: 3 }
+                }}
+              >
+                <Tab icon={<AccountCircle />} iconPosition="start" label="Father" />
+                <Tab icon={<AccountCircle />} iconPosition="start" label="Mother" />
+                <Tab icon={<AccountCircle />} iconPosition="start" label="Guardian" />
               </Tabs>
               
               {guardianTab === 0 && (
@@ -1462,19 +1761,48 @@ const AdmissionForm = () => {
             </Box>
 
             {/* Save Button */}
-            <Box display="flex" justifyContent="flex-end" mt={4}>
+            <Box 
+              display="flex" 
+              justifyContent="space-between" 
+              alignItems="center"
+              mt={4}
+              pt={3}
+              sx={{ 
+                borderTop: '2px solid #e9ecef',
+              }}
+            >
+              <Box>
+                <Typography variant="body2" sx={{ color: '#6c757d', mb: 1 }}>
+                  <Info sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                  Please review all information before submitting
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#adb5bd' }}>
+                  Fields marked with * are required
+                </Typography>
+              </Box>
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                startIcon={loading ? <CircularProgress size={20} /> : <Save />}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
                 disabled={loading}
                 sx={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  px: 4,
+                  px: 5,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               >
-                {loading ? 'Saving...' : 'Save'}
+                {loading ? 'Saving...' : isEditMode ? 'Update Admission' : 'Submit Admission'}
               </Button>
             </Box>
           </Box>
