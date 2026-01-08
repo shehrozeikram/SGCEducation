@@ -53,6 +53,21 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/layout/TopBar';
 import { capitalizeFirstOnly } from '../utils/textUtils';
+import { notifyError, notifySuccess } from '../utils/notify';
+import {
+  getAuthToken,
+  getInstitutionId as getInstitutionIdUtil,
+  parseMonthYear,
+  formatMonthYear,
+  calculateAcademicYear,
+  getStudentName,
+  getStudentId,
+  getRollNumber,
+  transformStudentData,
+  createAxiosConfig,
+  formatCurrency,
+  matchesVoucherMonthYear
+} from '../utils/feeUtils';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 
@@ -62,8 +77,6 @@ const FeeManagement = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   // Tab name mappings
   const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit'];
@@ -259,10 +272,7 @@ const FeeManagement = () => {
   useEffect(() => {
     const fetchAdmissionStatuses = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${API_URL}/admissions/statuses`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await axios.get(`${API_URL}/admissions/statuses`, createAxiosConfig());
         const statuses = response.data.data || [];
         // Filter out 'Soft Admission' and 'Passout'
         const filteredStatuses = statuses.filter(s => 
@@ -281,10 +291,7 @@ const FeeManagement = () => {
     if (isSuperAdmin) {
       const fetchInstitutions = async () => {
         try {
-          const token = localStorage.getItem('token');
-          const response = await axios.get(`${API_URL}/institutions`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await axios.get(`${API_URL}/institutions`, createAxiosConfig());
           setInstitutions(response.data.data || []);
         } catch (err) {
           console.error('Error fetching institutions:', err);
@@ -308,34 +315,13 @@ const FeeManagement = () => {
     'Not Defined(e.g Paper Charges)'
   ];
 
-  // Get institution ID helper
-  const getInstitutionId = () => {
-    // For admin users, always use their institution
-    if (!isSuperAdmin && user.institution) {
-      return typeof user.institution === 'object' ? user.institution._id : user.institution;
-    }
-    // For super admin, get from localStorage
-    if (isSuperAdmin) {
-      const institutionData = localStorage.getItem('selectedInstitution');
-      if (institutionData) {
-        try {
-          const institution = JSON.parse(institutionData);
-          return institution._id || institution;
-        } catch (e) {
-          // If it's not JSON, it might be a string ID
-          return institutionData;
-        }
-      }
-    }
-    return null;
-  };
+  // Get institution ID helper - using utility function
+  const getInstitutionId = () => getInstitutionIdUtil(user, isSuperAdmin);
 
   // Fetch fee heads
   const fetchFeeHeads = async () => {
     try {
       setFeeHeadsLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       
       const params = {};
       
@@ -344,16 +330,13 @@ const FeeManagement = () => {
       
       if (feeHeadSearchTerm) params.search = feeHeadSearchTerm;
 
-      const response = await axios.get(`${API_URL}/fee-heads`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/fee-heads`, createAxiosConfig({ params }));
       
       // Ensure we set the fee heads array even if empty
       setFeeHeads(response.data?.data || response.data || []);
     } catch (err) {
       console.error('Error fetching fee heads:', err);
-      setError(err.response?.data?.message || 'Failed to fetch fee heads');
+      notifyError(err.response?.data?.message || 'Failed to fetch fee heads');
       setFeeHeads([]); // Set empty array on error
     } finally {
       setFeeHeadsLoading(false);
@@ -363,10 +346,7 @@ const FeeManagement = () => {
   // Fetch available priorities
   const fetchAvailablePriorities = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/fee-heads/priorities/available`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API_URL}/fee-heads/priorities/available`, createAxiosConfig());
       
       // Transform array of numbers to array of objects with value, label, and available
       const prioritiesArray = response.data.data || [];
@@ -388,11 +368,9 @@ const FeeManagement = () => {
   const fetchFeeStructureMatrix = async () => {
     try {
       setFeeStructureLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       // For admin users, ensure we have their institution
       if (!isSuperAdmin && !user.institution) {
-        setError('No institution found for your account. Please contact administrator.');
+        notifyError('No institution found for your account. Please contact administrator.');
         setFeeStructureLoading(false);
         return;
       }
@@ -401,7 +379,7 @@ const FeeManagement = () => {
       // Get institution from user context (navbar selection)
       const institutionId = getInstitutionId();
       if (!institutionId) {
-        setError('No institution found. Please contact administrator.');
+        notifyError('No institution found. Please contact administrator.');
         setFeeStructureLoading(false);
         return;
       }
@@ -410,10 +388,7 @@ const FeeManagement = () => {
         institution: institutionId // For getting classes only (fee structures are shared)
       };
 
-      const response = await axios.get(`${API_URL}/fees/structures/matrix`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/fees/structures/matrix`, createAxiosConfig({ params }));
       const matrix = response.data.data || {};
       
       setFeeStructureMatrix(matrix);
@@ -442,7 +417,7 @@ const FeeManagement = () => {
       setFeeStructureMatrixData(matrixData);
     } catch (err) {
       console.error('Error fetching fee structure matrix:', err);
-      setError(err.response?.data?.message || 'Failed to fetch fee structure matrix');
+      notifyError(err.response?.data?.message || 'Failed to fetch fee structure matrix');
     } finally {
       setFeeStructureLoading(false);
     }
@@ -488,10 +463,6 @@ const FeeManagement = () => {
 
   const handleFeeHeadSubmit = async () => {
     try {
-      setError('');
-      setSuccess('');
-      const token = localStorage.getItem('token');
-
       // Fee heads are now shared across all institutions
       // No institution field needed
       const payload = {
@@ -501,22 +472,18 @@ const FeeManagement = () => {
       };
 
       if (feeHeadEditMode) {
-        await axios.put(`${API_URL}/fee-heads/${selectedFeeHead._id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSuccess('Fee head updated successfully');
+        await axios.put(`${API_URL}/fee-heads/${selectedFeeHead._id}`, payload, createAxiosConfig());
+        notifySuccess('Fee head updated successfully');
       } else {
-        await axios.post(`${API_URL}/fee-heads`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSuccess('Fee head created successfully');
+        await axios.post(`${API_URL}/fee-heads`, payload, createAxiosConfig());
+        notifySuccess('Fee head created successfully');
       }
 
       handleFeeHeadCloseDialog();
       fetchFeeHeads();
       fetchAvailablePriorities();
     } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${feeHeadEditMode ? 'update' : 'create'} fee head`);
+      notifyError(err.response?.data?.message || `Failed to ${feeHeadEditMode ? 'update' : 'create'} fee head`);
     }
   };
 
@@ -526,19 +493,13 @@ const FeeManagement = () => {
     }
 
     try {
-      setError('');
-      setSuccess('');
-      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/fee-heads/${feeHeadId}`, createAxiosConfig());
 
-      await axios.delete(`${API_URL}/fee-heads/${feeHeadId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setSuccess('Fee head deleted successfully');
+      notifySuccess('Fee head deleted successfully');
       fetchFeeHeads();
       fetchAvailablePriorities();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete fee head');
+      notifyError(err.response?.data?.message || 'Failed to delete fee head');
     }
   };
 
@@ -548,19 +509,13 @@ const FeeManagement = () => {
     }
 
     try {
-      setError('');
-      setSuccess('');
-      const token = localStorage.getItem('token');
+      await axios.put(`${API_URL}/fee-heads/${feeHeadId}/reactivate`, {}, createAxiosConfig());
 
-      await axios.put(`${API_URL}/fee-heads/${feeHeadId}/reactivate`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setSuccess('Fee head reactivated successfully');
+      notifySuccess('Fee head reactivated successfully');
       fetchFeeHeads();
       fetchAvailablePriorities();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reactivate fee head');
+      notifyError(err.response?.data?.message || 'Failed to reactivate fee head');
     }
   };
 
@@ -581,9 +536,6 @@ const FeeManagement = () => {
   const handleFeeStructureSave = async () => {
     try {
       setFeeStructureSaving(true);
-      setError('');
-      setSuccess('');
-      const token = localStorage.getItem('token');
       // Get institution from user context (navbar selection)
       const institutionId = getInstitutionId();
       
@@ -592,14 +544,12 @@ const FeeManagement = () => {
         data: feeStructureMatrixData
       };
 
-      await axios.post(`${API_URL}/fees/structures/bulk-save`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(`${API_URL}/fees/structures/bulk-save`, payload, createAxiosConfig());
 
-      setSuccess('Fee structure saved successfully');
+      notifySuccess('Fee structure saved successfully');
       fetchFeeStructureMatrix();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save fee structure');
+      notifyError(err.response?.data?.message || 'Failed to save fee structure');
     } finally {
       setFeeStructureSaving(false);
     }
@@ -609,7 +559,6 @@ const FeeManagement = () => {
   const fetchMiscFeeStudents = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const institutionId = user.institution?._id || user.institution;
 
       const params = {
@@ -622,11 +571,10 @@ const FeeManagement = () => {
       }
 
       try {
-        const response = await axios.get(`${API_URL}/fees/misc-operations/students`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const response = await axios.get(`${API_URL}/fees/misc-operations/students`, createAxiosConfig({
           params: params,
           paramsSerializer: { indexes: null }
-        });
+        }));
         setMiscFeeStudents(response.data.data || []);
       } catch (err) {
         // Fallback to admissions endpoint
@@ -636,33 +584,22 @@ const FeeManagement = () => {
         if (miscFeeFilters.enrolled && miscFeeFilters.enrolled.length > 0) {
           fallbackParams.status = miscFeeFilters.enrolled;
         }
-        const fallbackResponse = await axios.get(`${API_URL}/admissions`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const fallbackResponse = await axios.get(`${API_URL}/admissions`, createAxiosConfig({
           params: fallbackParams,
           paramsSerializer: { indexes: null }
-        });
+        }));
         const admissions = fallbackResponse.data.data || [];
-        const transformedStudents = admissions.map(admission => ({
-          _id: admission._id,
-          id: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
-          rollNumber: admission.rollNumber || 'N/A',
-          name: admission.personalInfo?.name || 'N/A',
-          fatherName: admission.personalInfo?.fatherName || 'N/A',
-          status: admission.status || 'pending',
-          school: admission.institution?.name || 'N/A',
-          class: admission.class?.name || 'N/A',
-          section: admission.section?.name || 'N/A',
-          mobileNumber: admission.personalInfo?.phone || 'N/A',
-          admissionNo: admission.applicationNumber || 'N/A',
-          admissionDate: admission.admissionDate ? new Date(admission.admissionDate).toLocaleDateString() : 'N/A',
-          admissionEffectiveDate: admission.effectiveDate ? new Date(admission.effectiveDate).toLocaleDateString() : 'N/A',
-          advanceFee: '0',
-          lastVoucher: 'N/A'
+        const transformedStudents = admissions.map(admission => transformStudentData(admission, {
+          additionalFields: {
+            school: admission.institution?.name || 'N/A',
+            advanceFee: '0',
+            lastVoucher: 'N/A'
+          }
         }));
         setMiscFeeStudents(transformedStudents);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch students');
+      notifyError(err.response?.data?.message || 'Failed to fetch students');
     } finally {
       setLoading(false);
     }
@@ -672,45 +609,23 @@ const FeeManagement = () => {
   const fetchPrintVoucherStudents = async () => {
     try {
       setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       if (!institutionId) {
-        setError('Institution not found');
+        notifyError('Institution not found');
         setLoading(false);
         return;
       }
 
       // Calculate month and year from filter
-      let month, year;
-      if (printVoucherFilters.monthYear) {
-        const parts = printVoucherFilters.monthYear.split('-');
-        if (parts[0].length === 4) {
-          // Format: YYYY-MM
-          year = parseInt(parts[0]);
-          month = parseInt(parts[1]);
-        } else {
-          // Format: M-YYYY
-          month = parseInt(parts[0]);
-          year = parseInt(parts[1]);
-        }
-      } else {
-        // Default to current month/year
-        const now = new Date();
-        month = now.getMonth() + 1;
-        year = now.getFullYear();
-      }
+      const { month, year } = parseMonthYear(printVoucherFilters.monthYear);
 
       // Fetch students with generated vouchers for the selected month/year
       const params = {
         institution: institutionId
       };
 
-      const response = await axios.get(`${API_URL}/fees/student-fees`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({ params }));
 
       const studentFees = response.data.data || [];
       
@@ -745,15 +660,7 @@ const FeeManagement = () => {
         const admission = student?.admission;
         
         // Get student name
-        let studentName = 'N/A';
-        if (admission?.personalInfo?.name) {
-          studentName = admission.personalInfo.name;
-        } else if (student?.user?.name) {
-          studentName = student.user.name;
-        } else if (admission?.personalInfo?.firstName) {
-          const lastName = admission.personalInfo.lastName || '';
-          studentName = `${admission.personalInfo.firstName} ${lastName}`.trim();
-        }
+        const studentName = getStudentName(admission, student);
 
         // Get voucher number and calculate total voucher amount for the selected month/year
         let voucherNumber = 'N/A';
@@ -868,11 +775,11 @@ const FeeManagement = () => {
       setPrintVoucherStudents(transformedStudents);
       
       if (transformedStudents.length === 0) {
-        setError(`No students found with generated vouchers for ${month}/${year}`);
+        notifyError(`No students found with generated vouchers for ${month}/${year}`);
       }
     } catch (err) {
       console.error('Error fetching students with generated vouchers:', err);
-      setError(err.response?.data?.message || 'Failed to fetch students with generated vouchers');
+      notifyError(err.response?.data?.message || 'Failed to fetch students with generated vouchers');
       setPrintVoucherStudents([]);
     } finally {
       setLoading(false);
@@ -883,33 +790,17 @@ const FeeManagement = () => {
   const fetchGenerateVoucherStudents = async () => {
     try {
       setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       if (!institutionId) {
-        setError('Institution not found');
+        notifyError('Institution not found');
         setLoading(false);
         return;
       }
 
       // Calculate academic year from monthYear filter
-      // monthYear format can be "YYYY-MM" (from month input) or "M-YYYY" (from old format)
-      let academicYear = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-      if (generateVoucherFilters.monthYear) {
-        const parts = generateVoucherFilters.monthYear.split('-');
-        if (parts.length === 2) {
-          // Check if it's "YYYY-MM" format (from month input)
-          if (parts[0].length === 4) {
-            const yearNum = parseInt(parts[0]);
-            academicYear = `${yearNum}-${yearNum + 1}`;
-          } else {
-            // Old format "M-YYYY"
-            const yearNum = parseInt(parts[1]);
-            academicYear = `${yearNum}-${yearNum + 1}`;
-          }
-        }
-      }
+      const { month: monthNum, year: yearNum } = parseMonthYear(generateVoucherFilters.monthYear);
+      const academicYear = calculateAcademicYear(monthNum, yearNum);
 
       // Fetch students with fee structures assigned
       const params = {
@@ -922,10 +813,7 @@ const FeeManagement = () => {
         params.academicYear = academicYear;
       }
 
-      const response = await axios.get(`${API_URL}/fees/student-fees`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({ params }));
 
       const studentFees = response.data.data || [];
       
@@ -944,32 +832,13 @@ const FeeManagement = () => {
           const student = studentFee.student;
           const admission = studentFee.student?.admission;
           
-          // Get student name - Student model has user reference, not direct name
-          // We'll need to get it from admission or user
-          let studentName = 'N/A';
-          if (admission?.personalInfo?.name) {
-            studentName = admission.personalInfo.name;
-          } else if (student?.user?.name) {
-            studentName = student.user.name;
-          } else if (admission?.personalInfo?.firstName) {
-            const lastName = admission.personalInfo.lastName || '';
-            studentName = `${admission.personalInfo.firstName} ${lastName}`.trim();
-          }
+          // Get student name
+          const studentName = getStudentName(admission, student);
 
           // Check if voucher exists for the selected month/year
           let voucherStatus = 'Not Generated';
           if (generateVoucherFilters.monthYear) {
-            let monthNum, yearNum;
-            const parts = generateVoucherFilters.monthYear.split('-');
-            if (parts[0].length === 4) {
-              // Format: YYYY-MM
-              yearNum = parseInt(parts[0]);
-              monthNum = parseInt(parts[1]);
-            } else {
-              // Format: M-YYYY
-              monthNum = parseInt(parts[0]);
-              yearNum = parseInt(parts[1]);
-            }
+            const { month: monthNum, year: yearNum } = parseMonthYear(generateVoucherFilters.monthYear);
             
             // Check all student fees for this student to see if any have a voucher for this month/year
             const allStudentFees = studentFees.filter(sf => {
@@ -978,9 +847,7 @@ const FeeManagement = () => {
             });
             
             const hasVoucher = allStudentFees.some(sf => 
-              sf.vouchers && sf.vouchers.some(v => 
-                v.month === monthNum && v.year === yearNum
-              )
+              sf.vouchers && sf.vouchers.some(v => matchesVoucherMonthYear(v, monthNum, yearNum))
             );
             
             if (hasVoucher) {
@@ -1017,11 +884,11 @@ const FeeManagement = () => {
       );
       
       if (transformedStudents.length === 0) {
-        setError('No students found with fee structures assigned for the selected academic year');
+        notifyError('No students found with fee structures assigned for the selected academic year');
       }
     } catch (err) {
       console.error('Error fetching students with fee structures:', err);
-      setError(err.response?.data?.message || 'Failed to fetch students with fee structures');
+      notifyError(err.response?.data?.message || 'Failed to fetch students with fee structures');
       setGenerateVoucherStudents([]);
     } finally {
       setLoading(false);
@@ -1034,7 +901,6 @@ const FeeManagement = () => {
 
     try {
       setLoadingFeeHeadAmounts(true);
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       // Get actual student IDs (not admission IDs)
@@ -1049,12 +915,11 @@ const FeeManagement = () => {
       }
 
       // Fetch student fees for all selected students
-      const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
         params: {
           institution: institutionId
         }
-      });
+      }));
 
       const allStudentFees = feeResponse.data.data || [];
       
@@ -1096,7 +961,7 @@ const FeeManagement = () => {
   // Handle open fee head selection dialog
   const handleOpenFeeHeadSelectionDialog = async () => {
     if (selectedGenerateVoucherStudents.length === 0) {
-      setError('Please select at least one student');
+      notifyError('Please select at least one student');
       return;
     }
     
@@ -1105,15 +970,12 @@ const FeeManagement = () => {
     if (headsToUse.length === 0) {
       try {
         setFeeHeadsLoading(true);
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${API_URL}/fee-heads`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await axios.get(`${API_URL}/fee-heads`, createAxiosConfig());
         headsToUse = response.data?.data || response.data || [];
         setFeeHeads(headsToUse);
       } catch (err) {
         console.error('Error fetching fee heads:', err);
-        setError(err.response?.data?.message || 'Failed to fetch fee heads');
+        notifyError(err.response?.data?.message || 'Failed to fetch fee heads');
         setFeeHeadsLoading(false);
         return;
       } finally {
@@ -1159,27 +1021,15 @@ const FeeManagement = () => {
   // Handle generate vouchers (actual generation after fee head selection)
   const handleGenerateVouchersConfirm = async () => {
     if (selectedFeeHeadIds.length === 0) {
-      setError('Please select at least one fee head');
+      notifyError('Please select at least one fee head');
       return;
     }
 
     try {
       setGenerateVoucherLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       
       // Handle month/year format (could be YYYY-MM or M-YYYY)
-      let month, year;
-      const monthYearParts = generateVoucherFilters.monthYear.split('-');
-      if (monthYearParts[0].length === 4) {
-        // Format: YYYY-MM
-        year = parseInt(monthYearParts[0]);
-        month = parseInt(monthYearParts[1]);
-      } else {
-        // Format: M-YYYY
-        month = parseInt(monthYearParts[0]);
-        year = parseInt(monthYearParts[1]);
-      }
+      const { month, year } = parseMonthYear(generateVoucherFilters.monthYear);
 
       const studentIds = selectedGenerateVoucherStudents.map(s => s._id);
 
@@ -1192,13 +1042,11 @@ const FeeManagement = () => {
           year: year,
           feeHeadIds: selectedFeeHeadIds
         },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        createAxiosConfig()
       );
 
       if (response.data.success) {
-        setSuccess(`Successfully generated vouchers for ${selectedGenerateVoucherStudents.length} student(s)`);
+        notifySuccess(`Successfully generated vouchers for ${selectedGenerateVoucherStudents.length} student(s)`);
         // Update voucher status for selected students
         setGenerateVoucherStudents(prevStudents =>
           prevStudents.map(student =>
@@ -1213,7 +1061,7 @@ const FeeManagement = () => {
         fetchGenerateVoucherStudents();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate vouchers');
+      notifyError(err.response?.data?.message || 'Failed to generate vouchers');
     } finally {
       setGenerateVoucherLoading(false);
     }
@@ -1228,13 +1076,11 @@ const FeeManagement = () => {
   const fetchManualDepositStudents = async () => {
     try {
       setLoading(true);
-      setError('');
       setHasSearchedStudents(true);
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       if (!institutionId) {
-        setError('Institution ID not found');
+        notifyError('Institution ID not found');
         setLoading(false);
         return;
       }
@@ -1243,7 +1089,7 @@ const FeeManagement = () => {
       const hasSearchFilters = Object.values(manualDepositSearch).some(value => value && value.trim() !== '');
       
       if (!hasSearchFilters) {
-        setError('Please enter at least one search criteria');
+        notifyError('Please enter at least one search criteria');
         setLoading(false);
         return;
       }
@@ -1260,12 +1106,11 @@ const FeeManagement = () => {
           const searchTerm = manualDepositSearch.voucherNumber.trim();
           
           // Get all student fees for the institution
-          const studentFeesResponse = await axios.get(`${API_URL}/fees/student-fees`, {
-            headers: { Authorization: `Bearer ${token}` },
+          const studentFeesResponse = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
             params: {
               institution: institutionId
             }
-          });
+          }));
 
           const studentFees = studentFeesResponse.data.data || [];
           
@@ -1283,14 +1128,14 @@ const FeeManagement = () => {
           studentIdsFromVoucher = [...new Set(studentIdArray)];
 
           if (studentIdsFromVoucher.length === 0) {
-            setError('No students found with the provided voucher number');
+            notifyError('No students found with the provided voucher number');
             setManualDepositStudents([]);
             setLoading(false);
             return;
           }
         } catch (err) {
           console.error('Error searching by voucher:', err);
-          setError('Failed to search by voucher number');
+          notifyError('Failed to search by voucher number');
           setLoading(false);
           return;
         }
@@ -1307,11 +1152,10 @@ const FeeManagement = () => {
         params.search = searchTerms.join(' ');
       }
 
-      const response = await axios.get(`${API_URL}/admissions`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(`${API_URL}/admissions`, createAxiosConfig({
         params: params,
         paramsSerializer: { indexes: null }
-      });
+      }));
 
       let admissions = response.data.data || [];
       
@@ -1382,19 +1226,17 @@ const FeeManagement = () => {
       
       if (studentsWithIds.length > 0) {
         try {
-          const token = localStorage.getItem('token');
           const institutionId = getInstitutionId();
           
           // Fetch student fees for each student in parallel
           const feesPromises = studentsWithIds.map(async (student) => {
             try {
-              const feesResponse = await axios.get(`${API_URL}/fees/student-fees`, {
-                headers: { Authorization: `Bearer ${token}` },
+              const feesResponse = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
                 params: {
                   institution: institutionId,
                   student: student.studentId
                 }
-              });
+              }));
               return { studentId: student.studentId, student: student, fees: feesResponse.data.data || [] };
             } catch (err) {
               console.error(`Error fetching fees for student ${student.studentId}:`, err);
@@ -1576,12 +1418,12 @@ const FeeManagement = () => {
       setManualDepositStudents(transformedStudents);
       
       if (transformedStudents.length === 0) {
-        setError('No students found matching the search criteria');
+        notifyError('No students found matching the search criteria');
       } else {
-        setSuccess(`Found ${transformedStudents.length} student(s)`);
+        notifySuccess(`Found ${transformedStudents.length} student(s)`);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to search students');
+      notifyError(err.response?.data?.message || 'Failed to search students');
     } finally {
       setLoading(false);
     }
@@ -1598,17 +1440,14 @@ const FeeManagement = () => {
 
     try {
       setLoadingOutstandingFees(true);
-      setError('');
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
-      const response = await axios.get(`${API_URL}/fees/outstanding-balances`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(`${API_URL}/fees/outstanding-balances`, createAxiosConfig({
         params: {
           institution: institutionId,
           studentId: studentId
         }
-      });
+      }));
 
       const result = response.data.data || {};
       let fees = result.fees || [];
@@ -1661,7 +1500,7 @@ const FeeManagement = () => {
       setSelectedFeePayments(initialPayments);
     } catch (err) {
       console.error('Error fetching outstanding fees:', err);
-      setError(err.response?.data?.message || 'Failed to fetch outstanding fees');
+      notifyError(err.response?.data?.message || 'Failed to fetch outstanding fees');
       setOutstandingFees([]);
     } finally {
       setLoadingOutstandingFees(false);
@@ -1672,7 +1511,7 @@ const FeeManagement = () => {
   const handleManualDepositStudentSelect = async (student) => {
     // Prevent selection of paid vouchers
     if (student.voucherStatus === 'Paid') {
-      setError('This voucher is already paid and cannot be paid again.');
+      notifyError('This voucher is already paid and cannot be paid again.');
       return;
     }
     
@@ -1683,10 +1522,7 @@ const FeeManagement = () => {
     if (admissionId) {
       // Try to get actual student ID from admission
       try {
-        const token = localStorage.getItem('token');
-        const admissionResponse = await axios.get(`${API_URL}/admissions/${admissionId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const admissionResponse = await axios.get(`${API_URL}/admissions/${admissionId}`, createAxiosConfig());
         const admission = admissionResponse.data.data;
         const studentId = admission?.studentId?._id || admission?.studentId;
         if (studentId) {
@@ -1720,43 +1556,39 @@ const FeeManagement = () => {
   // Handle save payment
   const handleSavePayment = async () => {
     if (!selectedManualDepositStudent) {
-      setError('Please select a student');
+      notifyError('Please select a student');
       return;
     }
 
     const totalPayment = calculateTotalPayment();
     if (totalPayment <= 0) {
-      setError('Please enter at least one payment amount');
+      notifyError('Please enter at least one payment amount');
       return;
     }
 
     // Validate bank account and transaction ID
     if (!manualDepositForm.bankAccount || manualDepositForm.bankAccount.trim() === '') {
-      setError('Please select a bank account');
+      notifyError('Please select a bank account');
       return;
     }
 
     if (!manualDepositForm.transactionId || manualDepositForm.transactionId.trim() === '') {
-      setError('Please enter a transaction ID');
+      notifyError('Please enter a transaction ID');
       return;
     }
 
     try {
       setRecordingPayment(true);
-      setError('');
-      const token = localStorage.getItem('token');
 
       // Get student ID
       // Use originalAdmissionId if available (for voucher rows), otherwise use _id
       const admissionId = selectedManualDepositStudent.originalAdmissionId || selectedManualDepositStudent._id;
-      const admissionResponse = await axios.get(`${API_URL}/admissions/${admissionId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const admissionResponse = await axios.get(`${API_URL}/admissions/${admissionId}`, createAxiosConfig());
       const admission = admissionResponse.data.data;
       const studentId = admission?.studentId?._id || admission?.studentId;
 
       if (!studentId) {
-        setError('Student ID not found');
+        notifyError('Student ID not found');
         setRecordingPayment(false);
         return;
       }
@@ -1780,9 +1612,7 @@ const FeeManagement = () => {
                   bankName: manualDepositForm.bankName,
                   transactionId: manualDepositForm.transactionId
                 },
-                {
-                  headers: { Authorization: `Bearer ${token}` }
-                }
+                createAxiosConfig()
               )
             );
           }
@@ -1790,14 +1620,14 @@ const FeeManagement = () => {
       });
 
       if (paymentPromises.length === 0) {
-        setError('Please select at least one fee to pay');
+        notifyError('Please select at least one fee to pay');
         setRecordingPayment(false);
         return;
       }
 
       await Promise.all(paymentPromises);
 
-      setSuccess(`Successfully recorded payment(s) totaling Rs. ${totalPayment.toLocaleString()}`);
+      notifySuccess(`Successfully recorded payment(s) totaling Rs. ${totalPayment.toLocaleString()}`);
       
       // Reset form
       setManualDepositForm({
@@ -1825,7 +1655,7 @@ const FeeManagement = () => {
       }
     } catch (err) {
       console.error('Error recording payment:', err);
-      setError(err.response?.data?.message || 'Failed to record payment');
+      notifyError(err.response?.data?.message || 'Failed to record payment');
     } finally {
       setRecordingPayment(false);
     }
@@ -1835,12 +1665,9 @@ const FeeManagement = () => {
   const fetchVoucherData = async (student, monthYear) => {
     try {
       setVoucherLoading(true);
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
-      const admissionResponse = await axios.get(`${API_URL}/admissions/${student._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const admissionResponse = await axios.get(`${API_URL}/admissions/${student._id}`, createAxiosConfig());
       const admission = admissionResponse.data.data;
 
       if (!admission) {
@@ -1877,13 +1704,12 @@ const FeeManagement = () => {
 
       // Fetch student fees for this student
       try {
-        const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const feeResponse = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
           params: {
             institution: institutionId,
             student: studentId
           }
-        });
+        }));
 
         studentFees = feeResponse.data.data || [];
         
@@ -2083,7 +1909,7 @@ const FeeManagement = () => {
       };
     } catch (err) {
       console.error('Error fetching voucher data:', err);
-      setError(err.response?.data?.message || 'Failed to fetch voucher data');
+      notifyError(err.response?.data?.message || 'Failed to fetch voucher data');
       return null;
     } finally {
       setVoucherLoading(false);
@@ -2094,23 +1920,18 @@ const FeeManagement = () => {
   const fetchStudentsWithoutFeeStructure = async () => {
     try {
       setAssignFeeStructureLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       const params = {
         institution: institutionId
       };
 
-      const response = await axios.get(`${API_URL}/fees/students/without-fee-structure`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/fees/students/without-fee-structure`, createAxiosConfig({ params }));
 
       setStudentsWithoutFeeStructure(response.data.data || []);
     } catch (err) {
       console.error('Error fetching students without fee structure:', err);
-      setError(err.response?.data?.message || 'Failed to fetch students without fee structure');
+      notifyError(err.response?.data?.message || 'Failed to fetch students without fee structure');
     } finally {
       setAssignFeeStructureLoading(false);
     }
@@ -2119,7 +1940,6 @@ const FeeManagement = () => {
   // Fetch available classes for assignment
   const fetchAvailableClasses = async () => {
     try {
-      const token = localStorage.getItem('token');
       const institutionId = getInstitutionId();
 
       const params = {
@@ -2127,15 +1947,12 @@ const FeeManagement = () => {
         isActive: true
       };
 
-      const response = await axios.get(`${API_URL}/classes`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await axios.get(`${API_URL}/classes`, createAxiosConfig({ params }));
 
       setAvailableClasses(response.data.data || []);
     } catch (err) {
       console.error('Error fetching classes:', err);
-      setError(err.response?.data?.message || 'Failed to fetch classes');
+      notifyError(err.response?.data?.message || 'Failed to fetch classes');
     }
   };
 
@@ -2148,12 +1965,8 @@ const FeeManagement = () => {
 
     try {
       setFetchingFeeStructure(true);
-      setError('');
-      const token = localStorage.getItem('token');
 
-      const response = await axios.get(`${API_URL}/fees/structures/class/${classId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API_URL}/fees/structures/class/${classId}`, createAxiosConfig());
 
       const feeStructure = response.data.data;
       setSelectedClassFeeStructure(feeStructure);
@@ -2175,7 +1988,7 @@ const FeeManagement = () => {
       }));
     } catch (err) {
       console.error('Error fetching fee structure:', err);
-      setError(err.response?.data?.message || 'Failed to fetch fee structure');
+      notifyError(err.response?.data?.message || 'Failed to fetch fee structure');
       setSelectedClassFeeStructure(null);
     } finally {
       setFetchingFeeStructure(false);
@@ -2250,14 +2063,12 @@ const FeeManagement = () => {
   // Handle assign fee structure
   const handleAssignFeeStructure = async () => {
     if (!assignFeeStructureForm.classId) {
-      setError('Please select a class');
+      notifyError('Please select a class');
       return;
     }
 
     try {
       setAssignFeeStructureLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
 
       const payload = {
         studentId: selectedStudentForAssignment._id,
@@ -2268,24 +2079,22 @@ const FeeManagement = () => {
         feeHeadDiscounts: assignFeeStructureForm.feeHeadDiscounts || {}
       };
 
-      const response = await axios.post(`${API_URL}/fees/assign-structure`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.post(`${API_URL}/fees/assign-structure`, payload, createAxiosConfig());
 
       const result = response.data.data;
       const totalAssigned = result?.totalAssigned || 0;
       
       if (totalAssigned > 0) {
-        setSuccess(`Successfully assigned ${totalAssigned} fee structure(s) to the student`);
+        notifySuccess(`Successfully assigned ${totalAssigned} fee structure(s) to the student`);
       } else {
-        setError('No fee structures were assigned');
+        notifyError('No fee structures were assigned');
       }
       
       handleCloseAssignFeeStructureDialog();
       await fetchStudentsWithoutFeeStructure();
     } catch (err) {
       console.error('Error assigning fee structure:', err);
-      setError(err.response?.data?.message || 'Failed to assign fee structure');
+      notifyError(err.response?.data?.message || 'Failed to assign fee structure');
     } finally {
       setAssignFeeStructureLoading(false);
     }
@@ -2363,13 +2172,12 @@ const FeeManagement = () => {
   // Handle status update
   const handleStatusUpdate = async () => {
     if (!changeStatusForm.reason || !changeStatusForm.status) {
-      setError('Please fill in all required fields');
+      notifyError('Please fill in all required fields');
       return;
     }
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
       for (const student of selectedMiscFeeStudents) {
         try {
@@ -2380,16 +2188,14 @@ const FeeManagement = () => {
               reason: changeStatusForm.reason,
               changeDate: changeStatusForm.changeDate
             },
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
+            createAxiosConfig()
           );
         } catch (err) {
           console.error(`Error updating status for student ${student._id}:`, err);
         }
       }
 
-      setSuccess('Status updated successfully');
+      notifySuccess('Status updated successfully');
       setChangeStatusDialog(false);
       setChangeStatusForm({
         status: '',
@@ -2399,7 +2205,7 @@ const FeeManagement = () => {
       setSelectedMiscFeeStudents([]);
       fetchMiscFeeStudents();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      notifyError(err.response?.data?.message || 'Failed to update status');
     } finally {
       setLoading(false);
     }
@@ -2416,17 +2222,6 @@ const FeeManagement = () => {
             </Typography>
           </Box>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-              {error}
-            </Alert>
-          )}
-
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-              {success}
-            </Alert>
-          )}
 
           {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -2907,7 +2702,7 @@ const FeeManagement = () => {
                         <TableRow>
                           <TableCell colSpan={9} align="center">
                             <Typography variant="body2" color="textSecondary">
-                              {error ? error : 'No students found with fee structures assigned. Please assign fee structures to students first.'}
+                              No students found with fee structures assigned. Please assign fee structures to students first.
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -3033,7 +2828,7 @@ const FeeManagement = () => {
                     sx={{ bgcolor: '#667eea' }}
                     onClick={() => {
                       if (selectedMiscFeeStudents.length === 0) {
-                        setError('Please select at least one student');
+                        notifyError('Please select at least one student');
                         return;
                       }
                       setChangeStatusDialog(true);
@@ -3047,7 +2842,7 @@ const FeeManagement = () => {
                     sx={{ bgcolor: '#667eea' }}
                     onClick={() => {
                       if (selectedMiscFeeStudents.length === 0) {
-                        setError('Please select at least one student');
+                        notifyError('Please select at least one student');
                         return;
                       }
                       setChangeMonthlyFeeDialog(true);
@@ -3412,7 +3207,7 @@ const FeeManagement = () => {
                                   if (isSelectable) {
                                     handleManualDepositStudentSelect(student);
                                   } else {
-                                    setError('This voucher is already paid and cannot be paid again.');
+                                    notifyError('This voucher is already paid and cannot be paid again.');
                                   }
                                 }}
                                 sx={{
@@ -4130,9 +3925,7 @@ const FeeManagement = () => {
                   </Grid>
                 </Paper>
               </Box>
-            ) : (
-              <Alert severity="error">Failed to load voucher data</Alert>
-            )}
+            ) : null}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => {

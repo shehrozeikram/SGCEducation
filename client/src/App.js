@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
+import { NotificationProvider } from './components/notifications/NotificationProvider';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -47,8 +48,9 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        <Routes>
+      <NotificationProvider>
+        <Router>
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route
             path="/dashboard"
@@ -349,7 +351,8 @@ function App() {
           />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
-      </Router>
+        </Router>
+      </NotificationProvider>
     </ThemeProvider>
   );
 }
