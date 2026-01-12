@@ -754,24 +754,14 @@ const FeeManagement = () => {
           // Calculate total remaining for fees with this voucher
           const totalRemainingForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
 
-          // Check if payment was made after voucher generation
-          const hasPaymentAfterVoucher = feesWithVoucher.some(f => {
-            if (!f.lastPaymentDate || !voucherGeneratedDate) return false;
-            return new Date(f.lastPaymentDate) >= voucherGeneratedDate;
-          });
-
-          // Voucher is "Paid" ONLY if:
-          // 1. Payment was made AFTER the voucher was generated
-          // 2. Total remaining is 0 (or very close to 0 due to rounding)
-          // This ensures that payments made before voucher generation don't mark the voucher as paid
-          if (hasPaymentAfterVoucher && totalRemainingForVoucher <= 0.01) {
+          // Determine voucher status based on remaining amount first
+          // If remaining is 0 or very close to 0, voucher is fully paid
+          if (totalRemainingForVoucher <= 0.01) {
+            // Fully paid - remaining amount is 0
             voucherStatus = 'Paid';
-          } else if (hasPaymentAfterVoucher && totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
-            // Payment made after voucher generation but not fully paid
+          } else if (totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
+            // Partially paid - some payment made but still has remaining
             voucherStatus = 'Partial';
-          } else if (!hasPaymentAfterVoucher && totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
-            // Payment made before voucher generation (for previous month) - still has remaining
-            voucherStatus = 'Unpaid';
           } else {
             // No payment made for this voucher
             voucherStatus = 'Unpaid';
@@ -1375,18 +1365,14 @@ const FeeManagement = () => {
                     return new Date(f.lastPaymentDate) >= voucherGeneratedDate;
                   });
 
-                  // Voucher is "Paid" ONLY if:
-                  // 1. Payment was made AFTER the voucher was generated
-                  // 2. Total remaining is 0 (or very close to 0 due to rounding)
-                  // This ensures that payments made before voucher generation don't mark the voucher as paid
-                  if (hasPaymentAfterVoucher && totalRemainingForVoucher <= 0.01) {
+                  // Determine voucher status based on remaining amount first
+                  // If remaining is 0 or very close to 0, voucher is fully paid
+                  if (totalRemainingForVoucher <= 0.01) {
+                    // Fully paid - remaining amount is 0
                     voucherStatus = 'Paid';
-                  } else if (hasPaymentAfterVoucher && totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
-                    // Payment made after voucher generation but not fully paid
+                  } else if (totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
+                    // Partially paid - some payment made but still has remaining
                     voucherStatus = 'Partial';
-                  } else if (!hasPaymentAfterVoucher && totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
-                    // Payment made before voucher generation (for previous month) - still has remaining
-                    voucherStatus = 'Unpaid';
                   } else {
                     // No payment made for this voucher
                     voucherStatus = 'Unpaid';
