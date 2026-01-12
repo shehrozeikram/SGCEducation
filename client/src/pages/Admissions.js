@@ -2868,7 +2868,7 @@ const Admissions = () => {
                               <Box sx={{ display: 'flex', gap: 0.5 }}>
                                 <IconButton
                                   size="small"
-                                  onClick={() => navigate(`/admissions/${admission._id}/edit`)}
+                                  onClick={() => navigate(`/admissions/edit/${admission._id}`)}
                                   sx={{ color: '#0d6efd' }}
                                   title="Edit"
                                 >
