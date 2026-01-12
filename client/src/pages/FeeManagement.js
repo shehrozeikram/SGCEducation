@@ -1203,20 +1203,12 @@ const FeeManagement = () => {
         section: admission.section?.name || 'N/A',
         mobileNumber: admission.contactInfo?.phone || admission.contactInfo?.mobileNumber || 'N/A',
         admissionNo: admission.applicationNumber || 'N/A',
-        admissionDate: admission.studentId?.admissionDate 
-          ? new Date(admission.studentId.admissionDate).toLocaleDateString() 
-          : admission.createdAt 
-          ? new Date(admission.createdAt).toLocaleDateString() 
-          : 'N/A',
-        admissionEffectiveDate: admission.studentId?.admissionDate 
-          ? new Date(admission.studentId.admissionDate).toLocaleDateString() 
-          : admission.createdAt 
-          ? new Date(admission.createdAt).toLocaleDateString() 
-          : 'N/A',
         advanceFee: '0',
         lastVoucher: 'N/A',
         voucherAmount: 0,
         voucherMonth: 'N/A',
+        paidAmount: 0,
+        remainingAmount: 0,
         studentId: admission.studentId?._id || admission.studentId || null
       }));
 
@@ -1289,12 +1281,18 @@ const FeeManagement = () => {
             
             // If no vouchers found, create one row with N/A
             if (voucherMap.size === 0) {
+              // Calculate total paid and remaining for all fees (if no vouchers)
+              const totalPaid = fees.reduce((sum, f) => sum + parseFloat(f.paidAmount || 0), 0);
+              const totalRemaining = fees.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
+              
               studentsWithVouchers.push({
                 ...student,
                 lastVoucher: 'N/A',
                 voucherAmount: 0,
                 voucherMonth: 'N/A',
                 voucherStatus: 'N/A',
+                paidAmount: totalPaid,
+                remainingAmount: totalRemaining,
                 originalAdmissionId: student._id // Store original admission ID
               });
             } else {
@@ -1318,6 +1316,10 @@ const FeeManagement = () => {
                     }
                   }
                 });
+                
+                // Initialize paid and remaining amounts
+                let totalPaidForVoucher = 0;
+                let totalRemainingForVoucher = 0;
                 
                 // Determine voucher status based on payments for this specific voucher
                 // A voucher is "Paid" only if payments were made AFTER the voucher was generated
@@ -1343,10 +1345,10 @@ const FeeManagement = () => {
                   const totalVoucherAmount = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.finalAmount || 0), 0);
                   
                   // Calculate total paid amount for fees with this voucher
-                  const totalPaidForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.paidAmount || 0), 0);
+                  totalPaidForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.paidAmount || 0), 0);
                   
                   // Calculate total remaining for fees with this voucher
-                  const totalRemainingForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
+                  totalRemainingForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
 
                   // Check if payment was made after voucher generation
                   const hasPaymentAfterVoucher = feesWithVoucher.some(f => {
@@ -1383,6 +1385,8 @@ const FeeManagement = () => {
                   voucherAmount: voucherAmount,
                   voucherMonth: voucherMonth,
                   voucherStatus: voucherStatus,
+                  paidAmount: totalPaidForVoucher,
+                  remainingAmount: totalRemainingForVoucher,
                   originalAdmissionId: student._id, // Store original admission ID
                   _id: `${student._id}-${voucherInfo.voucherNumber}-${voucherInfo.month}-${voucherInfo.year}` // Unique key for each voucher row
                 });
@@ -3172,13 +3176,13 @@ const FeeManagement = () => {
                             <TableCell>Name</TableCell>
                             <TableCell>Class</TableCell>
                             <TableCell>Section</TableCell>
-                            <TableCell>Admission Date</TableCell>
-                            <TableCell>Admission Effective Date</TableCell>
                             <TableCell>Adv. Fee</TableCell>
                             <TableCell>Voucher Number</TableCell>
                             <TableCell>Voucher Month</TableCell>
                             <TableCell>Voucher Status</TableCell>
                             <TableCell>Voucher Amount</TableCell>
+                            <TableCell>Paid Amount</TableCell>
+                            <TableCell>Remaining Amount</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -3233,8 +3237,6 @@ const FeeManagement = () => {
                                 </TableCell>
                                 <TableCell>{capitalizeFirstOnly(student.class || 'N/A')}</TableCell>
                                 <TableCell>{capitalizeFirstOnly(student.section || 'N/A')}</TableCell>
-                                <TableCell>{student.admissionDate || 'N/A'}</TableCell>
-                                <TableCell>{student.admissionEffectiveDate || 'N/A'}</TableCell>
                                 <TableCell>{student.advanceFee || '0'}</TableCell>
                                 <TableCell>{student.lastVoucher || 'N/A'}</TableCell>
                                 <TableCell>{student.voucherMonth || 'N/A'}</TableCell>
@@ -3254,6 +3256,10 @@ const FeeManagement = () => {
                                   )}
                                 </TableCell>
                                 <TableCell align="right">Rs. {(student.voucherAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="right">Rs. {(student.paidAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold', color: (student.remainingAmount || 0) > 0 ? 'error.main' : 'success.main' }}>
+                                  Rs. {(student.remainingAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </TableCell>
                               </TableRow>
                             );
                             })

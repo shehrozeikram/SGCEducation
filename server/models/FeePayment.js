@@ -92,18 +92,16 @@ feePaymentSchema.pre('save', function() {
   this.updatedAt = Date.now();
 });
 
-// Generate receipt number before save
+// Generate receipt number before save (fallback if not set by service)
+// Uses atomic ReceiptCounter to prevent race conditions
 feePaymentSchema.pre('save', async function() {
   if (this.isNew && !this.receiptNumber) {
-    const year = new Date().getFullYear();
-    const count = await mongoose.model('FeePayment').countDocuments({
+    const { generateReceiptNumber } = require('../utils/receiptUtils');
+    this.receiptNumber = await generateReceiptNumber({
       institution: this.institution,
-      createdAt: {
-        $gte: new Date(year, 0, 1),
-        $lt: new Date(year + 1, 0, 1)
-      }
+      year: new Date().getFullYear(),
+      type: 'RCP'
     });
-    this.receiptNumber = `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
   }
 });
 

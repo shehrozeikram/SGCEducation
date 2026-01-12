@@ -6,6 +6,7 @@ const StudentFee = require('../models/StudentFee');
 const Admission = require('../models/Admission');
 const { ApiError } = require('../middleware/error.middleware');
 const { getInstitutionId, extractInstitutionId } = require('../utils/userUtils');
+const { generateReceiptNumber } = require('../utils/receiptUtils');
 
 /**
  * Fee Service - Handles fee-related business logic
@@ -723,17 +724,14 @@ class FeeService {
       throw new ApiError(400, `Payment amount (${amount}) exceeds remaining amount (${remainingAmount})`);
     }
 
-    // Generate receipt number
+    // Generate receipt number atomically using ReceiptCounter
+    // This prevents race conditions when multiple payments are created simultaneously
     const FeePayment = require('../models/FeePayment');
-    const year = new Date().getFullYear();
-    const receiptCount = await FeePayment.countDocuments({
+    const receiptNumber = await generateReceiptNumber({
       institution: studentFee.institution,
-      createdAt: {
-        $gte: new Date(year, 0, 1),
-        $lt: new Date(year + 1, 0, 1)
-      }
+      year: new Date().getFullYear(),
+      type: 'RCP'
     });
-    const receiptNumber = `RCP-${year}-${String(receiptCount + 1).padStart(6, '0')}`;
 
     // Create FeePayment record
     const feePayment = await FeePayment.create({
