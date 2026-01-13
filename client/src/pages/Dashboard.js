@@ -405,12 +405,10 @@ const Dashboard = () => {
           component="main"
           sx={{
             flexGrow: 1,
-            width: { sm: `calc(100% - ${sidebarWidth}px)` },
-            ml: { sm: `${sidebarWidth}px` },
             mt: '64px', // Account for fixed navbar
           }}
         >
-          <Container maxWidth="xl" sx={{ mt: { xs: 1, sm: 1.5 }, mb: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 1.5, md: 2 }, overflow: 'visible' }}>
+          <Box sx={{ mt: { xs: 1, sm: 1.5 }, mb: { xs: 2, sm: 3, md: 4 }, px: { xs: 2, sm: 3, md: 4 }, width: '100%' }}>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
@@ -421,7 +419,7 @@ const Dashboard = () => {
         {/* Main Layout: Cards on Left, Reports/Graphs on Right */}
         <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
           {/* Left Side: Statistics Cards and Modules */}
-          <Grid item xs={12} lg={8}>
+          <Grid item xs={12} md={8}>
             {/* Statistics Cards Grid - 4 rows x 3 columns */}
             {dashboardData && (
               <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
@@ -549,7 +547,7 @@ const Dashboard = () => {
           </Grid>
 
           {/* Right Side: Reports and Graphs */}
-          <Grid item xs={12} lg={4}>
+          <Grid item xs={12} md={4}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 }, position: 'sticky', top: 20 }}>
               {/* Institution Overview Report */}
               {dashboardData && (
@@ -898,7 +896,7 @@ const Dashboard = () => {
             </Box>
           </>
         )}
-          </Container>
+          </Box>
         </Box>
       </Box>
     </Box>
