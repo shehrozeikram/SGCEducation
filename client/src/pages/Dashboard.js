@@ -68,7 +68,6 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ActivityFeed from '../components/dashboard/ActivityFeed';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
 
@@ -572,10 +571,36 @@ const Dashboard = () => {
               {/* Row 1: Key Performance Indicators (Compact) */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
-                  { title: 'Total Institutions', value: dashboardData.overview.totalInstitutions, icon: <Domain />, color: '#667eea', subtitle: `${dashboardData.overview.activeInstitutions} active`, trend: dashboardData.growth.institutionsLast30Days },
-                  { title: 'Total Users', value: dashboardData.overview.totalUsers, icon: <People />, color: '#4facfe', subtitle: `${dashboardData.users.roleBreakdown.students} students`, trend: dashboardData.growth.usersLast30Days },
-                  { title: 'System Health', value: '100%', icon: <Assessment />, color: '#43e97b', subtitle: 'All systems operational' },
-                  { title: "Today's Activity", value: '0', icon: <Notifications />, color: '#fa709a', subtitle: 'No alerts today' }
+                  { 
+                    title: 'Total Institutions', 
+                    value: dashboardData?.overview?.totalInstitutions || 0, 
+                    icon: <Domain />, 
+                    color: '#667eea', 
+                    subtitle: `${dashboardData?.overview?.activeInstitutions || 0} active`, 
+                    trend: dashboardData?.growth?.institutionsLast30Days 
+                  },
+                  { 
+                    title: 'Total Users', 
+                    value: dashboardData?.overview?.totalUsers || 0, 
+                    icon: <People />, 
+                    color: '#4facfe', 
+                    subtitle: `${dashboardData?.users?.roleBreakdown?.students || 0} students`, 
+                    trend: dashboardData?.growth?.usersLast30Days 
+                  },
+                  { 
+                    title: 'System Health', 
+                    value: '100%', 
+                    icon: <Assessment />, 
+                    color: '#43e97b', 
+                    subtitle: 'All systems operational' 
+                  },
+                  { 
+                    title: "Today's Activity", 
+                    value: '0', 
+                    icon: <Notifications />, 
+                    color: '#fa709a', 
+                    subtitle: 'No alerts today' 
+                  }
                 ].map((stat, i) => (
                   <Grid item xs={12} sm={6} md={3} key={i}>
                     <StatCard compact {...stat} />
@@ -584,12 +609,30 @@ const Dashboard = () => {
               </Grid>
 
               {/* Row 2: Financial Metrics */}
-              {dashboardData.finance && (
+              {dashboardData?.finance && (
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   {[
-                    { title: 'Received Fees', value: `${dashboardData.finance.currency} ${dashboardData.finance.totalReceived.toLocaleString()}`, icon: <Payment />, color: '#10b981', subtitle: 'Total collections' },
-                    { title: 'Receivable Fees', value: `${dashboardData.finance.currency} ${dashboardData.finance.totalReceivable.toLocaleString()}`, icon: <AccountBalance />, color: '#f59e0b', subtitle: 'Outstanding balance' },
-                    { title: "Last Month's Fees", value: `${dashboardData.finance.currency} ${dashboardData.finance.lastMonthReceived.toLocaleString()}`, icon: <EventAvailable />, color: '#6366f1', subtitle: 'Previous month' }
+                    { 
+                      title: 'Received Fees', 
+                      value: `${dashboardData?.finance?.currency || 'PKR'} ${(dashboardData?.finance?.totalReceived || 0).toLocaleString()}`, 
+                      icon: <Payment />, 
+                      color: '#10b981', 
+                      subtitle: 'Total collections' 
+                    },
+                    { 
+                      title: 'Receivable Fees', 
+                      value: `${dashboardData?.finance?.currency || 'PKR'} ${(dashboardData?.finance?.totalReceivable || 0).toLocaleString()}`, 
+                      icon: <AccountBalance />, 
+                      color: '#f59e0b', 
+                      subtitle: 'Outstanding balance' 
+                    },
+                    { 
+                      title: "Last Month's Fees", 
+                      value: `${dashboardData?.finance?.currency || 'PKR'} ${(dashboardData?.finance?.lastMonthReceived || 0).toLocaleString()}`, 
+                      icon: <EventAvailable />, 
+                      color: '#6366f1', 
+                      subtitle: 'Previous month' 
+                    }
                   ].map((fin, i) => (
                     <Grid item xs={12} sm={6} md={4} key={i}>
                       <StatCard compact {...fin} />
@@ -612,14 +655,14 @@ const Dashboard = () => {
                       <Stack spacing={1.5}>
                         <AlertItem 
                           title="Pending Admissions" 
-                          count={dashboardData.administrative?.pendingAdmissions || 0} 
+                          count={dashboardData?.administrative?.pendingAdmissions || 0} 
                           icon={<PersonAdd />} 
                           color="#ff6b6b"
                           onClick={() => navigate('/admissions')}
                         />
                         <AlertItem 
                           title="Overdue Fee Vouchers" 
-                          count={dashboardData.administrative?.overdueFees || 0} 
+                          count={dashboardData?.administrative?.overdueFees || 0} 
                           icon={<Report />} 
                           color="#f59e0b"
                           onClick={() => navigate('/finance/fees/vouchers')}
@@ -670,9 +713,9 @@ const Dashboard = () => {
                         title="Institution Distribution"
                         color="#f093fb"
                         metrics={[
-                          { label: 'Schools', value: dashboardData.institutions.typeBreakdown.schools || 0 },
-                          { label: 'Colleges', value: dashboardData.institutions.typeBreakdown.colleges || 0 },
-                          { label: 'Active', value: dashboardData.institutions.statusBreakdown.active || 0 },
+                          { label: 'Schools', value: dashboardData?.institutions?.typeBreakdown?.schools || 0 },
+                          { label: 'Colleges', value: dashboardData?.institutions?.typeBreakdown?.colleges || 0 },
+                          { label: 'Active', value: dashboardData?.institutions?.statusBreakdown?.active || 0 },
                         ]}
                       />
                     </Grid>
@@ -681,9 +724,9 @@ const Dashboard = () => {
                         title="User Distribution"
                         color="#4facfe"
                         metrics={[
-                          { label: 'Students', value: dashboardData.users.roleBreakdown.students || 0 },
-                          { label: 'Staff', value: dashboardData.users.roleBreakdown.teachers || 1 },
-                          { label: 'Admins', value: dashboardData.users.roleBreakdown.admins || 0 },
+                          { label: 'Students', value: dashboardData?.users?.roleBreakdown?.students || 0 },
+                          { label: 'Staff', value: dashboardData?.users?.roleBreakdown?.teachers || 0 },
+                          { label: 'Admins', value: dashboardData?.users?.roleBreakdown?.admins || 0 },
                         ]}
                       />
                     </Grid>
@@ -762,22 +805,22 @@ const Dashboard = () => {
                             <Box sx={{ mb: 2 }}>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Schools</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.institutions.typeBreakdown.schools}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.institutions?.typeBreakdown?.schools || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={(dashboardData.institutions.typeBreakdown.schools / dashboardData.institutions.total) * 100} 
+                                value={((dashboardData?.institutions?.typeBreakdown?.schools || 0) / (dashboardData?.institutions?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)' } }} 
                               />
                             </Box>
                             <Box>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Colleges</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.institutions.typeBreakdown.colleges}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.institutions?.typeBreakdown?.colleges || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={(dashboardData.institutions.typeBreakdown.colleges / dashboardData.institutions.total) * 100} 
+                                value={((dashboardData?.institutions?.typeBreakdown?.colleges || 0) / (dashboardData?.institutions?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(90deg, #f093fb 0%, #f5576c 100%)' } }} 
                               />
                             </Box>
@@ -786,11 +829,11 @@ const Dashboard = () => {
                             <Box sx={{ display: 'flex', gap: 2 }}>
                               <Box sx={{ flex: 1, p: 2, bgcolor: '#43e97b10', borderRadius: 2, textAlign: 'center' }}>
                                 <Typography variant="caption" display="block" color="text.secondary">Active</Typography>
-                                <Typography variant="h5" fontWeight="bold" color="#43e97b">{dashboardData.institutions.statusBreakdown.active}</Typography>
+                                <Typography variant="h5" fontWeight="bold" color="#43e97b">{dashboardData?.institutions?.statusBreakdown?.active || 0}</Typography>
                               </Box>
                               <Box sx={{ flex: 1, p: 2, bgcolor: '#ff616110', borderRadius: 2, textAlign: 'center' }}>
                                 <Typography variant="caption" display="block" color="text.secondary">Inactive</Typography>
-                                <Typography variant="h5" fontWeight="bold" color="#ff6161">{dashboardData.institutions.statusBreakdown.inactive}</Typography>
+                                <Typography variant="h5" fontWeight="bold" color="#ff6161">{dashboardData?.institutions?.statusBreakdown?.inactive || 0}</Typography>
                               </Box>
                             </Box>
                           </Grid>
@@ -803,22 +846,22 @@ const Dashboard = () => {
                             <Box sx={{ mb: 2 }}>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Students</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.students}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.users?.roleBreakdown?.students || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={(dashboardData.users.roleBreakdown.students / dashboardData.users.total) * 100} 
+                                value={((dashboardData?.users?.roleBreakdown?.students || 0) / (dashboardData?.users?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' } }} 
                               />
                             </Box>
                             <Box>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Staff/Teachers</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.teachers}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.users?.roleBreakdown?.teachers || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={(dashboardData.users.roleBreakdown.teachers / dashboardData.users.total) * 100} 
+                                value={((dashboardData?.users?.roleBreakdown?.teachers || 0) / (dashboardData?.users?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' } }} 
                               />
                             </Box>
@@ -827,22 +870,22 @@ const Dashboard = () => {
                             <Box sx={{ mb: 2 }}>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Admins</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.admins}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.users?.roleBreakdown?.admins || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={(dashboardData.users.roleBreakdown.admins / dashboardData.users.total) * 100} 
+                                value={((dashboardData?.users?.roleBreakdown?.admins || 0) / (dashboardData?.users?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' } }} 
                               />
                             </Box>
                             <Box>
                               <Box display="flex" justifyContent="space-between" mb={1}>
                                 <Typography variant="caption" fontWeight="700">Super Admin</Typography>
-                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.superAdmin || 0}</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData?.users?.roleBreakdown?.superAdmin || 0}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={((dashboardData.users.roleBreakdown.superAdmin || 0) / dashboardData.users.total) * 100} 
+                                value={((dashboardData?.users?.roleBreakdown?.superAdmin || 0) / (dashboardData?.users?.total || 1)) * 100} 
                                 sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #6366f1 0%, #a5b4fc 100%)' } }} 
                               />
                             </Box>
@@ -859,46 +902,7 @@ const Dashboard = () => {
                   </Paper>
                 </Grid>
 
-                {/* Operations: Logs & New Institutions */}
-                <Grid item xs={12} lg={7}>
-                  <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #edf2f7', height: '100%' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                      <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 6, height: 20, bgcolor: '#4facfe', borderRadius: 1 }} />
-                        Recent System Activity
-                      </Typography>
-                      <Button size="small" onClick={() => navigate('/settings/logs')} sx={{ fontWeight: 700 }}>Full Log</Button>
-                    </Box>
-                    <ActivityFeed />
-                  </Paper>
-                </Grid>
 
-                <Grid item xs={12} lg={5}>
-                  <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #edf2f7', height: '100%' }}>
-                    <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                      <Box sx={{ width: 6, height: 20, bgcolor: '#10b981', borderRadius: 1 }} />
-                      New Stakeholders
-                    </Typography>
-                    {dashboardData.recentInstitutions?.length > 0 ? (
-                      <Stack spacing={2}>
-                        {dashboardData.recentInstitutions.map((inst, i) => (
-                          <Box key={i} sx={{ p: 2, borderRadius: 3, border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 2, transition: 'all 0.2s', '&:hover': { bgcolor: '#f8fafc', borderColor: '#e2e8f0' } }}>
-                            <Box sx={{ p: 1, borderRadius: 2, bgcolor: '#e0f2fe', color: '#0ea5e9' }}>
-                              <Business sx={{ fontSize: 24 }} />
-                            </Box>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="subtitle2" fontWeight="700">{inst.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">Code: {inst.code} • Joined {new Date(inst.createdAt).toLocaleDateString()}</Typography>
-                            </Box>
-                            <Chip label={inst.isActive ? "Active" : "Pending"} size="small" variant="outlined" sx={{ fontSize: '0.65rem', fontWeight: 700, color: inst.isActive ? 'success.main' : 'warning.main', borderColor: inst.isActive ? 'success.light' : 'warning.light' }} />
-                          </Box>
-                        ))}
-                      </Stack>
-                    ) : (
-                      <Box textAlign="center" py={6}><Typography variant="body2" color="text.secondary">No recent stakeholders added</Typography></Box>
-                    )}
-                  </Paper>
-                </Grid>
               </Grid>
             </>
           )}

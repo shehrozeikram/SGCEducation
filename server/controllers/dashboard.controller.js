@@ -20,14 +20,16 @@ const { getInstitutionId, extractInstitutionId } = require('../utils/userUtils')
  * @access  Private (Super Admin and Admin)
  */
 const getDashboardStats = asyncHandler(async (req, res) => {
-  // Build institution filter based on user role
-  let institutionQuery = {};
-  let userQuery = {};
+  // Build filters based on user role
+  let institutionQuery = {}; // For Institution model (_id)
+  let referenceQuery = {};   // For models referring to institution (institution)
+  let userQuery = {};        // For User model (institution)
 
   // For super admin viewing specific institution
   if (req.user.role === 'super_admin' && req.query.institution) {
     const institutionId = extractInstitutionId(req.query.institution);
     institutionQuery = { _id: institutionId };
+    referenceQuery = { institution: institutionId };
     userQuery = { institution: institutionId };
   }
   // For regular admin (scoped to their institution)
@@ -37,13 +39,13 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       throw new ApiError(403, 'Access denied. Your account is not associated with any institution.');
     }
     institutionQuery = { _id: institutionId };
+    referenceQuery = { institution: institutionId };
     userQuery = { institution: institutionId };
   }
   // For super admin viewing all (global view)
   else if (req.user.role === 'super_admin') {
-    // No filter - show all institutions
+    // No filters - show everything
   }
-  // Regular users without institution
   else {
     throw new ApiError(403, 'Access denied. Admin access required.');
   }
@@ -122,11 +124,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     // Total Received and Receivable
     Promise.all([
       FeePayment.aggregate([
-        { $match: { ...institutionQuery, status: 'completed' } },
+        { $match: { ...referenceQuery, status: 'completed' } },
         { $group: { _id: null, totalReceived: { $sum: '$amount' } } }
       ]),
       StudentFee.aggregate([
-        { $match: { ...institutionQuery, isActive: true } },
+        { $match: { ...referenceQuery, isActive: true } },
         { $group: { _id: null, totalReceivable: { $sum: '$remainingAmount' } } }
       ])
     ]),
@@ -134,7 +136,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     FeePayment.aggregate([
       { 
         $match: { 
-          ...institutionQuery, 
+          ...referenceQuery, 
           status: 'completed',
           paymentDate: { $gte: startOfLastMonth, $lte: endOfLastMonth }
         } 
@@ -144,12 +146,12 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     Institution.countDocuments({ ...institutionQuery, createdAt: { $gte: thirtyDaysAgo } }),
     User.countDocuments({ ...userQuery, createdAt: { $gte: thirtyDaysAgo } }),
     // New Content: Pending Admissions
-    Admission.countDocuments({ ...institutionQuery, status: 'pending' }),
+    Admission.countDocuments({ ...referenceQuery, status: 'pending' }),
     // New Content: Overdue Fees
-    StudentFee.countDocuments({ ...institutionQuery, status: 'overdue', isActive: true }),
+    StudentFee.countDocuments({ ...referenceQuery, status: 'overdue', isActive: true }),
     // New Content: Upcoming Events
     AcademicCalendar.find({ 
-      ...institutionQuery, 
+      ...referenceQuery, 
       startDate: { $gte: new Date() } 
     }).sort({ startDate: 1 }).limit(5)
   ]);
