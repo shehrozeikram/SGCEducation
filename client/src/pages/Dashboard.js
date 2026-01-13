@@ -27,6 +27,7 @@ import {
   TablePagination,
   Tabs,
   Tab,
+  Stack,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -186,32 +187,33 @@ const Dashboard = () => {
         height: '100%',
         boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
         '&:hover': {
-          transform: 'translateY(-4px) scale(1.01)',
-          boxShadow: `0 12px 24px ${color}15`,
+          transform: 'translateY(-6px)',
+          boxShadow: `0 20px 40px ${color}15`,
           border: `1px solid ${color}40`,
         }
       }}
     >
-      <CardContent sx={{ p: compact ? 2 : 2.5, '&:last-child': { pb: compact ? 2 : 2.5 } }}>
+      <CardContent sx={{ p: compact ? 3 : 4, '&:last-child': { pb: compact ? 3 : 4 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.7rem', opacity: 0.8 }}>
               {title}
             </Typography>
-            <Typography variant={compact ? "h5" : "h4"} fontWeight="800" color={color} sx={{ lineHeight: 1.2 }}>
+            <Typography variant={compact ? "h5" : "h4"} fontWeight="800" color={color} sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
               {value}
             </Typography>
             {(subtitle || trend) && (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                {subtitle && <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{subtitle}</Typography>}
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {subtitle && <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>{subtitle}</Typography>}
                 {trend && (
                   <Chip 
                     label={`+${trend}`}
                     size="small"
-                    icon={<TrendingUp sx={{ fontSize: '10px !important', color: 'inherit !important' }} />}
+                    icon={<TrendingUp sx={{ fontSize: '12px !important', color: 'inherit !important' }} />}
                     sx={{ 
-                      height: 18, 
-                      fontSize: '0.65rem', 
+                      height: 20, 
+                      fontSize: '0.7rem', 
+                      fontWeight: 700,
                       bgcolor: 'success.main', 
                       color: 'white',
                       '& .MuiChip-icon': { ml: 0.5 }
@@ -222,15 +224,16 @@ const Dashboard = () => {
             )}
           </Box>
           <Box sx={{ 
-            p: 1.2, 
-            borderRadius: 2, 
+            p: compact ? 1.5 : 2, 
+            borderRadius: 2.5, 
             background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
-            boxShadow: `0 4px 10px ${color}40`,
+            boxShadow: `0 8px 16px ${color}40`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            ml: 2.5
           }}>
-            {React.cloneElement(icon, { sx: { fontSize: compact ? 22 : 26, color: '#fff' } })}
+            {React.cloneElement(icon, { sx: { fontSize: compact ? 28 : 36, color: '#fff' } })}
           </Box>
         </Box>
       </CardContent>
@@ -239,29 +242,89 @@ const Dashboard = () => {
 
   const MetricGroup = ({ title, metrics, color }) => (
     <Paper elevation={0} sx={{ 
-      p: 2.5, 
-      borderRadius: 3, 
+      p: 4, 
+      borderRadius: 4, 
       border: '1px solid #edf2f7', 
       height: '100%',
       boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-      transition: 'box-shadow 0.3s ease',
-      '&:hover': { boxShadow: '0 8px 24px rgba(0,0,0,0.05)' }
+      transition: 'all 0.3s ease',
+      '&:hover': { 
+        boxShadow: '0 12px 30px rgba(0,0,0,0.05)',
+      }
     }}>
-      <Typography variant="subtitle2" fontWeight="800" gutterBottom sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Box sx={{ width: 4, height: 18, bgcolor: color, borderRadius: 1 }} />
+      <Typography variant="subtitle1" fontWeight="800" gutterBottom sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+        <Box sx={{ width: 6, height: 24, bgcolor: color, borderRadius: 1 }} />
         {title}
       </Typography>
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         {metrics.map((m, i) => (
           <Grid item xs={4} key={i}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>{m.label}</Typography>
-              <Typography variant="h6" fontWeight="bold" color={color}>{m.value}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 500, fontSize: '0.75rem' }}>{m.label}</Typography>
+              <Typography variant="h6" fontWeight="800" color={color}>{m.value}</Typography>
             </Box>
           </Grid>
         ))}
       </Grid>
     </Paper>
+  );
+
+  const AlertItem = ({ title, count, icon, color, onClick }) => (
+    <Box 
+      onClick={onClick}
+      sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 2, 
+        p: 2, 
+        borderRadius: 2, 
+        cursor: 'pointer',
+        bgcolor: `${color}08`, 
+        border: `1px solid ${color}15`,
+        transition: 'all 0.2s ease',
+        '&:hover': { bgcolor: `${color}15`, transform: 'translateX(4px)' }
+      }}
+    >
+      <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: 'white', display: 'flex', color: color, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+        {React.cloneElement(icon, { sx: { fontSize: 20 } })}
+      </Box>
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="body2" fontWeight="700" color="text.primary">{title}</Typography>
+        <Typography variant="caption" color="text.secondary">{count} pending items</Typography>
+      </Box>
+      <Typography variant="h6" fontWeight="800" color={color}>{count}</Typography>
+    </Box>
+  );
+
+  const EventItem = ({ event }) => (
+    <Box sx={{ 
+      display: 'flex', 
+      gap: 2, 
+      p: 2, 
+      borderRadius: 2, 
+      bgcolor: '#f8fafc',
+      borderLeft: `4px solid ${event.color || '#667eea'}`,
+      '&:hover': { bgcolor: '#f1f5f9' },
+      transition: 'background 0.2s ease'
+    }}>
+      <Box sx={{ textAlign: 'center', minWidth: 50 }}>
+        <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+          {new Date(event.startDate).toLocaleString('default', { month: 'short' })}
+        </Typography>
+        <Typography variant="h6" fontWeight="800" color="text.primary" sx={{ lineHeight: 1 }}>
+          {new Date(event.startDate).getDate()}
+        </Typography>
+      </Box>
+      <Box>
+        <Typography variant="subtitle2" fontWeight="700" color="text.primary">
+          {event.title}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Event sx={{ fontSize: 14 }} /> {new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {event.location && ` • ${event.location}`}
+        </Typography>
+      </Box>
+    </Box>
   );
 
   if (loading) {
@@ -446,159 +509,220 @@ const Dashboard = () => {
           </List>
         </Drawer>
 
-        {/* Main Content */}
+        {/* Main Content Area */}
         <Box
           component="main"
           sx={{
             flexGrow: 1,
             mt: '64px', // Account for fixed navbar
+            px: { xs: 2, sm: 3, md: 4 },
+            py: { xs: 2, sm: 3 },
+            width: '100%',
+            boxSizing: 'border-box'
           }}
         >
-          <Box sx={{ mt: { xs: 1, sm: 1.5 }, mb: { xs: 2, sm: 3, md: 4 }, px: { xs: 2, sm: 3, md: 4 }, width: '100%' }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Main Layout Area */}
-        {/* Compact Stats Row */}
-        {dashboardData && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                compact
-                title="Total Institutions"
-                value={dashboardData.overview.totalInstitutions}
-                icon={<Domain />}
-                color="#667eea"
-                subtitle={`${dashboardData.overview.activeInstitutions} active`}
-                trend={dashboardData.growth.institutionsLast30Days}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                compact
-                title="Total Users"
-                value={dashboardData.overview.totalUsers}
-                icon={<People />}
-                color="#4facfe"
-                subtitle={`${dashboardData.users.roleBreakdown.students} students`}
-                trend={dashboardData.growth.usersLast30Days}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                compact
-                title="System Health"
-                value="100%"
-                icon={<Assessment />}
-                color="#43e97b"
-                subtitle="All systems operational"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                compact
-                title="Today's Activity"
-                value="0"
-                icon={<Notifications />}
-                color="#fa709a"
-                subtitle="No alerts today"
-              />
-            </Grid>
-          </Grid>
-        )}
-
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {/* Main Dashboard Area */}
-          <Grid item xs={12} md={8}>
-            <Grid container spacing={2}>
-              {/* Grouped Metrics Row */}
-              {dashboardData && (
-                <>
-                  <Grid item xs={12} sm={6}>
-                    <MetricGroup 
-                      title="Institution Distribution"
-                      color="#f093fb"
-                      metrics={[
-                        { label: 'Schools', value: dashboardData.institutions.typeBreakdown.schools || 0 },
-                        { label: 'Colleges', value: dashboardData.institutions.typeBreakdown.colleges || 0 },
-                        { label: 'Active', value: dashboardData.institutions.statusBreakdown.active || 0 },
-                      ]}
-                    />
+          {dashboardData && (
+            <>
+              {/* Row 1: Key Performance Indicators (Compact) */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                {[
+                  { title: 'Total Institutions', value: dashboardData.overview.totalInstitutions, icon: <Domain />, color: '#667eea', subtitle: `${dashboardData.overview.activeInstitutions} active`, trend: dashboardData.growth.institutionsLast30Days },
+                  { title: 'Total Users', value: dashboardData.overview.totalUsers, icon: <People />, color: '#4facfe', subtitle: `${dashboardData.users.roleBreakdown.students} students`, trend: dashboardData.growth.usersLast30Days },
+                  { title: 'System Health', value: '100%', icon: <Assessment />, color: '#43e97b', subtitle: 'All systems operational' },
+                  { title: "Today's Activity", value: '0', icon: <Notifications />, color: '#fa709a', subtitle: 'No alerts today' }
+                ].map((stat, i) => (
+                  <Grid item xs={12} sm={6} md={3} key={i}>
+                    <StatCard compact {...stat} />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <MetricGroup 
-                      title="User Distribution"
-                      color="#4facfe"
-                      metrics={[
-                        { label: 'Students', value: dashboardData.users.roleBreakdown.students || 0 },
-                        { label: 'Staff', value: dashboardData.users.roleBreakdown.teachers || 0 },
-                        { label: 'Admins', value: dashboardData.users.roleBreakdown.admins || 0 },
-                      ]}
-                    />
-                  </Grid>
-                </>
+                ))}
+              </Grid>
+
+              {/* Row 2: Financial Metrics */}
+              {dashboardData.finance && (
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {[
+                    { title: 'Received Fees', value: `${dashboardData.finance.currency} ${dashboardData.finance.totalReceived.toLocaleString()}`, icon: <Payment />, color: '#10b981', subtitle: 'Total collections' },
+                    { title: 'Receivable Fees', value: `${dashboardData.finance.currency} ${dashboardData.finance.totalReceivable.toLocaleString()}`, icon: <AccountBalance />, color: '#f59e0b', subtitle: 'Outstanding balance' },
+                    { title: "Last Month's Fees", value: `${dashboardData.finance.currency} ${dashboardData.finance.lastMonthReceived.toLocaleString()}`, icon: <EventAvailable />, color: '#6366f1', subtitle: 'Previous month' }
+                  ].map((fin, i) => (
+                    <Grid item xs={12} sm={6} md={4} key={i}>
+                      <StatCard compact {...fin} />
+                    </Grid>
+                  ))}
+                </Grid>
               )}
 
-              {/* Tabbed Breakdowns */}
-              <Grid item xs={12}>
-                <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                    <Tabs 
-                      value={breakdownTab} 
-                      onChange={(e, v) => setBreakdownTab(v)} 
-                      centered
-                      sx={{
-                        minHeight: 40,
-                        bgcolor: '#f1f5f9',
-                        borderRadius: 10,
-                        p: 0.5,
-                        '& .MuiTabs-indicator': {
-                          display: 'none'
-                        }
-                      }}
-                    >
-                      {[
-                        { label: 'Institution Overview', icon: <Business /> },
-                        { label: 'User Breakdown', icon: <People /> }
-                      ].map((tab, idx) => (
-                        <Tab 
-                          key={idx}
-                          label={tab.label}
-                          icon={React.cloneElement(tab.icon, { sx: { fontSize: 18 } })}
-                          iconPosition="start"
-                          sx={{ 
-                            textTransform: 'none', 
-                            fontWeight: 700, 
-                            minHeight: 32,
-                            borderRadius: 10,
-                            px: 3,
-                            fontSize: '0.8rem',
-                            color: 'text.secondary',
-                            '&.Mui-selected': {
-                              bgcolor: 'white',
-                              color: '#667eea',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                            },
-                            transition: 'all 0.2s ease'
-                          }} 
+              {/* Row 3: Management & Academic Row */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                {/* Left: Alerts & Quick Actions */}
+                <Grid item xs={12} md={4}>
+                  <Stack spacing={3}>
+                    {/* Admin Alerts */}
+                    <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7' }}>
+                      <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                        <Box sx={{ width: 6, height: 20, bgcolor: '#ff6b6b', borderRadius: 1 }} />
+                        Admin Alerts
+                      </Typography>
+                      <Stack spacing={1.5}>
+                        <AlertItem 
+                          title="Pending Admissions" 
+                          count={dashboardData.administrative?.pendingAdmissions || 0} 
+                          icon={<PersonAdd />} 
+                          color="#ff6b6b"
+                          onClick={() => navigate('/admissions')}
                         />
-                      ))}
-                    </Tabs>
-                  </Box>
+                        <AlertItem 
+                          title="Overdue Fee Vouchers" 
+                          count={dashboardData.administrative?.overdueFees || 0} 
+                          icon={<Report />} 
+                          color="#f59e0b"
+                          onClick={() => navigate('/finance/fees/vouchers')}
+                        />
+                      </Stack>
+                    </Paper>
 
-                  {dashboardData && (
+                    {/* Quick Actions */}
+                    <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7' }}>
+                      <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 2 }}>Quick Actions</Typography>
+                      <Grid container spacing={1.5}>
+                        {[
+                          { label: 'Register Student', icon: <PersonAdd />, color: '#667eea', path: '/students/register' },
+                          { label: 'Collect Fee', icon: <Payment />, color: '#10b981', path: '/finance/fees/collect' },
+                          { label: 'Add Event', icon: <Event />, color: '#f093fb', path: '/calendar' },
+                          { label: 'Reports', icon: <Assessment />, color: '#4facfe', path: '/reports' }
+                        ].map((action, i) => (
+                          <Grid item xs={6} key={i}>
+                            <Button
+                              fullWidth
+                              onClick={() => navigate(action.path)}
+                              variant="outlined"
+                              sx={{
+                                flexDirection: 'column',
+                                py: 2,
+                                borderRadius: 3,
+                                borderColor: '#edf2f7',
+                                color: 'text.primary',
+                                gap: 1,
+                                '&:hover': { bgcolor: `${action.color}08`, borderColor: action.color }
+                              }}
+                            >
+                              {React.cloneElement(action.icon, { sx: { color: action.color } })}
+                              <Typography variant="caption" fontWeight="700">{action.label}</Typography>
+                            </Button>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Paper>
+                  </Stack>
+                </Grid>
+
+                {/* Right: Distribution & Events */}
+                <Grid item xs={12} md={8}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <MetricGroup 
+                        title="Institution Distribution"
+                        color="#f093fb"
+                        metrics={[
+                          { label: 'Schools', value: dashboardData.institutions.typeBreakdown.schools || 0 },
+                          { label: 'Colleges', value: dashboardData.institutions.typeBreakdown.colleges || 0 },
+                          { label: 'Active', value: dashboardData.institutions.statusBreakdown.active || 0 },
+                        ]}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <MetricGroup 
+                        title="User Distribution"
+                        color="#4facfe"
+                        metrics={[
+                          { label: 'Students', value: dashboardData.users.roleBreakdown.students || 0 },
+                          { label: 'Staff', value: dashboardData.users.roleBreakdown.teachers || 1 },
+                          { label: 'Admins', value: dashboardData.users.roleBreakdown.admins || 0 },
+                        ]}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                          <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 6, height: 20, bgcolor: '#667eea', borderRadius: 1 }} />
+                            Upcoming Academic Events
+                          </Typography>
+                          <Button size="small" onClick={() => navigate('/calendar')} sx={{ fontWeight: 700 }}>View All</Button>
+                        </Box>
+                        <Grid container spacing={2}>
+                          {dashboardData.upcomingEvents?.length > 0 ? (
+                            dashboardData.upcomingEvents.map((event, i) => (
+                              <Grid item xs={12} sm={6} key={i}>
+                                <EventItem event={event} />
+                              </Grid>
+                            ))
+                          ) : (
+                            <Grid item xs={12}>
+                              <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}>
+                                <Typography variant="body2" color="text.secondary" fontWeight="600">No upcoming events scheduled</Typography>
+                              </Box>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* Row 4: Operational Analysis & Activity Logs */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                {/* Analysis Tabs */}
+                <Grid item xs={12}>
+                  <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                      <Tabs 
+                        value={breakdownTab} 
+                        onChange={(e, v) => setBreakdownTab(v)} 
+                        centered
+                        sx={{
+                          minHeight: 40,
+                          bgcolor: '#f1f5f9',
+                          borderRadius: 10,
+                          p: 0.5,
+                          '& .MuiTabs-indicator': { display: 'none' }
+                        }}
+                      >
+                        {[
+                          { label: 'Detailed Breakdown', icon: <Domain /> },
+                          { label: 'Role Statics', icon: <People /> },
+                          { label: 'Growth & Trends', icon: <Assessment /> }
+                        ].map((tab, idx) => (
+                          <Tab 
+                            key={idx}
+                            label={tab.label}
+                            icon={React.cloneElement(tab.icon, { sx: { fontSize: 18 } })}
+                            iconPosition="start"
+                            sx={{ 
+                              textTransform: 'none', fontWeight: 700, minHeight: 32, borderRadius: 10, px: 3, fontSize: '0.8rem', color: 'text.secondary',
+                              '&.Mui-selected': { bgcolor: 'white', color: '#667eea', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+                              transition: 'all 0.2s ease'
+                            }} 
+                          />
+                        ))}
+                      </Tabs>
+                    </Box>
+
                     <Box sx={{ py: 1 }}>
-                      {breakdownTab === 0 ? (
-                        <Grid container spacing={3}>
+                      {breakdownTab === 0 && (
+                        <Grid container spacing={4}>
                           <Grid item xs={12} md={6}>
                             <Box sx={{ mb: 2 }}>
                               <Box display="flex" justifyContent="space-between" mb={1}>
-                                <Typography variant="body2">Schools</Typography>
-                                <Typography variant="body2" fontWeight="bold">{dashboardData.institutions.typeBreakdown.schools}</Typography>
+                                <Typography variant="caption" fontWeight="700">Schools</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.institutions.typeBreakdown.schools}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
@@ -608,8 +732,8 @@ const Dashboard = () => {
                             </Box>
                             <Box>
                               <Box display="flex" justifyContent="space-between" mb={1}>
-                                <Typography variant="caption" fontWeight="bold">Colleges</Typography>
-                                <Typography variant="caption" fontWeight="bold">{dashboardData.institutions.typeBreakdown.colleges}</Typography>
+                                <Typography variant="caption" fontWeight="700">Colleges</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.institutions.typeBreakdown.colleges}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
@@ -631,136 +755,113 @@ const Dashboard = () => {
                             </Box>
                           </Grid>
                         </Grid>
-                      ) : (
-                        <Grid container spacing={3}>
+                      )}
+
+                      {breakdownTab === 1 && (
+                        <Grid container spacing={4}>
                           <Grid item xs={12} md={6}>
                             <Box sx={{ mb: 2 }}>
                               <Box display="flex" justifyContent="space-between" mb={1}>
-                                <Typography variant="body2">Students</Typography>
-                                <Typography variant="body2" fontWeight="bold">{dashboardData.users.roleBreakdown.students}</Typography>
+                                <Typography variant="caption" fontWeight="700">Students</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.students}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
                                 value={(dashboardData.users.roleBreakdown.students / dashboardData.users.total) * 100} 
-                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(90deg, #4facfe 0%, #00f2fe 100%)' } }} 
+                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' } }} 
                               />
                             </Box>
                             <Box>
                               <Box display="flex" justifyContent="space-between" mb={1}>
-                                <Typography variant="caption" fontWeight="bold">Teachers</Typography>
-                                <Typography variant="caption" fontWeight="bold">{dashboardData.users.roleBreakdown.teachers}</Typography>
+                                <Typography variant="caption" fontWeight="700">Staff/Teachers</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.teachers}</Typography>
                               </Box>
                               <LinearProgress 
                                 variant="determinate" 
                                 value={(dashboardData.users.roleBreakdown.teachers / dashboardData.users.total) * 100} 
-                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(90deg, #f093fb 0%, #f5576c 100%)' } }} 
+                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' } }} 
                               />
                             </Box>
                           </Grid>
                           <Grid item xs={12} md={6}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, border: '1px dashed #e0e0e0', borderRadius: 2 }}>
-                              <Box textAlign="center">
-                                <Typography variant="caption" display="block" color="text.secondary">Admins</Typography>
-                                <Typography variant="h6" fontWeight="bold">{dashboardData.users.roleBreakdown.admins}</Typography>
+                            <Box sx={{ mb: 2 }}>
+                              <Box display="flex" justifyContent="space-between" mb={1}>
+                                <Typography variant="caption" fontWeight="700">Admins</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.admins}</Typography>
                               </Box>
-                              <Divider orientation="vertical" flexItem />
-                              <Box textAlign="center">
-                                <Typography variant="caption" display="block" color="text.secondary">Total</Typography>
-                                <Typography variant="h6" fontWeight="bold">{dashboardData.users.total}</Typography>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={(dashboardData.users.roleBreakdown.admins / dashboardData.users.total) * 100} 
+                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' } }} 
+                              />
+                            </Box>
+                            <Box>
+                              <Box display="flex" justifyContent="space-between" mb={1}>
+                                <Typography variant="caption" fontWeight="700">Super Admin</Typography>
+                                <Typography variant="caption" fontWeight="700">{dashboardData.users.roleBreakdown.superAdmin || 0}</Typography>
                               </Box>
-                              <Divider orientation="vertical" flexItem />
-                              <Box textAlign="center">
-                                <Typography variant="caption" display="block" color="text.secondary">Growth</Typography>
-                                <Typography variant="h6" fontWeight="bold" color="success.main">+{dashboardData.growth.usersLast30Days}</Typography>
-                              </Box>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={((dashboardData.users.roleBreakdown.superAdmin || 0) / dashboardData.users.total) * 100} 
+                                sx={{ height: 10, borderRadius: 5, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { borderRadius: 5, background: 'linear-gradient(135deg, #6366f1 0%, #a5b4fc 100%)' } }} 
+                              />
                             </Box>
                           </Grid>
                         </Grid>
                       )}
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-            </Grid>
-          </Grid>
 
-          {/* Right Side: Quick Actions & Brief Reports */}
-          <Grid item xs={12} md={4}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Quick Actions</Typography>
-                <Grid container spacing={1}>
-                  {[
-                    { label: 'Admissions', icon: <PersonAdd />, route: '/admissions' },
-                    { label: 'Institutions', icon: <Domain />, route: '/institutions' },
-                    { label: 'Fees', icon: <Payment />, route: '/fee-management' },
-                    { label: 'Profile', icon: <AccountCircle />, route: '/profile' }
-                  ].map((action, i) => (
-                    <Grid item xs={6} key={i}>
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        size="small"
-                        onClick={() => navigate(action.route)}
-                        startIcon={React.cloneElement(action.icon, { sx: { fontSize: 16 } })}
-                        sx={{ textTransform: 'none', py: 1 }}
-                      >
-                        {action.label}
-                      </Button>
-                    </Grid>
-                  ))}
+                      {breakdownTab === 2 && (
+                        <Box sx={{ mt: 1 }}>
+                          <AnalyticsCharts hideHeader />
+                        </Box>
+                      )}
+                    </Box>
+                  </Paper>
                 </Grid>
-              </Paper>
 
-              {dashboardData && (
-                <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: '#667eea', color: 'white' }}>
-                  <Typography variant="subtitle2" fontWeight="bold">Growth Overview</Typography>
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>New Institutions</Typography>
-                      <Typography variant="h6">+{dashboardData.growth.institutionsLast30Days}</Typography>
+                {/* Operations: Logs & New Institutions */}
+                <Grid item xs={12} lg={7}>
+                  <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #edf2f7', height: '100%' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 6, height: 20, bgcolor: '#4facfe', borderRadius: 1 }} />
+                        Recent System Activity
+                      </Typography>
+                      <Button size="small" onClick={() => navigate('/settings/logs')} sx={{ fontWeight: 700 }}>Full Log</Button>
                     </Box>
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                    <Box>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>New Users</Typography>
-                      <Typography variant="h6">+{dashboardData.growth.usersLast30Days}</Typography>
-                    </Box>
-                  </Box>
-                </Paper>
-              )}
-            </Box>
-        </Grid>
-      </Grid>
+                    <ActivityFeed />
+                  </Paper>
+                </Grid>
 
-        {/* Bottom Area: Feeds Side-by-Side */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <ActivityFeed limit={8} title="Recent Activity" />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <School color="primary" sx={{ fontSize: 20 }} />
-                Recently Added Institutions
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                {dashboardData?.recentInstitutions.slice(0, 5).map((inst, i) => (
-                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-                    <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1.5 }}>
-                      <Business sx={{ fontSize: 20, color: 'primary.main' }} />
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight="bold" noWrap>{inst.name}</Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">{inst.type} • {new Date(inst.createdAt).toLocaleDateString()}</Typography>
-                    </Box>
-                    <Chip label={inst.isActive ? 'Active' : 'Off'} size="small" variant="outlined" color={inst.isActive ? 'success' : 'default'} />
-                  </Box>
-                ))}
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-          </Box>
+                <Grid item xs={12} lg={5}>
+                  <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #edf2f7', height: '100%' }}>
+                    <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                      <Box sx={{ width: 6, height: 20, bgcolor: '#10b981', borderRadius: 1 }} />
+                      New Stakeholders
+                    </Typography>
+                    {dashboardData.recentInstitutions?.length > 0 ? (
+                      <Stack spacing={2}>
+                        {dashboardData.recentInstitutions.map((inst, i) => (
+                          <Box key={i} sx={{ p: 2, borderRadius: 3, border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 2, transition: 'all 0.2s', '&:hover': { bgcolor: '#f8fafc', borderColor: '#e2e8f0' } }}>
+                            <Box sx={{ p: 1, borderRadius: 2, bgcolor: '#e0f2fe', color: '#0ea5e9' }}>
+                              <Business sx={{ fontSize: 24 }} />
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle2" fontWeight="700">{inst.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">Code: {inst.code} • Joined {new Date(inst.createdAt).toLocaleDateString()}</Typography>
+                            </Box>
+                            <Chip label={inst.isActive ? "Active" : "Pending"} size="small" variant="outlined" sx={{ fontSize: '0.65rem', fontWeight: 700, color: inst.isActive ? 'success.main' : 'warning.main', borderColor: inst.isActive ? 'success.light' : 'warning.light' }} />
+                          </Box>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Box textAlign="center" py={6}><Typography variant="body2" color="text.secondary">No recent stakeholders added</Typography></Box>
+                    )}
+                  </Paper>
+                </Grid>
+              </Grid>
+            </>
+          )}
         </Box>
       </Box>
     </Box>

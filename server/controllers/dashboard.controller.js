@@ -1,6 +1,10 @@
 const Institution = require('../models/Institution');
 const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
+const FeePayment = require('../models/FeePayment');
+const StudentFee = require('../models/StudentFee');
+const AcademicCalendar = require('../models/AcademicCalendar');
+const Admission = require('../models/Admission');
 const { asyncHandler } = require('../middleware/error.middleware');
 const { ApiError } = require('../middleware/error.middleware');
 const { buildInstitutionQuery } = require('../middleware/institution.middleware');
@@ -93,14 +97,66 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     superAdmin: await User.countDocuments({ role: 'super_admin' })
   };
 
-  // Calculate growth (created in last 30 days)
+  // Financial Statistics
+  const startOfLastMonth = new Date();
+  startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+  startOfLastMonth.setDate(1);
+  startOfLastMonth.setHours(0, 0, 0, 0);
+
+  const endOfLastMonth = new Date();
+  endOfLastMonth.setDate(0);
+  endOfLastMonth.setHours(23, 59, 59, 999);
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [recentInstitutionsCount, recentUsersCount] = await Promise.all([
+  const [
+    financialStats,
+    lastMonthFees,
+    recentInstitutionsCount,
+    recentUsersCount,
+    pendingAdmissionsCount,
+    overdueFeesCount,
+    upcomingEvents
+  ] = await Promise.all([
+    // Total Received and Receivable
+    Promise.all([
+      FeePayment.aggregate([
+        { $match: { ...institutionQuery, status: 'completed' } },
+        { $group: { _id: null, totalReceived: { $sum: '$amount' } } }
+      ]),
+      StudentFee.aggregate([
+        { $match: { ...institutionQuery, isActive: true } },
+        { $group: { _id: null, totalReceivable: { $sum: '$remainingAmount' } } }
+      ])
+    ]),
+    // Last Month's Fees
+    FeePayment.aggregate([
+      { 
+        $match: { 
+          ...institutionQuery, 
+          status: 'completed',
+          paymentDate: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
     Institution.countDocuments({ ...institutionQuery, createdAt: { $gte: thirtyDaysAgo } }),
     User.countDocuments({ ...userQuery, createdAt: { $gte: thirtyDaysAgo } }),
+    // New Content: Pending Admissions
+    Admission.countDocuments({ ...institutionQuery, status: 'pending' }),
+    // New Content: Overdue Fees
+    StudentFee.countDocuments({ ...institutionQuery, status: 'overdue', isActive: true }),
+    // New Content: Upcoming Events
+    AcademicCalendar.find({ 
+      ...institutionQuery, 
+      startDate: { $gte: new Date() } 
+    }).sort({ startDate: 1 }).limit(5)
   ]);
+
+  const totalReceived = financialStats[0][0]?.totalReceived || 0;
+  const totalReceivable = financialStats[1][0]?.totalReceivable || 0;
+  const lastMonthTotal = lastMonthFees[0]?.total || 0;
 
   res.json({
     success: true,
@@ -126,6 +182,17 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         institutionsLast30Days: recentInstitutionsCount,
         usersLast30Days: recentUsersCount,
       },
+      finance: {
+        totalReceived,
+        totalReceivable,
+        lastMonthReceived: lastMonthTotal,
+        currency: 'PKR'
+      },
+      administrative: {
+        pendingAdmissions: pendingAdmissionsCount,
+        overdueFees: overdueFeesCount
+      },
+      upcomingEvents,
       recentInstitutions
     }
   });
