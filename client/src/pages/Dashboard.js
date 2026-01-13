@@ -69,6 +69,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
+import DashboardCharts from '../components/dashboard/DashboardCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
 
 const Dashboard = () => {
@@ -894,8 +895,13 @@ const Dashboard = () => {
                     </Box>
                   </Paper>
                 </Grid>
+              </Grid>
 
-
+              {/* Row 6: Comprehensive Analytics Charts */}
+              <Grid container spacing={3} sx={{ mb: 2 }}>
+                <Grid item xs={12}>
+                  <DashboardCharts />
+                </Grid>
               </Grid>
             </>
           )}
