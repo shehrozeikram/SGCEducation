@@ -2419,7 +2419,7 @@ const FeeManagement = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       <TopBar />
-      <Container maxWidth="xl" sx={{ mt: 3, mb: 3, flex: 1 }}>
+      <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%' }}>
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h4" fontWeight="bold" color="#667eea">
@@ -4745,7 +4745,7 @@ const FeeManagement = () => {
           </DialogActions>
         </Dialog>
         </Paper>
-      </Container>
+      </Box>
     </Box>
   );
 };

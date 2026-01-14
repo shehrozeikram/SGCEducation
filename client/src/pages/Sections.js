@@ -500,7 +500,7 @@ const Sections = () => {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
       <TopBar title="Sections Management" />
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: 4, mb: 4, px: 3, width: '100%' }}>
       <Paper sx={{ p: 4 }}>
         {/* Header */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -1073,7 +1073,7 @@ const Sections = () => {
           </DialogActions>
         </Dialog>
       </Paper>
-      </Container>
+      </Box>
     </Box>
   );
 };

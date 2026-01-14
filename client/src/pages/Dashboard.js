@@ -245,7 +245,7 @@ const Dashboard = () => {
 
   const MetricGroup = ({ title, metrics, color }) => (
     <Paper elevation={0} sx={{ 
-      p: 4, 
+      p: 2, 
       borderRadius: 4, 
       border: '1px solid #edf2f7', 
       height: '100%',
@@ -255,15 +255,15 @@ const Dashboard = () => {
         boxShadow: '0 12px 30px rgba(0,0,0,0.05)',
       }
     }}>
-      <Typography variant="subtitle1" fontWeight="800" gutterBottom sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+      <Typography variant="subtitle1" fontWeight="800" gutterBottom sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Box sx={{ width: 6, height: 24, bgcolor: color, borderRadius: 1 }} />
         {title}
       </Typography>
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {metrics.map((m, i) => (
           <Grid item xs={4} key={i}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 500, fontSize: '0.75rem' }}>{m.label}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500, fontSize: '0.75rem' }}>{m.label}</Typography>
               <Typography variant="h6" fontWeight="800" color={color}>{m.value}</Typography>
             </Box>
           </Grid>
@@ -430,7 +430,7 @@ const Dashboard = () => {
       </AppBar>
 
       {/* Sidebar + Content Layout */}
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{ display: 'flex', width: '100%' }}>
         {/* Sidebar */}
         <Drawer
           variant="permanent"
@@ -555,6 +555,7 @@ const Dashboard = () => {
             px: { xs: 2, sm: 3, md: 4 },
             py: { xs: 2, sm: 3 },
             boxSizing: 'border-box',
+            width: '100%',
             transition: (theme) => theme.transitions.create(['margin', 'width'], {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -707,7 +708,7 @@ const Dashboard = () => {
               </Grid>
 
               {/* Row 4: Distribution & Events */}
-              <Grid container spacing={4} sx={{ mb: 4 }}>
+              <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} lg={4}>
                   <MetricGroup 
                     title="Institution Distribution"
@@ -731,13 +732,13 @@ const Dashboard = () => {
                   />
                 </Grid>
                 <Grid item xs={12} lg={4}>
-                  <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7', height: '100%' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #edf2f7', height: '100%', pb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                       <Typography variant="subtitle1" fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{ width: 6, height: 20, bgcolor: '#667eea', borderRadius: 1 }} />
                         Events
                       </Typography>
-                      <Button size="small" onClick={() => navigate('/calendar')} sx={{ sx: { fontSize: '0.7rem', fontWeight: 700 } }}>View All</Button>
+                      <Button size="small" onClick={() => navigate('/calendar')} sx={{ fontSize: '0.7rem', fontWeight: 700 }}>View All</Button>
                     </Box>
                     <Stack spacing={1}>
                       {dashboardData.upcomingEvents?.length > 0 ? (
@@ -745,7 +746,7 @@ const Dashboard = () => {
                           <EventItem key={i} event={event} />
                         ))
                       ) : (
-                        <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}>
+                        <Box sx={{ p: 3, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}>
                           <Typography variant="caption" color="text.secondary" fontWeight="600">No events</Typography>
                         </Box>
                       )}
