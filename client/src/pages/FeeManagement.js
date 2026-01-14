@@ -2001,7 +2001,25 @@ const FeeManagement = () => {
           
           // Calculate total arrears from previous months
           arrears = previousMonthFees.reduce((sum, f) => {
-            const remaining = f.remainingAmount || (f.finalAmount - (f.paidAmount || 0));
+            // Calculate remaining amount dynamically to ensure accuracy
+            // Prefer calculation over stored remainingAmount in case of sync issues
+            const final = parseFloat(f.finalAmount || 0);
+            const paid = parseFloat(f.paidAmount || 0);
+            const calculatedRemaining = final - paid;
+            
+            // Use stored remaining if available and lower (conservative), otherwise calculated
+            let remaining = calculatedRemaining;
+            if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
+              const storedRemaining = parseFloat(f.remainingAmount);
+              // If stored is significantly different (and logic suggests calculated is clearer), use calculated
+              // But strictly, let's trust calculated as primary if paid > 0
+              if (paid > 0) {
+                remaining = calculatedRemaining;
+              } else {
+                remaining = storedRemaining;
+              }
+            }
+            
             return sum + Math.max(0, remaining);
           }, 0);
 

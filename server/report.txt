@@ -1,0 +1,46 @@
+
+Duplicate found for User: 696494a511f587eb1f778af8
+Head: Tuition Fee (Monthly Fee/Annual Fee) - Count: 4
+  [0] ID: 6964ab3350036f4ca64aff49 | Final: 9000 | Paid: 9000 | Status: paid | Vouchers: 1
+      V: 1/2026 No: VCH-2026-01-000086
+  [1] ID: 69674164879532389a4608b4 | Final: 9000 | Paid: 8000 | Status: partial | Vouchers: 1
+      V: 2/2026 No: VCH-2026-02-000046
+  [2] ID: 696741d4879532389a460fcb | Final: 9000 | Paid: 0 | Status: pending | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000017
+  [3] ID: 696741d4879532389a460fd1 | Final: 9000 | Paid: 0 | Status: pending | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000017
+
+Duplicate found for User: 696494a511f587eb1f778af8
+Head: Arrears (Monthly Fee/Annual Fee) - Count: 4
+  [0] ID: 6964ab3350036f4ca64aff4d | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 1/2026 No: VCH-2026-01-000086
+  [1] ID: 69674164879532389a4608b7 | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 2/2026 No: VCH-2026-02-000046
+  [2] ID: 696741d4879532389a460fce | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000017
+  [3] ID: 696741d4879532389a460fd4 | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000017
+
+Duplicate found for User: 6964ba9350036f4ca64b0839
+Head: Tuition Fee (Monthly Fee/Annual Fee) - Count: 4
+  [0] ID: 6964bab750036f4ca64b08ec | Final: 5000 | Paid: 5000 | Status: paid | Vouchers: 2
+      V: 1/2026 No: VCH-2026-01-000094
+      V: 2/2026 No: VCH-2026-02-000044
+  [1] ID: 69673c8d879532389a45d992 | Final: 5000 | Paid: 4000 | Status: partial | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000015
+  [2] ID: 69673d41879532389a45e347 | Final: 5000 | Paid: 0 | Status: pending | Vouchers: 1
+      V: 4/2026 No: VCH-2026-04-000004
+  [3] ID: 69673d41879532389a45e34d | Final: 5000 | Paid: 0 | Status: pending | Vouchers: 1
+      V: 4/2026 No: VCH-2026-04-000004
+
+Duplicate found for User: 6964ba9350036f4ca64b0839
+Head: Arrears (Monthly Fee/Annual Fee) - Count: 4
+  [0] ID: 6964bab750036f4ca64b08f0 | Final: 0 | Paid: 0 | Status: paid | Vouchers: 2
+      V: 1/2026 No: VCH-2026-01-000094
+      V: 2/2026 No: VCH-2026-02-000044
+  [1] ID: 69673c8d879532389a45d995 | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 3/2026 No: VCH-2026-03-000015
+  [2] ID: 69673d41879532389a45e34a | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 4/2026 No: VCH-2026-04-000004
+  [3] ID: 69673d41879532389a45e350 | Final: 0 | Paid: 0 | Status: paid | Vouchers: 1
+      V: 4/2026 No: VCH-2026-04-000004

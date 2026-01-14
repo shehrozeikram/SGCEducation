@@ -640,91 +640,131 @@ class FeeService {
 
     for (const [studentIdStr, studentFees] of studentFeesByStudent.entries()) {
       try {
-        // Check if any fee already has a voucher for this month/year
-        // Crucial: check the CURRENT database state, not just local filter
-        // because we might have skipped fetching them if feeHeadIds was strict, 
-        // but checking contextually is safer. 
-        // However, here we stick to the user's filtered fee heads.
-        // If the user wants to generate vouchers for "Tuition", we check if "Tuition" already has a voucher 
-        // for this month.
-        
-        const hasExistingVoucher = studentFees.some(sf => {
-          return sf.vouchers && sf.vouchers.some(
-            v => v.month === month && v.year === year
-          );
-        });
-
-        if (hasExistingVoucher) {
-          // Skip if voucher already exists for this student/month/year (for the selected heads)
-          continue;
+        // Group fees by FeeHead to ensure we process each head logic correctly
+        const feesByHead = new Map();
+        for (const fee of studentFees) {
+          const headId = fee.feeHead?._id.toString();
+          if (!headId) continue;
+          if (!feesByHead.has(headId)) {
+            feesByHead.set(headId, []);
+          }
+          feesByHead.get(headId).push(fee);
         }
+
+        // Check if ANY fee has a voucher for this month/year (Global Check for Student)
+        // However, we should be fine processing per head, but if we want to determine 
+        // if we should generate a NEW voucher number or reusing one...
+        // The voucherNumber is generated once per student loop iteration.
+        
+        // We do a preliminary check: does ANY of the selected fee heads already have a voucher?
+        // If the user selected "Tuition", and "Tuition" has a voucher, we skip "Tuition".
+        // But if "Transport" doesn't, we might generate for "Transport".
+        // BUT, the system design seems to assume ONE voucher number for the month for the student.
+        // If we generate for Transport, do we reuse the Tuition voucher number?
+        // Or generate a new one?
+        // We will assume we generate a NEW voucher number if we are doing work.
+        // But we should verify if we should SKIP the whole student if ALL selected heads are done.
+        
+        let hasWorkToDo = false;
+        
+        // Analyze if we have work
+        for (const [headId, fees] of feesByHead.entries()) {
+           const hasVoucher = fees.some(f => f.vouchers && f.vouchers.some(v => v.month === month && v.year === year));
+           if (!hasVoucher) {
+             hasWorkToDo = true;
+             break;
+           }
+        }
+        
+        if (!hasWorkToDo) continue;
 
         // Increment counter for unique voucher number (once per student)
         voucherCounter++;
         
         // Generate unique voucher number: VCH-YYYY-MM-SEQ
         const voucherNumber = `VCH-${year}-${String(month).padStart(2, '0')}-${String(voucherCounter).padStart(6, '0')}`;
-        
         studentVoucherNumbers.set(studentIdStr, voucherNumber);
 
-        // Process each fee head
-        for (const studentFee of studentFees) {
-          let feeToUpdate = studentFee;
-          const isMonthly = studentFee.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
-
-          // Determine if we need to create a NEW StudentFee record
-          // For monthly fees, if the current record is "used" (has vouchers or is paid/partial), 
-          // we should create a new clean record for the new month.
-          const isUsed = (studentFee.vouchers && studentFee.vouchers.length > 0) || 
-                         studentFee.status === 'paid' || 
-                         studentFee.paidAmount > 0;
-
-          if (isMonthly && isUsed) {
-            // Create a clone for the new month
-            const newDueDate = new Date(year, month - 1, 20); // 20th of the voucher month
-            
-            // Adjust year if month < current month (implies next year? No, user passed specific month/year)
-            // The Date constructor handles month overflow but here month is 1-12. 
-            // new Date(2025, 0, 20) is Jan 20th 2025.
-            
-            feeToUpdate = new StudentFee({
-              institution: studentFee.institution,
-              student: studentFee.student,
-              feeStructure: studentFee.feeStructure,
-              class: studentFee.class,
-              feeHead: studentFee.feeHead,
-              baseAmount: studentFee.baseAmount,
-              discountAmount: studentFee.discountAmount,
-              discountType: studentFee.discountType,
-              discountReason: studentFee.discountReason,
-              finalAmount: studentFee.finalAmount,
-              paidAmount: 0,
-              remainingAmount: studentFee.finalAmount,
-              status: 'pending',
-              dueDate: newDueDate,
-              academicYear: studentFee.academicYear,
-              isActive: true,
-              createdBy: currentUser._id,
-              vouchers: [] // Start empty, will add below
-            });
-            // We'll save it at the end
+        // Process each Fee Head Group
+        for (const [headId, fees] of feesByHead.entries()) {
+          // Sort fees by date descending (latest first) to use best template
+          fees.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          
+          const latestFee = fees[0];
+          const isMonthly = latestFee.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
+          
+          // Check if this head already has voucher
+          const existingVoucherFee = fees.find(f => f.vouchers && f.vouchers.some(v => v.month === month && v.year === year));
+          
+          if (existingVoucherFee) {
+            // Already has voucher, do nothing (or we could reprint? but we are generating)
+            continue; 
           }
 
-          // Add voucher to the record
-          if (!feeToUpdate.vouchers) {
-            feeToUpdate.vouchers = [];
+          if (isMonthly) {
+             // For Monthly, we create ONE new record for the month.
+             // We use the latest active fee as a template.
+             // Even if we have 10 history records, we only create 1 new one.
+
+             // Logic: Always create NEW for monthly, unless we want to reuse a "Virgin" pending one?
+             // If latestFee is "Virgin" (no vouchers, pending), usage is debatable.
+             // But consistent approach: If it has vouchers or is paid/partial -> Create New.
+             // If it has NO vouchers and is pending -> Reuse it.
+             
+             const isUsed = (latestFee.vouchers && latestFee.vouchers.length > 0) || 
+                            latestFee.status === 'paid' || 
+                            latestFee.paidAmount > 0;
+                            
+             let feeToUpdate = latestFee;
+             
+             if (isUsed) {
+                const newDueDate = new Date(year, month - 1, 20);
+                feeToUpdate = new StudentFee({
+                  institution: latestFee.institution,
+                  student: latestFee.student,
+                  feeStructure: latestFee.feeStructure,
+                  class: latestFee.class,
+                  feeHead: latestFee.feeHead,
+                  baseAmount: latestFee.baseAmount,
+                  discountAmount: latestFee.discountAmount,
+                  discountType: latestFee.discountType,
+                  discountReason: latestFee.discountReason,
+                  finalAmount: latestFee.finalAmount,
+                  paidAmount: 0,
+                  remainingAmount: latestFee.finalAmount,
+                  status: 'pending',
+                  dueDate: newDueDate,
+                  academicYear: latestFee.academicYear,
+                  isActive: true,
+                  createdBy: currentUser._id,
+                  vouchers: []
+                });
+             }
+             
+             if (!feeToUpdate.vouchers) feeToUpdate.vouchers = [];
+             feeToUpdate.vouchers.push({
+               month, year, generatedAt: new Date(), generatedBy: currentUser._id, voucherNumber
+             });
+             
+             await feeToUpdate.save();
+             updatedStudentFees.push(feeToUpdate);
+
+          } else {
+             // For Non-Monthly (One-Time), we attach voucher to ALL applicable fees?
+             // Or just the latest?
+             // Usually One-Time fees are single instances.
+             // If we have multiples (e.g. 2 Paper Charges), we probably want to bill both?
+             // So we iterate ALL.
+             
+             for (const fee of fees) {
+               if (!fee.vouchers) fee.vouchers = [];
+               fee.vouchers.push({
+                 month, year, generatedAt: new Date(), generatedBy: currentUser._id, voucherNumber
+               });
+               await fee.save();
+               updatedStudentFees.push(fee);
+             }
           }
-
-          feeToUpdate.vouchers.push({
-            month: month,
-            year: year,
-            generatedAt: new Date(),
-            generatedBy: currentUser._id,
-            voucherNumber: voucherNumber
-          });
-
-          await feeToUpdate.save();
-          updatedStudentFees.push(feeToUpdate);
         }
       } catch (error) {
         errors.push({
