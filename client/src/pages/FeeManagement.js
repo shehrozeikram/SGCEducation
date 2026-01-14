@@ -1624,15 +1624,21 @@ const FeeManagement = () => {
       setLoadingOutstandingFees(true);
       const institutionId = getInstitutionId();
 
-      const response = await axios.get(`${API_URL}/fees/outstanding-balances`, createAxiosConfig({
+      // Fetch ALL student fees to ensure we get arrears from previous months
+      const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
         params: {
           institution: institutionId,
-          studentId: studentId
+          student: studentId
         }
       }));
 
-      const result = response.data.data || {};
-      let fees = result.fees || [];
+      let fees = response.data.data || [];
+      
+      // Filter to only include fees with remaining balance
+      fees = fees.filter(fee => {
+        const remaining = fee.remainingAmount || (fee.finalAmount - (fee.paidAmount || 0));
+        return remaining > 0.01 && fee.status !== 'paid';
+      });
       
       // If voucher number is provided, filter to show only fees with that specific voucher
       if (voucherNumber) {
@@ -1645,6 +1651,7 @@ const FeeManagement = () => {
         });
       } else {
         // Sort by latest voucher first (most recent generatedAt date)
+        // Fees without vouchers (arrears) will appear at the end
         fees = fees.sort((a, b) => {
           const aLatestVoucher = a.vouchers && a.vouchers.length > 0
             ? a.vouchers.reduce((latest, v) => {
@@ -1662,9 +1669,14 @@ const FeeManagement = () => {
               })
             : null;
           
-          if (!aLatestVoucher && !bLatestVoucher) return 0;
-          if (!aLatestVoucher) return 1;
-          if (!bLatestVoucher) return -1;
+          if (!aLatestVoucher && !bLatestVoucher) {
+            // Both have no vouchers, sort by dueDate or createdAt
+            const aDate = new Date(a.dueDate || a.createdAt || 0);
+            const bDate = new Date(b.dueDate || b.createdAt || 0);
+            return bDate - aDate;
+          }
+          if (!aLatestVoucher) return 1; // Fees without vouchers go to end
+          if (!bLatestVoucher) return -1; // Fees with vouchers come first
           
           const aDate = new Date(aLatestVoucher.generatedAt || 0);
           const bDate = new Date(bLatestVoucher.generatedAt || 0);
