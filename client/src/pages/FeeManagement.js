@@ -368,6 +368,14 @@ const FeeManagement = () => {
     }
   }, [isSuperAdmin]);
 
+  // Handle auto-fetch for Print Voucher when month selection changes
+  useEffect(() => {
+    if (activeTab === 4 && printVoucherFilters.monthYear) {
+      fetchPrintVoucherStudents();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, printVoucherFilters.monthYear]);
+
   // Account Type options
   const accountTypeOptions = [
     'Liabilities',
@@ -3350,8 +3358,6 @@ const FeeManagement = () => {
                       value={printVoucherFilters.monthYear}
                       onChange={(e) => {
                         setPrintVoucherFilters({ ...printVoucherFilters, monthYear: e.target.value });
-                        // Auto-fetch when month/year changes
-                        setTimeout(() => fetchPrintVoucherStudents(), 300);
                       }}
                       InputLabelProps={{ shrink: true }}
                     />
