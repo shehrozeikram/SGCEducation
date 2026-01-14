@@ -681,10 +681,10 @@ const FeeManagement = () => {
 
       const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({ params }));
 
-      const studentFees = response.data.data || [];
+      const allStudentFees = response.data.data || [];
       
       // Filter to only include students with vouchers for the selected month/year
-      const studentsWithVouchers = studentFees.filter(sf => {
+      const studentsWithVouchers = allStudentFees.filter(sf => {
         if (!sf.vouchers || !Array.isArray(sf.vouchers)) return false;
         return sf.vouchers.some(v => 
           v && 
@@ -696,8 +696,22 @@ const FeeManagement = () => {
       // Get unique students with voucher information
       const uniqueStudentsMap = new Map();
       
-      // Group student fees by student ID to calculate total voucher amount
+      // Group student fees by student ID - keep BOTH voucher fees and all fees
       const studentFeesByStudent = new Map();
+      const allFeesByStudent = new Map();
+      
+      // First, group ALL fees by student (for arrears calculation)
+      allStudentFees.forEach(studentFee => {
+        const studentId = studentFee.student?._id || studentFee.student;
+        if (studentId) {
+          if (!allFeesByStudent.has(studentId.toString())) {
+            allFeesByStudent.set(studentId.toString(), []);
+          }
+          allFeesByStudent.get(studentId.toString()).push(studentFee);
+        }
+      });
+      
+      // Then, group only fees with vouchers for current month (for voucher amount)
       studentsWithVouchers.forEach(studentFee => {
         const studentId = studentFee.student?._id || studentFee.student;
         if (studentId) {
@@ -753,6 +767,54 @@ const FeeManagement = () => {
           }
         });
 
+        // Calculate Arrears (outstanding from previous months)
+        // Use same logic as voucher popup for consistency
+        const startDate = new Date(year, month - 1, 1);
+        
+        // Get ALL fees for this student (not just those with current voucher)
+        const allFeesForStudent = allFeesByStudent.get(studentIdStr) || [];
+        
+        const arrears = allFeesForStudent.reduce((sum, f) => {
+             // Exclude fees that are in the current voucher list
+             const isCurrentVoucher = f.vouchers && f.vouchers.some(v => 
+                v && Number(v.month) === Number(month) && Number(v.year) === Number(year)
+             );
+             
+             if (isCurrentVoucher) return sum;
+
+             // Check if it has remaining amount using dynamic calc
+             const final = parseFloat(f.finalAmount || 0);
+             const paid = parseFloat(f.paidAmount || 0);
+             const calculatedRemaining = final - paid;
+             
+             // Use stored remaining if available and lower (conservative), otherwise calculated
+             let remaining = calculatedRemaining;
+             if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
+                const storedRemaining = parseFloat(f.remainingAmount);
+                if (paid > 0) {
+                   remaining = calculatedRemaining;
+                } else {
+                   remaining = storedRemaining;
+                }
+             }
+
+             if (remaining <= 0.01 || f.status === 'paid') return sum; // Paid or negligible
+             
+             // Check if fee is from a previous month (critical for arrears)
+             if (f.dueDate) {
+                const feeDate = new Date(f.dueDate);
+                if (feeDate >= startDate) return sum; // Not from previous month
+             } else if (f.createdAt) {
+                const createdDate = new Date(f.createdAt);
+                if (createdDate >= startDate) return sum; // Not from previous month
+             } else {
+                // No date info, skip to be safe
+                return sum;
+             }
+             
+             return sum + remaining;
+        }, 0);
+
         // Determine voucher status based on payments for this specific voucher
         // A voucher is "Paid" only if payments were made AFTER the voucher was generated
         // and the remaining amount is 0 for fees with this voucher
@@ -782,6 +844,8 @@ const FeeManagement = () => {
           
           // Calculate total remaining for fees with this voucher
           const totalRemainingForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
+
+
 
           // Determine voucher status based on remaining amount and payment timing
           // If remaining is 0, the voucher is paid (regardless of when payment was made)
@@ -826,7 +890,8 @@ const FeeManagement = () => {
           section: admission?.section?.name || 'N/A',
           voucherStatus: voucherStatus,
           voucherNumber: voucherNumber,
-          voucherAmount: voucherAmount
+          voucherAmount: voucherAmount,
+          arrears: arrears
         });
       });
 
@@ -1447,6 +1512,50 @@ const FeeManagement = () => {
                 const monthName = monthNames[voucherInfo.month - 1] || voucherInfo.month;
                 const voucherMonth = `${monthName} ${voucherInfo.year}`;
                 
+                // Calculate Arrears (outstanding from previous months)
+                const startDate = new Date(voucherInfo.year, voucherInfo.month - 1, 1);
+                const arrears = fees.reduce((sum, f) => {
+                  // Exclude fees that are in the current voucher list
+                  const isCurrentVoucher = f.vouchers && f.vouchers.some(v => 
+                    v && v.voucherNumber === voucherInfo.voucherNumber &&
+                    v.month === voucherInfo.month && v.year === voucherInfo.year
+                  );
+                  
+                  if (isCurrentVoucher) return sum;
+
+                  // Check if it has remaining amount using dynamic calc
+                  const final = parseFloat(f.finalAmount || 0);
+                  const paid = parseFloat(f.paidAmount || 0);
+                  const calculatedRemaining = final - paid;
+                  
+                  // Use stored remaining if available and lower (conservative), otherwise calculated
+                  let remaining = calculatedRemaining;
+                  if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
+                    const storedRemaining = parseFloat(f.remainingAmount);
+                    if (paid > 0) {
+                      remaining = calculatedRemaining;
+                    } else {
+                      remaining = storedRemaining;
+                    }
+                  }
+
+                  if (remaining <= 0.01 || f.status === 'paid') return sum; // Paid or negligible
+                  
+                  // Check if fee is from a previous month (critical for arrears)
+                  if (f.dueDate) {
+                    const feeDate = new Date(f.dueDate);
+                    if (feeDate >= startDate) return sum; // Not from previous month
+                  } else if (f.createdAt) {
+                    const createdDate = new Date(f.createdAt);
+                    if (createdDate >= startDate) return sum; // Not from previous month
+                  } else {
+                    // No date info, skip to be safe
+                    return sum;
+                  }
+                  
+                  return sum + remaining;
+                }, 0);
+                
                 studentsWithVouchers.push({
                   ...student,
                   lastVoucher: voucherInfo.voucherNumber,
@@ -1454,7 +1563,8 @@ const FeeManagement = () => {
                   voucherMonth: voucherMonth,
                   voucherStatus: voucherStatus,
                   paidAmount: totalPaidForVoucher,
-                  remainingAmount: totalRemainingForVoucher,
+                  remainingAmount: totalRemainingForVoucher + arrears, // Include arrears in total remaining
+                  arrears: arrears,
                   originalAdmissionId: student._id, // Store original admission ID
                   _id: `${student._id}-${voucherInfo.voucherNumber}-${voucherInfo.month}-${voucherInfo.year}` // Unique key for each voucher row
                 });
@@ -3267,7 +3377,8 @@ const FeeManagement = () => {
                     <TableCell>Action</TableCell>
                     <TableCell>Voucher Status</TableCell>
                     <TableCell>Voucher Number</TableCell>
-                    <TableCell>Voucher Amount</TableCell>
+                    <TableCell align="right">Voucher Amount</TableCell>
+                    <TableCell align="right">Arrears</TableCell>
                     <TableCell>ID</TableCell>
                     <TableCell>Roll #</TableCell>
                     <TableCell>Name</TableCell>
@@ -3320,6 +3431,9 @@ const FeeManagement = () => {
                         </TableCell>
                         <TableCell>{student.voucherNumber || 'N/A'}</TableCell>
                         <TableCell align="right">Rs. {(student.voucherAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell align="right" sx={{ color: (student.arrears || 0) > 0 ? 'error.main' : 'inherit', fontWeight: (student.arrears || 0) > 0 ? 'bold' : 'normal' }}>
+                          Rs. {(student.arrears || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
                         <TableCell>{student.id || 'N/A'}</TableCell>
                         <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                         <TableCell>
@@ -3461,21 +3575,22 @@ const FeeManagement = () => {
                             <TableCell>Voucher Number</TableCell>
                             <TableCell>Voucher Month</TableCell>
                             <TableCell>Voucher Status</TableCell>
-                            <TableCell>Voucher Amount</TableCell>
-                            <TableCell>Paid Amount</TableCell>
+                            <TableCell align="right">Voucher Amount</TableCell>
+                            <TableCell align="right">Arrears</TableCell>
+                            <TableCell align="right">Paid Amount</TableCell>
                             <TableCell>Remaining Amount</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {loading ? (
                             <TableRow>
-                              <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                              <TableCell colSpan={13} align="center" sx={{ py: 4 }}>
                                 <CircularProgress />
                               </TableCell>
                             </TableRow>
                           ) : manualDepositStudents.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                              <TableCell colSpan={13} align="center" sx={{ py: 4 }}>
                                 <Typography variant="body2" color="textSecondary">
                                   No data found. Please search for students.
                                 </Typography>
@@ -3537,6 +3652,9 @@ const FeeManagement = () => {
                                   )}
                                 </TableCell>
                                 <TableCell align="right">Rs. {(student.voucherAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="right" sx={{ color: (student.arrears || 0) > 0 ? 'error.main' : 'inherit', fontWeight: (student.arrears || 0) > 0 ? 'bold' : 'normal' }}>
+                                  Rs. {(student.arrears || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </TableCell>
                                 <TableCell align="right">Rs. {(student.paidAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold', color: (student.remainingAmount || 0) > 0 ? 'error.main' : 'success.main' }}>
                                   Rs. {(student.remainingAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
