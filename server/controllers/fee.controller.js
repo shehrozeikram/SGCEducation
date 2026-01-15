@@ -181,6 +181,21 @@ const getPayments = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   DELETE /api/v1/fees/vouchers
+ * @desc    Delete unpaid voucher for a student
+ * @access  Private (Admin)
+ */
+const deleteVoucher = asyncHandler(async (req, res) => {
+  const result = await feeService.deleteVoucher(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: result.message,
+    data: result
+  });
+});
+
 module.exports = {
   getFeeStructureMatrix,
   getFeeStructureByClass,
@@ -191,5 +206,6 @@ module.exports = {
   generateVouchers,
   recordPayment,
   getOutstandingBalances,
-  getPayments
+  getPayments,
+  deleteVoucher
 };

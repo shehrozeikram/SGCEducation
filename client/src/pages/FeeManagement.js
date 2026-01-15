@@ -2434,6 +2434,37 @@ const FeeManagement = () => {
     }
   };
 
+  const handleDeleteVoucher = async (student) => {
+    if (!window.confirm(`Are you sure you want to delete the voucher for ${student.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { month, year } = parseMonthYear(printVoucherFilters.monthYear);
+      // Use _id which is the admission ID, or studentId if available
+      const studentId = student._id || student.studentId;
+
+      const response = await axios.delete(`${API_URL}/fees/vouchers`, {
+        ...createAxiosConfig(),
+        data: {
+          studentId,
+          month,
+          year
+        }
+      });
+
+      notifySuccess(response.data.message || 'Voucher deleted successfully');
+      // Refresh the voucher list
+      await fetchPrintVoucherStudents();
+    } catch (err) {
+      console.error('Error deleting voucher:', err);
+      notifyError(err.response?.data?.message || 'Failed to delete voucher');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Listen for institution changes (for super admin)
   useEffect(() => {
     const handleInstitutionChange = () => {
@@ -3423,13 +3454,25 @@ const FeeManagement = () => {
                     getPaginatedData(printVoucherStudents, 'printVoucher').map((student) => (
                       <TableRow key={student._id}>
                         <TableCell>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleViewVoucher(student)}
-                          >
-                            <Visibility />
-                          </IconButton>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleViewVoucher(student)}
+                            >
+                              <Visibility />
+                            </IconButton>
+                            {student.voucherStatus === 'Unpaid' && (
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeleteVoucher(student)}
+                                disabled={loading}
+                              >
+                                <Delete />
+                              </IconButton>
+                            )}
+                          </Box>
                         </TableCell>
                         <TableCell>
                           {student.voucherStatus ? (

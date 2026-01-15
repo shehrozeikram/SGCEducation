@@ -28,4 +28,7 @@ router.post('/record-payment', isAdmin, feeController.recordPayment);
 router.get('/outstanding-balances', feeController.getOutstandingBalances);
 router.get('/payments', feeController.getPayments);
 
+// Voucher routes
+router.delete('/vouchers', isAdmin, feeController.deleteVoucher);
+
 module.exports = router;

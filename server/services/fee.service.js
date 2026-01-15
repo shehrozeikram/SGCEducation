@@ -1173,6 +1173,191 @@ class FeeService {
 
     return paymentsWithVoucher;
   }
+
+  /**
+   * Delete voucher for a student and reverse associated payments
+   * Removes voucher entries from StudentFee records for the specified month/year
+   * Reverses any payments made for this voucher
+   */
+  async deleteVoucher(voucherData, currentUser) {
+    const { studentId, month, year } = voucherData;
+
+    if (!studentId) {
+      throw new ApiError(400, 'Student ID is required');
+    }
+
+    if (!month || month < 1 || month > 12) {
+      throw new ApiError(400, 'Valid month (1-12) is required');
+    }
+
+    if (!year || year < 2000) {
+      throw new ApiError(400, 'Valid year is required');
+    }
+
+    // Find the student
+    let student = await Student.findById(studentId);
+    
+    // If not found by student ID, try to find by admission ID
+    if (!student) {
+      const Admission = require('../models/Admission');
+      const admission = await Admission.findById(studentId).populate('studentId');
+      if (admission && admission.studentId) {
+        student = admission.studentId;
+      }
+    }
+
+    if (!student) {
+      throw new ApiError(404, 'Student not found');
+    }
+
+    const actualStudentId = student._id;
+
+    // Get all StudentFee records for this student that have vouchers for the specified month/year
+    const studentFeeRecords = await StudentFee.find({
+      student: actualStudentId,
+      isActive: true
+    });
+
+    if (studentFeeRecords.length === 0) {
+      throw new ApiError(404, 'No fee records found for this student');
+    }
+
+    // Filter to find fees with vouchers for the specified month/year
+    const feesWithVoucher = studentFeeRecords.filter(sf => {
+      if (!sf.vouchers || !Array.isArray(sf.vouchers)) return false;
+      return sf.vouchers.some(v => 
+        v && 
+        Number(v.month) === Number(month) && 
+        Number(v.year) === Number(year)
+      );
+    });
+
+    if (feesWithVoucher.length === 0) {
+      throw new ApiError(404, 'No voucher found for the specified month/year');
+    }
+
+    // Get the voucher generation date (use the earliest one if multiple)
+    let voucherGeneratedDate = null;
+    for (const fee of feesWithVoucher) {
+      if (fee.vouchers && Array.isArray(fee.vouchers)) {
+        const voucher = fee.vouchers.find(v => 
+          v && 
+          Number(v.month) === Number(month) && 
+          Number(v.year) === Number(year)
+        );
+        if (voucher && voucher.generatedAt) {
+          const generatedDate = new Date(voucher.generatedAt);
+          if (!voucherGeneratedDate || generatedDate < voucherGeneratedDate) {
+            voucherGeneratedDate = generatedDate;
+          }
+        }
+      }
+    }
+
+    const FeePayment = require('../models/FeePayment');
+    let totalReversedAmount = 0;
+    let reversedPaymentsCount = 0;
+
+    // Process each fee with voucher to reverse payments
+    for (const fee of feesWithVoucher) {
+      // Find all payments for this StudentFee that were made after voucher generation
+      const paymentQuery = {
+        studentFee: fee._id,
+        status: 'completed' // Only reverse completed payments
+      };
+
+      if (voucherGeneratedDate) {
+        paymentQuery.paymentDate = { $gte: voucherGeneratedDate };
+      }
+
+      const paymentsToReverse = await FeePayment.find(paymentQuery).sort({ paymentDate: 1 });
+
+      if (paymentsToReverse.length > 0) {
+        // Calculate total amount to reverse
+        const totalPaymentAmount = paymentsToReverse.reduce((sum, payment) => {
+          return sum + parseFloat(payment.amount || 0);
+        }, 0);
+
+        // Reverse payments by marking them as refunded
+        for (const payment of paymentsToReverse) {
+          payment.status = 'refunded';
+          payment.refundAmount = payment.amount;
+          payment.refundDate = new Date();
+          payment.refundReason = `Voucher deleted for ${month}/${year}`;
+          await payment.save();
+          reversedPaymentsCount++;
+        }
+
+        // Update StudentFee: reduce paidAmount and recalculate remainingAmount
+        const currentPaidAmount = parseFloat(fee.paidAmount || 0);
+        const newPaidAmount = Math.max(0, currentPaidAmount - totalPaymentAmount);
+        fee.paidAmount = newPaidAmount;
+        fee.remainingAmount = Math.max(0, fee.finalAmount - newPaidAmount);
+
+        // Update status
+        if (fee.remainingAmount <= 0.01) {
+          fee.status = 'paid';
+        } else if (newPaidAmount > 0) {
+          fee.status = 'partial';
+          // Check if overdue
+          if (fee.dueDate && new Date() > fee.dueDate) {
+            fee.status = 'overdue';
+          }
+        } else {
+          fee.status = 'pending';
+          // Check if overdue
+          if (fee.dueDate && new Date() > fee.dueDate) {
+            fee.status = 'overdue';
+          }
+        }
+
+        // Update lastPaymentDate to the most recent payment before voucher generation
+        if (voucherGeneratedDate) {
+          const paymentsBeforeVoucher = await FeePayment.find({
+            studentFee: fee._id,
+            status: 'completed',
+            paymentDate: { $lt: voucherGeneratedDate }
+          }).sort({ paymentDate: -1 }).limit(1);
+
+          if (paymentsBeforeVoucher.length > 0) {
+            fee.lastPaymentDate = paymentsBeforeVoucher[0].paymentDate;
+          } else {
+            fee.lastPaymentDate = null;
+          }
+        }
+
+        await fee.save();
+        totalReversedAmount += totalPaymentAmount;
+      }
+    }
+
+    // Delete vouchers from all StudentFee records
+    let deletedCount = 0;
+    for (const fee of feesWithVoucher) {
+      if (fee.vouchers && Array.isArray(fee.vouchers)) {
+        const originalLength = fee.vouchers.length;
+        fee.vouchers = fee.vouchers.filter(v => 
+          !(v && Number(v.month) === Number(month) && Number(v.year) === Number(year))
+        );
+        
+        if (fee.vouchers.length < originalLength) {
+          await fee.save();
+          deletedCount++;
+        }
+      }
+    }
+
+    if (deletedCount === 0) {
+      throw new ApiError(400, 'Failed to delete voucher');
+    }
+
+    return {
+      message: `Voucher deleted successfully${reversedPaymentsCount > 0 ? `. ${reversedPaymentsCount} payment(s) reversed totaling Rs. ${totalReversedAmount.toFixed(2)}` : ''}`,
+      deletedCount,
+      reversedPaymentsCount,
+      totalReversedAmount
+    };
+  }
 }
 
 module.exports = new FeeService();
