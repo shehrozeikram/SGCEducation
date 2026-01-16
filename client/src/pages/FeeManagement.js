@@ -1979,6 +1979,17 @@ const FeeManagement = () => {
     try {
       setVoucherLoading(true);
       const institutionId = getInstitutionId();
+      
+      // Fetch institution data for voucher header
+      let institutionData = null;
+      if (institutionId) {
+        try {
+          const instResponse = await axios.get(`${API_URL}/institutions/${institutionId}`, createAxiosConfig());
+          institutionData = instResponse.data.data;
+        } catch (err) {
+          console.error('Error fetching institution data:', err);
+        }
+      }
 
       const admissionResponse = await axios.get(`${API_URL}/admissions/${student._id}`, createAxiosConfig());
       const admission = admissionResponse.data.data;
@@ -2207,6 +2218,20 @@ const FeeManagement = () => {
         sectionName = admission.section.name;
       }
 
+      // Format fee month for display (e.g., "Jan 2026")
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const formattedFeeMonth = `${monthNames[month - 1]} ${year}`;
+      
+      // Format dates for display (e.g., "31 Jan 2026")
+      const formatDateForDisplay = (dateStr) => {
+        if (!dateStr) return 'N/A';
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const monthName = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${monthName} ${year}`;
+      };
+
       return {
         voucherNo: (() => {
           // Prefer voucher number from feesWithVouchers if available
@@ -2217,10 +2242,10 @@ const FeeManagement = () => {
           return admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A';
         })(),
         rollNo: admission.rollNumber || admission.studentId?.rollNumber || 'N/A',
-        feeMonth: monthYear,
-        validDate: validDate,
-        issueDate: issueDate,
-        dueDate: formattedDueDate,
+        feeMonth: formattedFeeMonth,
+        validDate: formatDateForDisplay(validDate),
+        issueDate: formatDateForDisplay(issueDate),
+        dueDate: formatDateForDisplay(formattedDueDate),
         studentId: admission.studentId?.enrollmentNumber || admission.applicationNumber || 'N/A',
         admissionNo: admission.applicationNumber || 'N/A',
         name: studentName,
@@ -2236,7 +2261,8 @@ const FeeManagement = () => {
           { name: 'Absent Fine', amount: absentFine }
         ],
         payableWithinDueDate: payableWithinDueDate,
-        payableAfterDueDate: payableAfterDueDate
+        payableAfterDueDate: payableAfterDueDate,
+        institution: institutionData
       };
     } catch (err) {
       console.error('Error fetching voucher data:', err);
@@ -4474,159 +4500,245 @@ const FeeManagement = () => {
                 <CircularProgress />
               </Box>
             ) : voucherData ? (
-              <Box>
-                {/* Parent's Copy */}
-                <Paper sx={{ p: 2, mb: 2, border: '2px solid #000' }}>
-                  <Typography variant="h6" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
-                    PARENT'S COPY
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Voucher No:</strong> {voucherData.voucherNo}</Typography>
-                      <Typography variant="body2"><strong>Roll No:</strong> {voucherData.rollNo}</Typography>
-                      <Typography variant="body2"><strong>Fee Month:</strong> {voucherData.feeMonth}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Valid Date:</strong> {voucherData.validDate}</Typography>
-                      <Typography variant="body2"><strong>Issue Date:</strong> {voucherData.issueDate}</Typography>
-                      <Typography variant="body2"><strong>Due Date:</strong> {voucherData.dueDate}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Student ID:</strong> {voucherData.studentId}</Typography>
-                      <Typography variant="body2"><strong>Admission No:</strong> {voucherData.admissionNo}</Typography>
-                      <Typography variant="body2"><strong>Name:</strong> {voucherData.name}</Typography>
-                      <Typography variant="body2"><strong>Father Name:</strong> {voucherData.fatherName}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Class:</strong> {voucherData.class}</Typography>
-                      <Typography variant="body2"><strong>Section:</strong> {voucherData.section}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Fee Details:</Typography>
-                      {voucherData.feeHeads.map((head, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="body2">{head.name}:</Typography>
-                          <Typography variant="body2">Rs. {head.amount.toLocaleString()}</Typography>
-                        </Box>
-                      ))}
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable Within Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableWithinDueDate.toLocaleString()}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable After Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableAfterDueDate.toLocaleString()}</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Paper>
+              <Box id="voucher-print-area">
+                {/* Print Styles */}
+                <style>
+                  {`
+                    @media print {
+                      body * {
+                        visibility: hidden;
+                      }
+                      #voucher-print-area, #voucher-print-area * {
+                        visibility: visible;
+                      }
+                      #voucher-print-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                      }
+                      .no-print {
+                        display: none !important;
+                      }
+                      .voucher-copy {
+                        page-break-after: always;
+                        margin-bottom: 20px;
+                      }
+                      .voucher-copy:last-child {
+                        page-break-after: auto;
+                      }
+                    }
+                  `}
+                </style>
 
-                {/* School's Copy */}
-                <Paper sx={{ p: 2, mb: 2, border: '2px solid #000' }}>
-                  <Typography variant="h6" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
-                    SCHOOL'S COPY
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Voucher No:</strong> {voucherData.voucherNo}</Typography>
-                      <Typography variant="body2"><strong>Roll No:</strong> {voucherData.rollNo}</Typography>
-                      <Typography variant="body2"><strong>Fee Month:</strong> {voucherData.feeMonth}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Valid Date:</strong> {voucherData.validDate}</Typography>
-                      <Typography variant="body2"><strong>Issue Date:</strong> {voucherData.issueDate}</Typography>
-                      <Typography variant="body2"><strong>Due Date:</strong> {voucherData.dueDate}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Student ID:</strong> {voucherData.studentId}</Typography>
-                      <Typography variant="body2"><strong>Admission No:</strong> {voucherData.admissionNo}</Typography>
-                      <Typography variant="body2"><strong>Name:</strong> {voucherData.name}</Typography>
-                      <Typography variant="body2"><strong>Father Name:</strong> {voucherData.fatherName}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Class:</strong> {voucherData.class}</Typography>
-                      <Typography variant="body2"><strong>Section:</strong> {voucherData.section}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Fee Details:</Typography>
-                      {voucherData.feeHeads.map((head, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="body2">{head.name}:</Typography>
-                          <Typography variant="body2">Rs. {head.amount.toLocaleString()}</Typography>
-                        </Box>
-                      ))}
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable Within Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableWithinDueDate.toLocaleString()}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable After Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableAfterDueDate.toLocaleString()}</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                {/* Helper function to render a voucher copy */}
+                {['Parent\'s Copy', 'School\'s Copy', 'Bank\'s Copy'].map((copyType, copyIndex) => (
+                  <Paper 
+                    key={copyIndex}
+                    className="voucher-copy"
+                    sx={{ 
+                      p: 3, 
+                      mb: 3, 
+                      border: '2px solid #000',
+                      maxWidth: '100%',
+                      '@media print': {
+                        border: '2px solid #000',
+                        margin: '0',
+                        padding: '20px'
+                      }
+                    }}
+                  >
+                    {/* Copy Type Header */}
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        mb: 2, 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      {copyType}
+                    </Typography>
 
-                {/* Bank's Copy */}
-                <Paper sx={{ p: 2, border: '2px solid #000' }}>
-                  <Typography variant="h6" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
-                    BANK'S COPY
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Voucher No:</strong> {voucherData.voucherNo}</Typography>
-                      <Typography variant="body2"><strong>Roll No:</strong> {voucherData.rollNo}</Typography>
-                      <Typography variant="body2"><strong>Fee Month:</strong> {voucherData.feeMonth}</Typography>
+                    {/* Header Section with Voucher Number, Logo, and Institution Info */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap' }}>
+                      {/* Left: Voucher Number */}
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          Voucher#: {voucherData.voucherNo}
+                        </Typography>
+                      </Box>
+                      
+                      {/* Center: Institution Logo and Info */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, mx: 2 }}>
+                        <Box
+                          component="img"
+                          src={process.env.PUBLIC_URL + '/logo.png'}
+                          alt="Institution Logo"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: '50%',
+                            border: '2px solid #000',
+                            mb: 1,
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', textAlign: 'center', fontSize: '1rem' }}>
+                          {voucherData.institution?.name || 'SGC Education'}
+                        </Typography>
+                        {voucherData.institution?.address?.city && (
+                          <Typography variant="body2" sx={{ textAlign: 'center' }}>
+                            {voucherData.institution.address.city}
+                            {voucherData.institution.address.state && `, ${voucherData.institution.address.state}`}
+                          </Typography>
+                        )}
+                      </Box>
+                      
+                      {/* Right: Empty space for alignment */}
+                      <Box sx={{ width: '120px' }} />
+                    </Box>
+
+                    <Divider sx={{ my: 2, borderWidth: 1 }} />
+
+                    {/* Voucher Details Section */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Voucher No:</strong> {voucherData.voucherNo}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Roll No:</strong> {voucherData.rollNo}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Fee Month:</strong> {voucherData.feeMonth}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Valid Date:</strong> {voucherData.validDate}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Issue Date:</strong> {voucherData.issueDate}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Due Date:</strong> {voucherData.dueDate}</Typography>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Valid Date:</strong> {voucherData.validDate}</Typography>
-                      <Typography variant="body2"><strong>Issue Date:</strong> {voucherData.issueDate}</Typography>
-                      <Typography variant="body2"><strong>Due Date:</strong> {voucherData.dueDate}</Typography>
+
+                    <Divider sx={{ my: 2, borderWidth: 1 }} />
+
+                    {/* Student Details Section */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Student Id:</strong> {voucherData.studentId}</Typography>
+                      </Grid>
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2"><strong>Adm/Reg #:</strong> {voucherData.admissionNo}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2"><strong>Student Name:</strong> {voucherData.name}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2"><strong>Class:</strong> {voucherData.class}</Typography>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Student ID:</strong> {voucherData.studentId}</Typography>
-                      <Typography variant="body2"><strong>Admission No:</strong> {voucherData.admissionNo}</Typography>
-                      <Typography variant="body2"><strong>Name:</strong> {voucherData.name}</Typography>
-                      <Typography variant="body2"><strong>Father Name:</strong> {voucherData.fatherName}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Class:</strong> {voucherData.class}</Typography>
-                      <Typography variant="body2"><strong>Section:</strong> {voucherData.section}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Fee Details:</Typography>
-                      {voucherData.feeHeads.map((head, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="body2">{head.name}:</Typography>
-                          <Typography variant="body2">Rs. {head.amount.toLocaleString()}</Typography>
+
+                    <Divider sx={{ my: 2, borderWidth: 1 }} />
+
+                    {/* Fee Breakdown Table */}
+                    <TableContainer sx={{ mb: 2 }}>
+                      <Table size="small" sx={{ border: '1px solid #000' }}>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableCell sx={{ border: '1px solid #000', fontWeight: 'bold', width: '10%' }}>Sr No.</TableCell>
+                            <TableCell sx={{ border: '1px solid #000', fontWeight: 'bold' }}>Head Name</TableCell>
+                            <TableCell align="right" sx={{ border: '1px solid #000', fontWeight: 'bold', width: '25%' }}>Amount</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {voucherData.feeHeads
+                            .filter(h => h.amount > 0)
+                            .map((head, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell sx={{ border: '1px solid #ddd' }}>{idx + 1}</TableCell>
+                              <TableCell sx={{ border: '1px solid #ddd' }}>{head.name}</TableCell>
+                              <TableCell align="right" sx={{ border: '1px solid #ddd' }}>
+                                {head.amount.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>
+                              Payable within due date:
+                            </TableCell>
+                            <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>
+                              {voucherData.payableWithinDueDate.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>
+                              Payable after due date:
+                            </TableCell>
+                            <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>
+                              {voucherData.payableAfterDueDate.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+
+                    {/* Payment Terms and Instructions */}
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f9f9f9', border: '1px solid #ddd' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Note: Payment Terms
+                      </Typography>
+                      <Typography variant="body2" component="div" sx={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+                        <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+                          • A fine of Rs. 200 will be charged if the fee is not paid by the due date.
                         </Box>
-                      ))}
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable Within Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableWithinDueDate.toLocaleString()}</Typography>
+                        <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+                          • A fine of Rs. 500 will be applicable if the payment remains unpaid in the following month.
+                        </Box>
+                        <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+                          • The fee may be deposited at any branch of Bank Islami using the prescribed challan form.
+                        </Box>
+                        <Box component="span" sx={{ display: 'block' }}>
+                          • Online payments can be made via Kuickpay. Please use the prefix 17340 followed by your challan number. (Transaction charges will apply.)
+                        </Box>
+                      </Typography>
+                    </Box>
+
+                    {/* Bank Details */}
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f9f9f9', border: '1px solid #ddd' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                        Fee Payable At Any Branch of
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                        Bank Islami Pakistan Limited-310000223490001-The Integrity Global Education System
+                      </Typography>
+                    </Box>
+
+                    {/* Barcode Placeholder */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 1 }}>
+                      <Box
+                        sx={{
+                          width: '200px',
+                          height: '60px',
+                          border: '1px solid #000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: '#fff'
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: '#666' }}>
+                          [Barcode: {voucherData.voucherNo}]
+                        </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                        <Typography>Payable After Due Date:</Typography>
-                        <Typography>Rs. {voucherData.payableAfterDueDate.toLocaleString()}</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                    </Box>
+                  </Paper>
+                ))}
               </Box>
             ) : null}
           </DialogContent>
@@ -4638,7 +4750,14 @@ const FeeManagement = () => {
             }}>
               Close
             </Button>
-            <Button variant="contained" startIcon={<Print />} sx={{ bgcolor: '#667eea' }}>
+            <Button 
+              variant="contained" 
+              startIcon={<Print />} 
+              sx={{ bgcolor: '#667eea' }}
+              onClick={() => {
+                window.print();
+              }}
+            >
               Print
             </Button>
           </DialogActions>

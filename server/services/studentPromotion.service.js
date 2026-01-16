@@ -3,6 +3,7 @@ const Student = require('../models/Student');
 const Admission = require('../models/Admission');
 const { ApiError } = require('../middleware/error.middleware');
 const { getInstitutionId, extractInstitutionId } = require('../utils/userUtils');
+const feeService = require('./fee.service');
 
 /**
  * Student Promotion Service - Handles promotion, transfer, and passout operations
@@ -85,6 +86,22 @@ class StudentPromotionService {
             { new: true }
           );
 
+          // Automatically assign fee structure for the new class
+          try {
+            await feeService.assignFeeStructure({
+              studentId: student._id,
+              classId: to.class,
+              discount: 0,
+              discountType: 'amount',
+              discountReason: 'Auto-assigned on promotion',
+              feeHeadDiscounts: {}
+            }, currentUser);
+          } catch (feeError) {
+            // Log error but don't fail the promotion if fee assignment fails
+            // This could happen if no fee structure exists for the class, or if already assigned
+            console.warn(`Failed to auto-assign fee structure for student ${student._id} to class ${to.class}:`, feeError.message);
+          }
+
         } else if (promotionType === 'transfer') {
           // TRANSFER: Different institution
           // Status: Student becomes 'transferred', Admission status stays 'enrolled'
@@ -95,13 +112,14 @@ class StudentPromotionService {
           const toSection = await Section.findById(to.section);
           const sectionName = toSection ? toSection.name.toUpperCase() : null;
           
+          // First, update institution and class (but keep status as 'active' temporarily for fee assignment)
           updatedStudent = await Student.findByIdAndUpdate(
             student._id,
             {
               institution: to.institution,
               section: sectionName || to.section, // Student stores section as string (uppercase)
               academicYear: to.academicYear || admission.academicYear,
-              status: 'transferred', // Mark as transferred
+              // Keep status as 'active' temporarily for fee assignment
               updatedAt: Date.now()
             },
             { new: true }
@@ -115,6 +133,33 @@ class StudentPromotionService {
               institution: to.institution,
               class: to.class,
               section: to.section,
+              updatedAt: Date.now()
+            },
+            { new: true }
+          );
+
+          // Automatically assign fee structure for the new class at the new institution
+          // Do this before updating status to 'transferred' so the fee service accepts it
+          try {
+            await feeService.assignFeeStructure({
+              studentId: student._id,
+              classId: to.class,
+              discount: 0,
+              discountType: 'amount',
+              discountReason: 'Auto-assigned on transfer',
+              feeHeadDiscounts: {}
+            }, currentUser);
+          } catch (feeError) {
+            // Log error but don't fail the transfer if fee assignment fails
+            // This could happen if no fee structure exists for the class, or if already assigned
+            console.warn(`Failed to auto-assign fee structure for student ${student._id} to class ${to.class}:`, feeError.message);
+          }
+
+          // Now update status to 'transferred' after fee assignment
+          updatedStudent = await Student.findByIdAndUpdate(
+            student._id,
+            {
+              status: 'transferred', // Mark as transferred
               updatedAt: Date.now()
             },
             { new: true }
