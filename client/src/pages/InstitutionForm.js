@@ -53,6 +53,7 @@ const InstitutionForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [organizations, setOrganizations] = useState([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
   const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const [orgFormData, setOrgFormData] = useState({
     name: '',
@@ -95,17 +96,36 @@ const InstitutionForm = () => {
 
   const fetchOrganizations = async () => {
     try {
+      setOrgsLoading(true);
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        setError('Authentication required. Please log in again.');
+        return;
+      }
+
       const response = await axios.get('http://localhost:5000/api/v1/organizations', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setOrganizations(response.data.data || []);
+
+      console.log('Organizations API response:', response.data);
+      
+      // Handle different response structures
+      const organizationsData = response.data?.data || response.data || [];
+      setOrganizations(Array.isArray(organizationsData) ? organizationsData : []);
+      
+      if (organizationsData.length === 0) {
+        console.warn('No organizations found in response');
+      }
     } catch (err) {
       console.error('Failed to fetch organizations:', err);
-      // Only show error if user is super_admin (they should be able to fetch)
-      if (isSuperAdmin) {
-        setError(err.response?.data?.message || 'Failed to fetch organizations. Please ensure you have the correct permissions.');
-      }
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch organizations';
+      setError(errorMessage);
+    } finally {
+      setOrgsLoading(false);
     }
   };
 
@@ -337,7 +357,8 @@ const InstitutionForm = () => {
                         value={formData.organization}
                         onChange={handleChange}
                         label="Organization"
-                        disabled={organizations.filter(org => org.isActive).length === 0}
+                        disabled={orgsLoading || organizations.filter(org => org.isActive).length === 0}
+                        endAdornment={orgsLoading ? <CircularProgress size={20} sx={{ mr: 2 }} /> : null}
                       >
                         {organizations
                           .filter(org => org.isActive)
@@ -347,7 +368,12 @@ const InstitutionForm = () => {
                             </MenuItem>
                           ))}
                       </Select>
-                      {organizations.filter(org => org.isActive).length === 0 && (
+                      {orgsLoading && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                          Loading organizations...
+                        </Typography>
+                      )}
+                      {!orgsLoading && organizations.filter(org => org.isActive).length === 0 && (
                         <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
                           No active organizations available. Please create an organization first.
                         </Typography>
@@ -751,8 +777,10 @@ const InstitutionForm = () => {
                 required
                 label="Organization Name"
                 value={orgFormData.name}
-                onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
+                onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value.toUpperCase() })}
+                inputProps={{ style: { textTransform: 'uppercase' } }}
                 placeholder="e.g., TIGES"
+                helperText="Name will be saved in uppercase"
               />
             </Grid>
             <Grid item xs={12} md={6}>

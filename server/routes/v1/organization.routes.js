@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const organizationController = require('../../controllers/organization.controller');
+const { authenticate } = require('../../middleware/auth.middleware');
 const { isSuperAdmin, isAdmin } = require('../../middleware/rbac.middleware');
 
 /**
  * Organization Routes
  * Base path: /api/v1/organizations
  */
+
+// Apply authentication middleware to all routes
+router.use(authenticate);
 
 // Get all organizations (admin can view, but only super_admin can manage)
 router.get('/', isAdmin, organizationController.getOrganizations);

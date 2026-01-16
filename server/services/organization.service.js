@@ -67,11 +67,15 @@ const getOrganizationById = async (organizationId, currentUser) => {
 const createOrganization = async (organizationData, createdBy) => {
   const { name, code, type, description } = organizationData;
 
+  // Convert name to uppercase for consistency
+  const nameUpper = name.trim().toUpperCase();
+  const codeUpper = code.trim().toUpperCase();
+
   // Check if organization with same name or code exists
   const existingOrg = await Organization.findOne({
     $or: [
-      { name: name.trim() },
-      { code: code.trim().toUpperCase() }
+      { name: nameUpper },
+      { code: codeUpper }
     ]
   });
 
@@ -80,8 +84,8 @@ const createOrganization = async (organizationData, createdBy) => {
   }
 
   const organization = await Organization.create({
-    name: name.trim(),
-    code: code.trim().toUpperCase(),
+    name: nameUpper,
+    code: codeUpper,
     type: type || 'mixed',
     description: description?.trim(),
     createdBy: createdBy._id || createdBy
@@ -106,11 +110,14 @@ const updateOrganization = async (organizationId, updateData, currentUser) => {
 
   // Check if name or code conflicts with existing organizations
   if (updateData.name || updateData.code) {
+    const nameUpper = updateData.name ? updateData.name.trim().toUpperCase() : null;
+    const codeUpper = updateData.code ? updateData.code.trim().toUpperCase() : null;
+    
     const existingOrg = await Organization.findOne({
       _id: { $ne: organizationId },
       $or: [
-        updateData.name ? { name: updateData.name.trim() } : {},
-        updateData.code ? { code: updateData.code.trim().toUpperCase() } : {}
+        nameUpper ? { name: nameUpper } : {},
+        codeUpper ? { code: codeUpper } : {}
       ]
     });
 
@@ -119,8 +126,8 @@ const updateOrganization = async (organizationId, updateData, currentUser) => {
     }
   }
 
-  // Update fields
-  if (updateData.name) organization.name = updateData.name.trim();
+  // Update fields (convert name to uppercase)
+  if (updateData.name) organization.name = updateData.name.trim().toUpperCase();
   if (updateData.code) organization.code = updateData.code.trim().toUpperCase();
   if (updateData.type) organization.type = updateData.type;
   if (updateData.description !== undefined) organization.description = updateData.description?.trim();
