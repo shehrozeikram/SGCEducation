@@ -148,6 +148,9 @@ const Admissions = () => {
   const [selectedInstitution, setSelectedInstitution] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(''); // For list page - single status
+  const [showLogo, setShowLogo] = useState(true); // For logo fallback
+  // Generate cache-busting parameter once on mount to ensure fresh logo
+  const [logoCacheBuster] = useState(() => `?t=${Date.now()}`);
   const [studentStatusFilter, setStudentStatusFilter] = useState([]); // For search student page - multi-select
   const [selectedAdmission, setSelectedAdmission] = useState(null);
   const [actionDialog, setActionDialog] = useState({ open: false, type: '', remarks: '' });
@@ -689,9 +692,35 @@ const Admissions = () => {
       <Box>
         <AppBar position="static" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
           <Toolbar sx={{ px: { xs: 2, sm: 3 } }}>
-            <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
-              SGC Education - Admissions
+            {/* Logo Image - Falls back to School icon if logo.png doesn't exist */}
+            {showLogo ? (
+              <Box
+                component="img"
+                src={`${process.env.PUBLIC_URL}/logo.png${logoCacheBuster}`}
+                alt="Logo"
+                onError={() => setShowLogo(false)}
+                sx={{
+                  height: { xs: 32, sm: 40 },
+                  width: 'auto',
+                  mr: { xs: 1, sm: 2 },
+                  display: { xs: 'none', sm: 'block' },
+                  cursor: 'pointer',
+                  objectFit: 'contain'
+                }}
+                onClick={() => navigate('/dashboard')}
+              />
+            ) : (
+              <School 
+                sx={{ 
+                  mr: { xs: 1, sm: 2 }, 
+                  display: { xs: 'none', sm: 'block' },
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/dashboard')}
+              />
+            )}
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' }, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+              Admissions Management
             </Typography>
           </Toolbar>
         </AppBar>
@@ -709,8 +738,34 @@ const Admissions = () => {
       {/* Top Navigation Bar */}
       <AppBar position="fixed" sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', zIndex: 1300 }}>
         <Toolbar sx={{ px: { xs: 2, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
-          <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' } }}>
+            {/* Logo Image - Falls back to School icon if logo.png doesn't exist */}
+            {showLogo ? (
+              <Box
+                component="img"
+                src={`${process.env.PUBLIC_URL}/logo.png${logoCacheBuster}`}
+                alt="Logo"
+                onError={() => setShowLogo(false)}
+                sx={{
+                  height: { xs: 32, sm: 40 },
+                  width: 'auto',
+                  mr: { xs: 1, sm: 2 },
+                  display: { xs: 'none', sm: 'block' },
+                  cursor: 'pointer',
+                  objectFit: 'contain'
+                }}
+                onClick={() => navigate('/dashboard')}
+              />
+            ) : (
+              <School 
+                sx={{ 
+                  mr: { xs: 1, sm: 2 }, 
+                  display: { xs: 'none', sm: 'block' },
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/dashboard')}
+              />
+            )}
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: { xs: '0.9rem', sm: '1.25rem' }, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
             Admissions Management
           </Typography>
 

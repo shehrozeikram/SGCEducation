@@ -16,7 +16,7 @@ import {
   Settings,
   ExitToApp,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import InstitutionSwitcher from '../InstitutionSwitcher';
 
 // Logo configuration
@@ -24,12 +24,17 @@ import InstitutionSwitcher from '../InstitutionSwitcher';
 // 1. Place your logo file in client/public/logo.png (recommended: 40px height, transparent background)
 // 2. The logo will automatically appear in the navbar
 // 3. If logo.png doesn't exist, it will fallback to the School icon
-const LOGO_PATH = process.env.PUBLIC_URL + '/logo.png';
+// 4. Cache-busting is added to ensure the latest logo is always displayed on navigation
 
 const TopBar = ({ title = 'SGC Education', showInstitutionSwitcher = true, actions = null }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [showLogo, setShowLogo] = useState(true);
+  // Generate cache-busting parameter that includes route to ensure fresh logo on navigation
+  // This ensures the logo refreshes when navigating between pages
+  // Using pathname ensures cache-busting on navigation, and timestamp ensures fresh load
+  const logoCacheBuster = `?v=${Date.now()}&p=${location.pathname}`;
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
 
@@ -60,7 +65,7 @@ const TopBar = ({ title = 'SGC Education', showInstitutionSwitcher = true, actio
         {showLogo ? (
           <Box
             component="img"
-            src={LOGO_PATH}
+            src={`${process.env.PUBLIC_URL}/logo.png${logoCacheBuster}`}
             alt="Logo"
             onError={() => setShowLogo(false)}
             sx={{

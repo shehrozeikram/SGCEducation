@@ -83,7 +83,11 @@ const Dashboard = () => {
   const [selectedInstitution, setSelectedInstitution] = useState(null);
   const [breakdownTab, setBreakdownTab] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showLogo, setShowLogo] = useState(true); // For logo fallback
   const sidebarWidth = sidebarCollapsed ? 80 : 280;
+  
+  // Generate cache-busting parameter once on mount to ensure fresh logo
+  const [logoCacheBuster] = useState(() => `?t=${Date.now()}`);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -364,8 +368,34 @@ const Dashboard = () => {
           >
             {sidebarCollapsed ? <MenuIcon /> : <ChevronLeftIcon />}
           </IconButton>
-          <School sx={{ mr: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'block' } }} />
-          <Typography variant="h6" component="div" sx={{ fontSize: { xs: '0.9rem', sm: '1.25rem' }, fontWeight: 700 }}>
+          {/* Logo Image - Falls back to School icon if logo.png doesn't exist */}
+          {showLogo ? (
+            <Box
+              component="img"
+              src={`${process.env.PUBLIC_URL}/logo.png${logoCacheBuster}`}
+              alt="Logo"
+              onError={() => setShowLogo(false)}
+              sx={{
+                height: { xs: 32, sm: 40 },
+                width: 'auto',
+                mr: { xs: 1, sm: 2 },
+                display: { xs: 'none', sm: 'block' },
+                cursor: 'pointer',
+                objectFit: 'contain'
+              }}
+              onClick={() => navigate('/dashboard')}
+            />
+          ) : (
+            <School 
+              sx={{ 
+                mr: { xs: 1, sm: 2 }, 
+                display: { xs: 'none', sm: 'block' },
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/dashboard')}
+            />
+          )}
+          <Typography variant="h6" component="div" sx={{ fontSize: { xs: '0.9rem', sm: '1.25rem' }, fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
             SGC Education
           </Typography>
 
