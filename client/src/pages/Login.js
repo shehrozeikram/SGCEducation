@@ -48,13 +48,23 @@ const Login = () => {
     setError('');
   };
 
-  const fetchInstitutions = async (token) => {
+  const fetchInstitutions = async (token, user) => {
     try {
       setLoadingInstitutions(true);
       const response = await axios.get(getApiUrl('institutions'), {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setInstitutions(response.data.data || []);
+      const fetchedInstitutions = response.data.data || [];
+      setInstitutions(fetchedInstitutions);
+      
+      // If no institutions exist, allow super admin to proceed without selecting
+      if (fetchedInstitutions.length === 0 && user) {
+        // Store authentication data without institution
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        // Redirect to dashboard - they can create institution from there
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       setError('Failed to load institutions');
     } finally {
@@ -79,7 +89,7 @@ const Login = () => {
       if (user.role === 'super_admin') {
         // Move to institution selection step
         setStep(2);
-        await fetchInstitutions(token);
+        await fetchInstitutions(token, user);
         setLoading(false);
       } else {
         // For regular admin, auto-select their institution and proceed
@@ -244,10 +254,49 @@ const Login = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                   <CircularProgress />
                 </Box>
+              ) : institutions.length === 0 ? (
+                <>
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    No institutions found. You can create your first institution from the dashboard.
+                  </Alert>
+
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    onClick={() => {
+                      // Store authentication data without institution
+                      localStorage.setItem('token', userInfo.token);
+                      localStorage.setItem('user', JSON.stringify(userInfo.user));
+                      // Redirect to dashboard
+                      window.location.href = '/dashboard';
+                    }}
+                    sx={{
+                      mt: 3,
+                      mb: 2,
+                      py: 1.5,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
+                      },
+                    }}
+                  >
+                    Continue to Dashboard
+                  </Button>
+
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={handleBackToCredentials}
+                    sx={{ mb: 2 }}
+                  >
+                    Back to Login
+                  </Button>
+                </>
               ) : (
                 <>
                   <Alert severity="info" sx={{ mb: 3 }}>
-                    Welcome, {userInfo?.user?.firstName}! Please select an institution to manage.
+                    Welcome, {userInfo?.user?.name}! Please select an institution to manage.
                   </Alert>
 
                   <FormControl fullWidth margin="normal">
