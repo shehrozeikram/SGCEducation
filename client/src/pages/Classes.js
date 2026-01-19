@@ -26,6 +26,7 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -40,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { capitalizeFirstOnly } from '../utils/textUtils';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -49,6 +51,7 @@ const Classes = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [feeHeadDialog, setFeeHeadDialog] = useState({ open: false, class: null });
   const [feeHeadSettings, setFeeHeadSettings] = useState({});
+  const pagination = useTablePagination(12);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -228,7 +231,7 @@ const Classes = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                 <TableCell><strong>Name</strong></TableCell>
                 <TableCell><strong>Code</strong></TableCell>
                 <TableCell><strong>Fee Type</strong></TableCell>
@@ -250,7 +253,7 @@ const Classes = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClasses.map((cls) => (
+                pagination.getPaginatedData(filteredClasses).map((cls) => (
                   <TableRow key={cls._id} hover>
                     <TableCell>
                       <Typography variant="body2">{capitalizeFirstOnly(cls.name || 'N/A')}</Typography>
@@ -304,6 +307,19 @@ const Classes = () => {
               )}
             </TableBody>
           </Table>
+          {filteredClasses.length > 0 && (
+            <TablePagination
+              component="div"
+              count={filteredClasses.length}
+              page={pagination.page}
+              onPageChange={pagination.handleChangePage}
+              rowsPerPage={pagination.rowsPerPage}
+              onRowsPerPageChange={pagination.handleChangeRowsPerPage}
+              rowsPerPageOptions={pagination.rowsPerPageOptions}
+              labelRowsPerPage="Rows per page:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
+            />
+          )}
         </TableContainer>
       </Paper>
       </Container>

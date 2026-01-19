@@ -176,6 +176,12 @@ const UserForm = () => {
       return false;
     }
 
+    // Institution is required for all roles except super_admin
+    if (formData.role !== 'super_admin' && !formData.institution) {
+      setError('Institution is required for this role');
+      return false;
+    }
+
     if (!isEditMode) {
       if (!formData.password) {
         setError('Password is required');
@@ -223,6 +229,18 @@ const UserForm = () => {
       delete submitData.confirmPassword;
       if (isEditMode && !submitData.password) {
         delete submitData.password;
+      }
+
+      // Remove institution field if role is super_admin or if it's empty
+      if (submitData.role === 'super_admin') {
+        delete submitData.institution;
+      } else if (!submitData.institution || submitData.institution === '') {
+        delete submitData.institution;
+      }
+
+      // Remove department if it's empty
+      if (!submitData.department || submitData.department === '') {
+        delete submitData.department;
       }
 
       if (isEditMode) {

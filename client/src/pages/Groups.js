@@ -22,6 +22,7 @@ import {
   Checkbox,
   FormControlLabel,
   InputAdornment,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -31,6 +32,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 const Groups = () => {
   const navigate = useNavigate();
@@ -40,6 +42,7 @@ const Groups = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectDialog, setSubjectDialog] = useState({ open: false, group: null, selected: [] });
   const [subjectAssignments, setSubjectAssignments] = useState({});
+  const pagination = useTablePagination(12);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const subjectOptions = [
@@ -164,7 +167,7 @@ const Groups = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                 <TableCell><strong>Group Id</strong></TableCell>
                 <TableCell><strong>Group Name</strong></TableCell>
                 <TableCell><strong>Created By</strong></TableCell>
@@ -183,46 +186,62 @@ const Groups = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredGroups.map((group, idx) => (
-                  <TableRow key={group._id} hover>
-                    <TableCell>
-                      <Typography variant="body2">{idx + 1}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{group.name}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2">
-                        {group.createdBy?.name || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => navigate(`/groups/edit/${group._id}`)}
-                        title="Edit"
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <Button
-                        variant="text"
-                        size="small"
-                        onClick={() => setSubjectDialog({
-                          open: true,
-                          group,
-                          selected: subjectAssignments[group._id] || []
-                        })}
-                        sx={{ ml: 1, textTransform: 'none', fontWeight: 600 }}
-                      >
-                        Assign Subjects To Group
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                pagination.getPaginatedData(filteredGroups).map((group, idx) => {
+                  const actualIndex = pagination.page * pagination.rowsPerPage + idx;
+                  return (
+                    <TableRow key={group._id} hover>
+                      <TableCell>
+                        <Typography variant="body2">{actualIndex + 1}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{group.name}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2">
+                          {group.createdBy?.name || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => navigate(`/groups/edit/${group._id}`)}
+                          title="Edit"
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() => setSubjectDialog({
+                            open: true,
+                            group,
+                            selected: subjectAssignments[group._id] || []
+                          })}
+                          sx={{ ml: 1, textTransform: 'none', fontWeight: 600 }}
+                        >
+                          Assign Subjects To Group
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
+          {filteredGroups.length > 0 && (
+            <TablePagination
+              component="div"
+              count={filteredGroups.length}
+              page={pagination.page}
+              onPageChange={pagination.handleChangePage}
+              rowsPerPage={pagination.rowsPerPage}
+              onRowsPerPageChange={pagination.handleChangeRowsPerPage}
+              rowsPerPageOptions={pagination.rowsPerPageOptions}
+              labelRowsPerPage="Rows per page:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
+            />
+          )}
         </TableContainer>
       </Paper>
       </Container>

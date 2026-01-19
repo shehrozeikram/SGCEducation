@@ -17,6 +17,7 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -30,6 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 const Institutions = () => {
   const navigate = useNavigate();
@@ -37,6 +39,7 @@ const Institutions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const pagination = useTablePagination(12);
 
   useEffect(() => {
     fetchInstitutions();
@@ -141,7 +144,7 @@ const Institutions = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                 <TableCell><strong>Code</strong></TableCell>
                 <TableCell><strong>Name</strong></TableCell>
                 <TableCell><strong>Type</strong></TableCell>
@@ -164,7 +167,7 @@ const Institutions = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInstitutions.map((institution) => (
+                pagination.getPaginatedData(filteredInstitutions).map((institution) => (
                   <TableRow key={institution._id} hover>
                     <TableCell>
                       <Chip label={institution.code} size="small" color="primary" />
@@ -226,6 +229,19 @@ const Institutions = () => {
               )}
             </TableBody>
           </Table>
+          {filteredInstitutions.length > 0 && (
+            <TablePagination
+              component="div"
+              count={filteredInstitutions.length}
+              page={pagination.page}
+              onPageChange={pagination.handleChangePage}
+              rowsPerPage={pagination.rowsPerPage}
+              onRowsPerPageChange={pagination.handleChangeRowsPerPage}
+              rowsPerPageOptions={pagination.rowsPerPageOptions}
+              labelRowsPerPage="Rows per page:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
+            />
+          )}
         </TableContainer>
       </Paper>
     </Container>

@@ -16,7 +16,8 @@ import {
   MenuItem,
   Grid,
   Typography,
-  Alert
+  Alert,
+  TablePagination
 } from '@mui/material';
 import {
   Edit,
@@ -28,6 +29,7 @@ import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import PageHeader from '../components/layout/PageHeader';
 import { capitalizeFirstOnly } from '../utils/textUtils';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 const Users = () => {
   const navigate = useNavigate();
@@ -38,6 +40,9 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Pagination
+  const pagination = useTablePagination(12);
+
   // Filters
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -46,9 +51,9 @@ const Users = () => {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    // Auto-set institution filter from selected institution
+    // Auto-set institution filter from selected institution (but not when filtering by super_admin)
     const institutionData = localStorage.getItem('selectedInstitution');
-    if (institutionData && !institutionFilter) {
+    if (institutionData && !institutionFilter && roleFilter !== 'super_admin') {
       try {
         const institution = JSON.parse(institutionData);
         setInstitutionFilter(institution._id);
@@ -219,7 +224,13 @@ const Users = () => {
                 select
                 label="Role"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  // Clear institution filter when selecting super_admin (they don't have institutions)
+                  if (e.target.value === 'super_admin') {
+                    setInstitutionFilter('');
+                  }
+                }}
                 size="small"
               >
                 <MenuItem value="">All Roles</MenuItem>
@@ -287,7 +298,7 @@ const Users = () => {
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                   <TableCell><strong>Name</strong></TableCell>
                   <TableCell><strong>Email</strong></TableCell>
                   <TableCell><strong>Role</strong></TableCell>
@@ -311,7 +322,7 @@ const Users = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user) => (
+                  pagination.getPaginatedData(users).map((user) => (
                     <TableRow key={user._id} hover>
                       <TableCell>{capitalizeFirstOnly(user.name || 'N/A')}</TableCell>
                       <TableCell>{user.email}</TableCell>
@@ -358,16 +369,21 @@ const Users = () => {
                 )}
               </TableBody>
             </Table>
+            {!loading && users.length > 0 && (
+              <TablePagination
+                component="div"
+                count={users.length}
+                page={pagination.page}
+                onPageChange={pagination.handleChangePage}
+                rowsPerPage={pagination.rowsPerPage}
+                onRowsPerPageChange={pagination.handleChangeRowsPerPage}
+                rowsPerPageOptions={pagination.rowsPerPageOptions}
+                labelRowsPerPage="Rows per page:"
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
+              />
+            )}
           </TableContainer>
         </Paper>
-
-        {!loading && users.length > 0 && (
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Showing {users.length} user{users.length !== 1 ? 's' : ''}
-            </Typography>
-          </Box>
-        )}
       </Container>
     </Box>
   );

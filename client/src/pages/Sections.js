@@ -31,6 +31,7 @@ import {
   Grid,
   Checkbox,
   FormControlLabel,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -54,6 +55,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { capitalizeFirstOnly } from '../utils/textUtils';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 const Sections = () => {
   const navigate = useNavigate();
@@ -62,6 +64,7 @@ const Sections = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInstitution, setSelectedInstitution] = useState('');
+  const pagination = useTablePagination(12);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [inchargeDialogOpen, setInchargeDialogOpen] = useState(false);
@@ -552,7 +555,7 @@ const Sections = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                 <TableCell><strong>Class</strong></TableCell>
                 <TableCell><strong>Section</strong></TableCell>
                 <TableCell><strong>Session</strong></TableCell>
