@@ -2628,9 +2628,9 @@ const FeeManagement = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%' }}>
-        <Paper sx={{ p: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5', overflowX: 'hidden' }}>
+      <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <Paper sx={{ p: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h4" fontWeight="bold" color="#667eea">
               Fee Management
@@ -2653,7 +2653,7 @@ const FeeManagement = () => {
 
         {/* Tab Panel 0: Fee Heads */}
         {activeTab === 0 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
                 FEE HEADS
@@ -2695,8 +2695,8 @@ const FeeManagement = () => {
                 <CircularProgress />
               </Box>
             ) : (
-              <TableContainer component={Paper}>
-                <Table>
+              <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
+                <Table sx={{ minWidth: 650 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                       <TableCell>Name</TableCell>
@@ -2824,7 +2824,7 @@ const FeeManagement = () => {
 
         {/* Tab Panel 1: Fee Structure */}
         {activeTab === 1 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3, textTransform: 'uppercase' }}>
               FEE STRUCTURE
             </Typography>
@@ -2836,8 +2836,8 @@ const FeeManagement = () => {
               </Box>
             ) : feeStructureMatrix && feeStructureMatrix.classes && feeStructureMatrix.feeHeads && feeStructureMatrix.feeHeads.length > 0 ? (
               <Box>
-                <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto', border: '1px solid #e0e0e0' }}>
-                  <Table stickyHeader>
+                <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto', overflowX: 'auto', width: '100%', border: '1px solid #e0e0e0' }}>
+                  <Table stickyHeader sx={{ minWidth: 650 }}>
                     <TableHead>
                       <TableRow>
                         <TableCell 
@@ -2961,7 +2961,7 @@ const FeeManagement = () => {
         {/* Tab Panel 2: Misc Fee Operations */}
         {/* Tab Panel 2: Assign Fee Structure */}
         {activeTab === 2 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
                 ASSIGN FEE STRUCTURE
@@ -2984,8 +2984,8 @@ const FeeManagement = () => {
             ) : studentsWithoutFeeStructure.length === 0 ? (
               <Alert severity="info">No students found without fee structure assignment.</Alert>
             ) : (
-              <TableContainer component={Paper}>
-                <Table>
+              <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
+                <Table sx={{ minWidth: 650 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#667eea' }}>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Enrollment #</TableCell>
@@ -3041,7 +3041,7 @@ const FeeManagement = () => {
 
         {/* Tab Panel 3: Misc Fee Operations */}
         {activeTab === 3 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               MISC FEE OPERATIONS
             </Typography>
@@ -3060,7 +3060,7 @@ const FeeManagement = () => {
                 {/* Filters */}
                 <Card sx={{ mb: 3 }}>
                   <CardContent>
-                    <Grid container spacing={2}>
+                    <Grid container spacing={2} sx={{ width: '100%', maxWidth: '100%' }}>
                       <Grid item xs={12} md={6}>
                         <TextField
                           fullWidth
@@ -3403,7 +3403,7 @@ const FeeManagement = () => {
         {/* Tab Panel 3: Print Voucher */}
         {/* Tab Panel 4: Print Voucher */}
         {activeTab === 4 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               PRINT VOUCHER
             </Typography>
@@ -3411,7 +3411,7 @@ const FeeManagement = () => {
             {/* Filters */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Grid container spacing={2}>
+                <Grid container spacing={2} sx={{ width: '100%', maxWidth: '100%' }}>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
@@ -3568,7 +3568,7 @@ const FeeManagement = () => {
 
         {/* Tab Panel 5: Fee Deposit */}
         {activeTab === 5 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               FEE DEPOSIT
             </Typography>
@@ -3654,8 +3654,8 @@ const FeeManagement = () => {
                         </Typography>
                       </Box>
 
-                    <TableContainer component={Paper}>
-                      <Table>
+                    <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
+                      <Table sx={{ minWidth: 650 }}>
                         <TableHead>
                           <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                             <TableCell>ID</TableCell>
@@ -3865,8 +3865,8 @@ const FeeManagement = () => {
                           ) : outstandingFees.length === 0 ? (
                             <Alert severity="info">No outstanding fees found for this student.</Alert>
                           ) : (
-                            <TableContainer component={Paper} variant="outlined">
-                              <Table size="small">
+                            <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto', width: '100%' }}>
+                              <Table size="small" sx={{ minWidth: 650 }}>
                                 <TableHead>
                                   <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Fee Head</TableCell>
@@ -4040,7 +4040,7 @@ const FeeManagement = () => {
 
         {/* Tab Panel 6: Receipt */}
         {activeTab === 6 && (
-          <Box>
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               RECEIPT
             </Typography>
@@ -4146,8 +4146,8 @@ const FeeManagement = () => {
                       <CircularProgress />
                     </Box>
                   ) : (
-                    <TableContainer component={Paper}>
-                      <Table>
+                    <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
+                      <Table sx={{ minWidth: 650 }}>
                         <TableHead>
                           <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                             <TableCell>Receipt Number</TableCell>
@@ -4647,8 +4647,8 @@ const FeeManagement = () => {
                     <Divider sx={{ my: 2, borderWidth: 1 }} />
 
                     {/* Fee Breakdown Table */}
-                    <TableContainer sx={{ mb: 2 }}>
-                      <Table size="small" sx={{ border: '1px solid #000' }}>
+                    <TableContainer sx={{ mb: 2, overflowX: 'auto', width: '100%' }}>
+                      <Table size="small" sx={{ border: '1px solid #000', minWidth: 650 }}>
                         <TableHead>
                           <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                             <TableCell sx={{ border: '1px solid #000', fontWeight: 'bold', width: '10%' }}>Sr No.</TableCell>
@@ -4993,8 +4993,8 @@ const FeeManagement = () => {
             ) : feeHeads.length === 0 ? (
               <Alert severity="info">No fee heads found. Please create fee heads first.</Alert>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
+              <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto', width: '100%' }}>
+                <Table size="small" sx={{ minWidth: 650 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                       <TableCell padding="checkbox">

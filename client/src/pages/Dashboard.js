@@ -70,6 +70,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
+import { getAllModules } from '../config/modules';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 import DashboardCharts from '../components/dashboard/DashboardCharts';
 import InstitutionSwitcher from '../components/InstitutionSwitcher';
@@ -153,30 +154,11 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  const modules = [
-    { name: 'Inquiry', icon: <ContactMail />, color: '#667eea', route: null },
-    { name: 'Admissions', icon: <PersonAdd />, color: '#f093fb', route: '/admissions' },
-    { name: 'Student Promotion', icon: <SwapHoriz />, color: '#10b981', route: '/student-promotion' },
-    { name: 'Attendance', icon: <EventAvailable />, color: '#4facfe', route: null },
-    { name: 'Fee Management', icon: <Payment />, color: '#43e97b', route: '/fee-management' },
-    { name: 'Results', icon: <Assessment />, color: '#feca57', route: null },
-    { name: 'SMS & Notification', icon: <Notifications />, color: '#fa709a', route: '/notifications' },
-    { name: 'Complaints', icon: <Report />, color: '#ee5a6f', route: null },
-    { name: 'Academics', icon: <MenuBook />, color: '#764ba2', route: null },
-    { name: 'HR Management', icon: <People />, color: '#667eea', route: null },
-    { name: 'Library', icon: <LocalLibrary />, color: '#f093fb', route: null },
-    { name: 'Assets Management', icon: <Inventory />, color: '#4facfe', route: null },
-    { name: 'Finance Management', icon: <AccountBalance />, color: '#43e97b', route: null },
-    { name: 'User & Privilege', icon: <SupervisorAccount />, color: '#feca57', route: '/users' },
-    { name: 'Configuration', icon: <Settings />, color: '#fa709a', route: '/settings' },
-    { name: 'Transport', icon: <DirectionsBus />, color: '#ee5a6f', route: null },
-    { name: 'Event', icon: <Event />, color: '#764ba2', route: '/calendar' },
-    { name: 'Institute Branding', icon: <Brush />, color: '#667eea', route: null },
-    { name: 'Student Consultancy', icon: <School />, color: '#f093fb', route: null },
-    { name: 'Franchise Management', icon: <Business />, color: '#4facfe', route: null },
-    { name: 'Hostel Management', icon: <Hotel />, color: '#43e97b', route: null },
-    { name: 'Electronic Paper Generation', icon: <Description />, color: '#feca57', route: '/reports' },
-  ];
+  // Get modules from shared configuration and convert icon components to elements
+  const modules = getAllModules().map(module => ({
+    ...module,
+    icon: <module.icon />
+  }));
 
   const handleModuleClick = (module) => {
     if (module.route) {

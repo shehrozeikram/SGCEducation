@@ -8,6 +8,7 @@ import {
   Box,
   Menu,
   MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   School,
@@ -15,9 +16,11 @@ import {
   AccountCircle,
   Settings,
   ExitToApp,
+  Apps,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import InstitutionSwitcher from '../InstitutionSwitcher';
+import { getAvailableModules } from '../../config/modules';
 
 // Logo configuration
 // To use your logo: 
@@ -30,7 +33,9 @@ const TopBar = ({ title = 'SGC Education', showInstitutionSwitcher = true, actio
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
+  const [modulesAnchorEl, setModulesAnchorEl] = useState(null);
   const [showLogo, setShowLogo] = useState(true);
+  const availableModules = getAvailableModules();
   // Generate cache-busting parameter that includes route to ensure fresh logo on navigation
   // This ensures the logo refreshes when navigating between pages
   // Using pathname ensures cache-busting on navigation, and timestamp ensures fresh load
@@ -44,6 +49,19 @@ const TopBar = ({ title = 'SGC Education', showInstitutionSwitcher = true, actio
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleModulesMenu = (event) => {
+    setModulesAnchorEl(event.currentTarget);
+  };
+
+  const handleModulesClose = () => {
+    setModulesAnchorEl(null);
+  };
+
+  const handleModuleClick = (route) => {
+    handleModulesClose();
+    navigate(route);
   };
 
   const handleProfile = () => {
@@ -107,6 +125,59 @@ const TopBar = ({ title = 'SGC Education', showInstitutionSwitcher = true, actio
             <InstitutionSwitcher />
           </Box>
         )}
+
+        {/* Modules Dropdown */}
+        <Button
+          variant="outlined"
+          startIcon={<Apps />}
+          onClick={handleModulesMenu}
+          sx={{
+            borderColor: 'rgba(255, 255, 255, 0.5)',
+            color: 'white',
+            '&:hover': {
+              borderColor: 'white',
+              bgcolor: 'rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        >
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>Modules</Box>
+          <Box sx={{ display: { xs: 'block', sm: 'none' } }}>Apps</Box>
+        </Button>
+        <Menu
+          anchorEl={modulesAnchorEl}
+          open={Boolean(modulesAnchorEl)}
+          onClose={handleModulesClose}
+          PaperProps={{
+            sx: {
+              maxHeight: '70vh',
+              width: '280px',
+              mt: 1,
+            }
+          }}
+        >
+          <MenuItem onClick={() => handleModuleClick('/dashboard')}>
+            <Home sx={{ mr: 2, fontSize: 20 }} />
+            Dashboard
+          </MenuItem>
+          <Divider />
+          {availableModules.map((module, index) => {
+            const IconComponent = module.icon;
+            return (
+              <MenuItem
+                key={index}
+                onClick={() => handleModuleClick(module.route)}
+                sx={{
+                  '&:hover': {
+                    bgcolor: `${module.color}10`,
+                  },
+                }}
+              >
+                <IconComponent sx={{ mr: 2, fontSize: 20, color: module.color }} />
+                {module.name}
+              </MenuItem>
+            );
+          })}
+        </Menu>
 
         {/* Custom Actions */}
         {actions && (

@@ -189,7 +189,34 @@ const AdmissionCharts = ({ filters = {} }) => {
                       <Cell key={`cell-${index}`} fill={COLORS[entry.status] || '#9e9e9e'} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        const percent = (payload[0].percent || 0) * 100;
+                        const rawStatus = data.status || 'unknown';
+                        const statusLabel = rawStatus
+                          .split('_')
+                          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                          .join(' ');
+
+                        return (
+                          <Box sx={{ bgcolor: 'white', p: 2, border: '1px solid #ccc', borderRadius: 1 }}>
+                            <Typography variant="body2" fontWeight="bold">
+                              {statusLabel}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              Applications: {data.count}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              Share: {percent.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -215,31 +242,6 @@ const AdmissionCharts = ({ filters = {} }) => {
                   <YAxis />
                   <Tooltip />
                   <Bar dataKey="count" fill="#f093fb" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Program Breakdown */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Applications by Program
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {analyticsData.programBreakdown.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No data available
-              </Typography>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analyticsData.programBreakdown} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="program" type="category" width={150} style={{ fontSize: '12px' }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#4facfe" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -430,15 +432,11 @@ const AdmissionCharts = ({ filters = {} }) => {
                 <BarChart data={analyticsData.sectionStats} layout="horizontal">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
-                    dataKey="name" 
+                    dataKey="label" 
                     angle={-45} 
                     textAnchor="end" 
                     height={120} 
                     style={{ fontSize: '11px' }}
-                    tickFormatter={(value, index) => {
-                      const section = analyticsData.sectionStats[index];
-                      return section ? `${section.className} - ${value}` : value;
-                    }}
                   />
                   <YAxis />
                   <Tooltip 
@@ -447,7 +445,7 @@ const AdmissionCharts = ({ filters = {} }) => {
                         const data = payload[0].payload;
                         return (
                           <Box sx={{ bgcolor: 'white', p: 2, border: '1px solid #ccc', borderRadius: 1 }}>
-                            <Typography variant="body2" fontWeight="bold">{data.className} - {data.name}</Typography>
+                            <Typography variant="body2" fontWeight="bold">{data.label}</Typography>
                             <Typography variant="caption" display="block">Capacity: {data.capacity}</Typography>
                             <Typography variant="caption" display="block">Current: {data.currentStrength}</Typography>
                             <Typography variant="caption" display="block">Available: {data.availableSeats}</Typography>

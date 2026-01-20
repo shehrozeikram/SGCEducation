@@ -26,6 +26,8 @@ import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Performance from './pages/Performance';
 import StudentPromotion from './pages/StudentPromotion';
+import Results from './pages/Results';
+import ResultForm from './pages/ResultForm';
 
 const theme = createTheme({
   palette: {
@@ -69,6 +71,7 @@ const ProtectedRoute = ({ children, title }) => {
       '/messages': 'Messages',
       '/performance': 'Performance',
       '/student-promotion': 'Student Promotion',
+      '/results': 'Results',
     };
     
     // Check for edit routes
@@ -79,6 +82,7 @@ const ProtectedRoute = ({ children, title }) => {
       if (path.includes('/groups')) return 'Edit Group';
       if (path.includes('/admissions')) return 'Edit Admission';
       if (path.includes('/users')) return 'Edit User';
+      if (path.includes('/results')) return 'Edit Result';
     }
     
     // Check for new routes
@@ -89,6 +93,7 @@ const ProtectedRoute = ({ children, title }) => {
       if (path.includes('/groups')) return 'Create Group';
       if (path.includes('/admissions')) return 'New Admission';
       if (path.includes('/users')) return 'Create User';
+      if (path.includes('/results')) return 'Create Result';
     }
     
     return titleMap[path] || 'SGC Education';
@@ -415,6 +420,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <StudentPromotion />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results"
+            element={
+              <ProtectedRoute>
+                <Results />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results/new"
+            element={
+              <ProtectedRoute>
+                <ResultForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results/edit/:id"
+            element={
+              <ProtectedRoute>
+                <ResultForm />
               </ProtectedRoute>
             }
           />

@@ -562,19 +562,50 @@ class AdmissionService {
 
     // Build institution filter for class/section queries
     const institutionFilter = {};
-    if (currentUser.role !== 'super_admin') {
-      institutionFilter.institution = currentUser.institution;
+    if (query.institution) {
+      // Reuse the same institution filter already applied above
+      institutionFilter.institution = query.institution;
+    } else if (currentUser.role !== 'super_admin') {
+      // For non-super-admin users, derive institution similarly to the main query
+      let institutionId = currentUser.institution || null;
+
+      if (institutionId && typeof institutionId === 'object') {
+        institutionId = institutionId._id || institutionId;
+      }
+
+      if (institutionId) {
+        if (mongoose.Types.ObjectId.isValid(institutionId)) {
+          institutionFilter.institution = new mongoose.Types.ObjectId(institutionId);
+        } else {
+          institutionFilter.institution = institutionId;
+        }
+      }
     } else if (filters.institution) {
-      institutionFilter.institution = new mongoose.Types.ObjectId(filters.institution);
+      // For super_admin, use institution from filters if provided
+      if (mongoose.Types.ObjectId.isValid(filters.institution)) {
+        institutionFilter.institution = new mongoose.Types.ObjectId(filters.institution);
+      } else {
+        institutionFilter.institution = filters.institution;
+      }
     }
 
     // Student Strength Class Wise - Current School
+    // Since Student doesn't have a direct class field, we get it from the admission record
     const classWiseStrength = await Student.aggregate([
       { $match: { ...institutionFilter, isActive: true } },
       {
         $lookup: {
+          from: 'admissions',
+          localField: 'admission',
+          foreignField: '_id',
+          as: 'admissionInfo'
+        }
+      },
+      { $unwind: { path: '$admissionInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: 'classes',
-          localField: 'class',
+          localField: 'admissionInfo.class',
           foreignField: '_id',
           as: 'classInfo'
         }
@@ -582,7 +613,7 @@ class AdmissionService {
       { $unwind: { path: '$classInfo', preserveNullAndEmptyArrays: false } },
       {
         $group: {
-          _id: '$class',
+          _id: '$admissionInfo.class',
           className: { $first: '$classInfo.name' },
           count: { $sum: 1 }
         }
@@ -591,19 +622,52 @@ class AdmissionService {
     ]);
 
     // Total Seats Available and Strength in Sections
+    // Since Student doesn't have a direct class field, we match by section code/name and get class from admission
     const sectionStats = await Section.aggregate([
       { $match: institutionFilter },
       {
         $lookup: {
           from: 'students',
-          let: { sectionId: '$_id' },
+          let: { 
+            sectionId: '$_id',
+            sectionCode: '$code',
+            sectionName: '$name',
+            sectionClass: '$class',
+            sectionInstitution: '$institution'
+          },
           pipeline: [
             {
               $match: {
                 $expr: {
                   $and: [
-                    { $eq: ['$section', '$$sectionId'] },
+                    // Match institution
+                    { $eq: ['$institution', '$$sectionInstitution'] },
+                    // Only active students
                     { $eq: ['$isActive', true] }
+                  ]
+                }
+              }
+            },
+            // Lookup admission to get class and section
+            {
+              $lookup: {
+                from: 'admissions',
+                localField: 'admission',
+                foreignField: '_id',
+                as: 'admissionInfo'
+              }
+            },
+            { $unwind: { path: '$admissionInfo', preserveNullAndEmptyArrays: false } },
+            // Match section by admission.section (ObjectId) matching Section._id
+            // This is more reliable than matching by Student.section (String)
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    // Match section ObjectId from admission
+                    { $eq: ['$admissionInfo.section', '$$sectionId'] },
+                    // Match class from admission
+                    { $eq: ['$admissionInfo.class', '$$sectionClass'] }
                   ]
                 }
               }
@@ -686,6 +750,7 @@ class AdmissionService {
         name: item.name,
         code: item.code,
         className: item.className || 'Unknown',
+        label: `${item.className || 'Unknown'} - ${item.name}`,
         capacity: item.capacity,
         currentStrength: item.currentStrength,
         availableSeats: item.availableSeats
@@ -727,6 +792,9 @@ class AdmissionService {
       
       case 'date-wise-admission':
         return await this.getDateWiseAdmissionReport(query, startDate, endDate);
+      
+      case 'student-strength-month-wise':
+        return await this.getStudentStrengthMonthWiseReport(query, month, year);
       
       default:
         throw new Error('Invalid report type');
@@ -929,6 +997,110 @@ class AdmissionService {
     return {
       summary: summary[0] || { total: 0, pending: 0, approved: 0, rejected: 0, enrolled: 0 },
       monthlyData
+    };
+  }
+
+  /**
+   * Get student's strength month wise (by class & section)
+   */
+  async getStudentStrengthMonthWiseReport(baseQuery, month, year) {
+    const query = { ...baseQuery };
+
+    const currentYear = year || new Date().getFullYear();
+    const monthNumber = month ? parseInt(month, 10) : (new Date().getMonth() + 1);
+
+    const startDate = new Date(currentYear, monthNumber - 1, 1);
+    const endDate = new Date(currentYear, monthNumber, 0, 23, 59, 59, 999);
+
+    query.createdAt = {
+      $gte: startDate,
+      $lte: endDate
+    };
+
+    const strengthData = await Admission.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: 'classes',
+          localField: 'class',
+          foreignField: '_id',
+          as: 'classInfo'
+        }
+      },
+      { $unwind: { path: '$classInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'sections',
+          localField: 'section',
+          foreignField: '_id',
+          as: 'sectionInfo'
+        }
+      },
+      { $unwind: { path: '$sectionInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: {
+            class: '$class',
+            section: '$section'
+          },
+          className: { $first: '$classInfo.name' },
+          sectionName: { $first: '$sectionInfo.name' },
+          total: { $sum: 1 },
+          enrolled: {
+            $sum: { $cond: [{ $eq: ['$status', 'enrolled'] }, 1, 0] }
+          },
+          male: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'male'] }, 1, 0] }
+          },
+          female: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'female'] }, 1, 0] }
+          },
+          other: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'other'] }, 1, 0] }
+          }
+        }
+      },
+      { $sort: { className: 1, sectionName: 1 } },
+      {
+        $project: {
+          _id: 0,
+          className: { $ifNull: ['$className', 'Not Assigned'] },
+          sectionName: { $ifNull: ['$sectionName', 'All'] },
+          total: 1,
+          enrolled: 1,
+          male: 1,
+          female: 1,
+          other: 1
+        }
+      }
+    ]);
+
+    // Summary for quick cards
+    const summary = await Admission.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          enrolled: {
+            $sum: { $cond: [{ $eq: ['$status', 'enrolled'] }, 1, 0] }
+          },
+          male: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'male'] }, 1, 0] }
+          },
+          female: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'female'] }, 1, 0] }
+          },
+          other: {
+            $sum: { $cond: [{ $eq: ['$personalInfo.gender', 'other'] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    return {
+      summary: summary[0] || { total: 0, enrolled: 0, male: 0, female: 0, other: 0 },
+      rows: strengthData
     };
   }
 
