@@ -32,6 +32,9 @@ import {
   Checkbox,
   FormControlLabel,
   TablePagination,
+  Card,
+  CardContent,
+  Divider,
 } from '@mui/material';
 import {
   Add,
@@ -50,6 +53,10 @@ import {
   RestartAlt,
   Delete,
   Close,
+  FolderSpecial,
+  People,
+  School,
+  CalendarToday,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -499,29 +506,200 @@ const Sections = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
-      <Box sx={{ mt: 4, mb: 4, px: 3, width: '100%' }}>
-      <Paper sx={{ p: 4 }}>
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Box>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              Sections
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage class sections
-            </Typography>
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {/* Header Section with Gradient */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4, 
+            mb: 3,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <FolderSpecial sx={{ fontSize: 40 }} />
+              </Box>
+              <Box>
+                <Typography variant="h4" gutterBottom fontWeight="bold">
+                  Sections Management
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  Organize and manage class sections efficiently
+                </Typography>
+              </Box>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => navigate('/sections/new')}
+              sx={{
+                bgcolor: 'white',
+                color: '#667eea',
+                fontWeight: 'bold',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.9)',
+                },
+              }}
+            >
+              Add New Section
+            </Button>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/sections/new')}
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            }}
-          >
-            Add Section
-          </Button>
-        </Box>
+        </Paper>
+
+        {/* Stats Cards */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid #e0e0e0',
+                background: 'linear-gradient(135deg, #667eea15 0%, #764ba205 100%)',
+              }}
+            >
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Total Sections
+                    </Typography>
+                    <Typography variant="h4" fontWeight="bold" color="#667eea">
+                      {sections.length}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      bgcolor: '#667eea15',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <FolderSpecial sx={{ fontSize: 32, color: '#667eea' }} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid #e0e0e0',
+                background: 'linear-gradient(135deg, #43e97b15 0%, #38f9d705 100%)',
+              }}
+            >
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Active Sections
+                    </Typography>
+                    <Typography variant="h4" fontWeight="bold" color="#43e97b">
+                      {sections.filter(s => s.isActive !== false).length}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      bgcolor: '#43e97b15',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <School sx={{ fontSize: 32, color: '#43e97b' }} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid #e0e0e0',
+                background: 'linear-gradient(135deg, #f093fb15 0%, #f5576c05 100%)',
+              }}
+            >
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Total Capacity
+                    </Typography>
+                    <Typography variant="h4" fontWeight="bold" color="#f093fb">
+                      {sections.reduce((sum, s) => sum + (s.capacity || 0), 0)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      bgcolor: '#f093fb15',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <People sx={{ fontSize: 32, color: '#f093fb' }} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid #e0e0e0',
+                background: 'linear-gradient(135deg, #4facfe15 0%, #00f2fe05 100%)',
+              }}
+            >
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Unique Classes
+                    </Typography>
+                    <Typography variant="h4" fontWeight="bold" color="#4facfe">
+                      {new Set(sections.map(s => s.class?._id).filter(Boolean)).size}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      bgcolor: '#4facfe15',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <CalendarToday sx={{ fontSize: 32, color: '#4facfe' }} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Main Content */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4,
+            borderRadius: 3,
+            border: '1px solid #e0e0e0',
+          }}
+        >
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
@@ -529,103 +707,190 @@ const Sections = () => {
           </Alert>
         )}
 
-        {/* Search Filter */}
-        <Box display="flex" gap={2} mb={3} flexWrap="wrap">
-          <TextField
-            fullWidth
-            placeholder="Search by section name or code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
+          {/* Search Section */}
+          <Box display="flex" gap={2} mb={3} flexWrap="wrap" alignItems="center">
+            <TextField
+              fullWidth
+              placeholder="Search sections by name or code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: '#667eea' }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ 
+                flex: 1, 
+                minWidth: '200px',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#667eea',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#667eea',
+                  },
+                },
+              }}
+            />
+          </Box>
+
+          {/* Warning Message */}
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 3,
+              borderRadius: 2,
             }}
-          />
-        </Box>
+          >
+            * The Sections that are InActive, there attendance would not be loaded.
+          </Alert>
+          <Divider sx={{ mb: 3 }} />
 
-        {/* Warning Message */}
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          * The Sections that are InActive, there attendance would not be loaded.
-        </Alert>
-
-        {/* Table */}
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
-                <TableCell><strong>Class</strong></TableCell>
-                <TableCell><strong>Section</strong></TableCell>
-                <TableCell><strong>Session</strong></TableCell>
-                <TableCell><strong>Strength</strong></TableCell>
-                <TableCell><strong>Created By</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell align="center"><strong>Action</strong></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredSections.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <Box py={4}>
-                      <Typography variant="body2" color="text.secondary">
-                        No sections found
-                      </Typography>
-                    </Box>
-                  </TableCell>
+          {/* Table */}
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ 
+                  bgcolor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  '& .MuiTableCell-head': { 
+                    color: 'white', 
+                    fontWeight: 'bold',
+                    fontSize: '0.95rem',
+                    py: 2,
+                  } 
+                }}>
+                  <TableCell>Class</TableCell>
+                  <TableCell>Section</TableCell>
+                  <TableCell>Academic Year</TableCell>
+                  <TableCell>Capacity</TableCell>
+                  <TableCell>Created By</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
-              ) : (
-                filteredSections.map((section) => (
-                  <TableRow key={section._id} hover>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {capitalizeFirstOnly(section.class?.name || 'N/A')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {capitalizeFirstOnly(section.name || section.code || 'N/A')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {section.academicYear || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {section.capacity || 0}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {capitalizeFirstOnly(section.createdBy?.name || 'admin')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={section.isActive ? 'Active' : 'Inactive'}
-                        size="small"
-                        color={section.isActive ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={(e) => handleMenuOpen(e, section)}
-                      >
-                        <MoreVert fontSize="small" />
-                      </IconButton>
+              </TableHead>
+              <TableBody>
+                {filteredSections.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Box py={6}>
+                        <FolderSpecial sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No sections found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          {searchTerm ? 'Try adjusting your search criteria' : 'Get started by creating your first section'}
+                        </Typography>
+                        {!searchTerm && (
+                          <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={() => navigate('/sections/new')}
+                            sx={{
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            }}
+                          >
+                            Create First Section
+                          </Button>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ) : (
+                  pagination.getPaginatedData(filteredSections).map((section) => (
+                    <TableRow 
+                      key={section._id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: '#f5f5f5',
+                        },
+                      }}
+                    >
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <School sx={{ fontSize: 20, color: '#667eea' }} />
+                          <Typography variant="body2" fontWeight="medium">
+                            {capitalizeFirstOnly(section.class?.name || 'N/A')}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <FolderSpecial sx={{ fontSize: 20, color: '#f093fb' }} />
+                          <Typography variant="body2" fontWeight="medium">
+                            {capitalizeFirstOnly(section.name || section.code || 'N/A')}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={section.academicYear || 'N/A'} 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: '#4facfe15',
+                            color: '#4facfe',
+                            fontWeight: 'medium',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {section.capacity || 0}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {capitalizeFirstOnly(section.createdBy?.name || 'admin')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={section.isActive ? 'Active' : 'Inactive'}
+                          size="small"
+                          sx={{
+                            bgcolor: section.isActive ? '#43e97b15' : '#e0e0e0',
+                            color: section.isActive ? '#43e97b' : '#757575',
+                            fontWeight: 'medium',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleMenuOpen(e, section)}
+                          sx={{
+                            color: '#667eea',
+                            '&:hover': {
+                              bgcolor: '#667eea15',
+                            },
+                          }}
+                        >
+                          <MoreVert fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {filteredSections.length > 0 && (
+              <TablePagination
+                component="div"
+                count={filteredSections.length}
+                page={pagination.page}
+                onPageChange={pagination.handleChangePage}
+                rowsPerPage={pagination.rowsPerPage}
+                onRowsPerPageChange={pagination.handleChangeRowsPerPage}
+                rowsPerPageOptions={pagination.rowsPerPageOptions}
+                labelRowsPerPage="Rows per page:"
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
+              />
+            )}
+          </TableContainer>
 
         {/* Actions Menu */}
         <Menu
@@ -709,11 +974,26 @@ const Sections = () => {
           onClose={handleCloseInchargeDialog}
           maxWidth="md"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+            }
+          }}
         >
-          <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight="bold">
-              SECTION INCHARGE
-            </Typography>
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            fontWeight: 'bold',
+          }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Person />
+              <Typography variant="h6" fontWeight="bold">
+                Section Incharge Management
+              </Typography>
+            </Box>
             <IconButton onClick={handleCloseInchargeDialog} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -814,20 +1094,25 @@ const Sections = () => {
             </TableContainer>
           </DialogContent>
           
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, pt: 1 }}>
             <Button 
               onClick={handleCloseInchargeDialog} 
               variant="outlined"
-              color="inherit"
+              sx={{ textTransform: 'none', borderRadius: 2 }}
             >
-              Close
+              Cancel
             </Button>
             <Button 
               onClick={handleSaveIncharge} 
               variant="contained"
-              color="primary"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 'bold',
+              }}
             >
-              Save
+              Save Assignment
             </Button>
           </DialogActions>
         </Dialog>
@@ -838,11 +1123,26 @@ const Sections = () => {
           onClose={handleCloseLeaveDialog}
           maxWidth="md"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+            }
+          }}
         >
-          <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight="bold">
-              SECTION LEAVE
-            </Typography>
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            fontWeight: 'bold',
+          }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Event />
+              <Typography variant="h6" fontWeight="bold">
+                Section Leave Management
+              </Typography>
+            </Box>
             <IconButton onClick={handleCloseLeaveDialog} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -922,20 +1222,25 @@ const Sections = () => {
             </TableContainer>
           </DialogContent>
           
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, pt: 1 }}>
             <Button 
               onClick={handleCloseLeaveDialog} 
               variant="outlined"
-              color="inherit"
+              sx={{ textTransform: 'none', borderRadius: 2 }}
             >
-              Close
+              Cancel
             </Button>
             <Button 
               onClick={handleSaveLeave} 
               variant="contained"
-              color="primary"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 'bold',
+              }}
             >
-              Save
+              Save Leave
             </Button>
           </DialogActions>
         </Dialog>
@@ -946,11 +1251,26 @@ const Sections = () => {
           onClose={handleCloseRollNumberDialog}
           maxWidth="sm"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+            }
+          }}
         >
-          <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight="bold">
-              ROLL NUMBER SETTING
-            </Typography>
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            fontWeight: 'bold',
+          }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <FormatListNumbered />
+              <Typography variant="h6" fontWeight="bold">
+                Roll Number Settings
+              </Typography>
+            </Box>
             <IconButton onClick={handleCloseRollNumberDialog} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -1009,20 +1329,25 @@ const Sections = () => {
             </Box>
           </DialogContent>
           
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, pt: 1 }}>
             <Button 
               onClick={handleCloseRollNumberDialog} 
               variant="outlined"
-              color="inherit"
+              sx={{ textTransform: 'none', borderRadius: 2 }}
             >
-              Close
+              Cancel
             </Button>
             <Button 
               onClick={handleUpdateRollNumberSetting} 
               variant="contained"
-              color="primary"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 'bold',
+              }}
             >
-              Update
+              Update Settings
             </Button>
           </DialogActions>
         </Dialog>
@@ -1033,11 +1358,26 @@ const Sections = () => {
           onClose={handleCancelReset}
           maxWidth="sm"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+            }
+          }}
         >
-          <DialogTitle sx={{ bgcolor: '#f44336', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight="bold">
-              ⚠️ Warning
-            </Typography>
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+            color: 'white', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            fontWeight: 'bold',
+          }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <RestartAlt />
+              <Typography variant="h6" fontWeight="bold">
+                Warning: Reset Roll Numbers
+              </Typography>
+            </Box>
             <IconButton onClick={handleCancelReset} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -1054,25 +1394,33 @@ const Sections = () => {
             </Box>
           </DialogContent>
           
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, pt: 1 }}>
             <Button 
               onClick={handleCancelReset} 
               variant="outlined"
-              color="inherit"
+              sx={{ textTransform: 'none', borderRadius: 2 }}
             >
               Cancel
             </Button>
             <Button 
               onClick={handleConfirmReset} 
               variant="contained"
-              color="error"
+              sx={{
+                bgcolor: '#f44336',
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 'bold',
+                '&:hover': {
+                  bgcolor: '#d32f2f',
+                },
+              }}
             >
               Yes, Reset
             </Button>
           </DialogActions>
         </Dialog>
-      </Paper>
-      </Box>
+        </Paper>
+      </Container>
     </Box>
   );
 };

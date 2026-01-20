@@ -18,10 +18,14 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  Card,
+  CardContent,
+  Divider,
 } from '@mui/material';
-import { Save, ArrowBack, Add, Close } from '@mui/icons-material';
+import { Save, ArrowBack, Add, Close, Class as ClassIcon, Info, Description, Payment } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 
 const ClassForm = () => {
   const navigate = useNavigate();
@@ -92,8 +96,8 @@ const ClassForm = () => {
     try {
       const token = localStorage.getItem('token');
       const url = formData.institution 
-        ? `http://localhost:5000/api/v1/fee-types?institution=${formData.institution}`
-        : 'http://localhost:5000/api/v1/fee-types';
+        ? getApiUrl(`fee-types?institution=${formData.institution}`)
+        : getApiUrl('fee-types');
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -108,8 +112,8 @@ const ClassForm = () => {
     try {
       const token = localStorage.getItem('token');
       const url = formData.institution
-        ? `http://localhost:5000/api/v1/groups?institution=${formData.institution}`
-        : 'http://localhost:5000/api/v1/groups';
+        ? getApiUrl(`groups?institution=${formData.institution}`)
+        : getApiUrl('groups');
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -125,7 +129,7 @@ const ClassForm = () => {
       setFetchLoading(true);
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:5000/api/v1/classes/${id}`,
+        getApiUrl(`classes/${id}`),
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -168,7 +172,7 @@ const ClassForm = () => {
       }
       
       const response = await axios.post(
-        'http://localhost:5000/api/v1/fee-types',
+        getApiUrl('fee-types'),
         {
           ...newFeeType,
           institution: institutionId || undefined
@@ -249,14 +253,14 @@ const ClassForm = () => {
 
       if (isEditMode) {
         await axios.put(
-          `http://localhost:5000/api/v1/classes/${id}`,
+          getApiUrl(`classes/${id}`),
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setSuccess('Class updated successfully!');
       } else {
         await axios.post(
-          'http://localhost:5000/api/v1/classes',
+          getApiUrl('classes'),
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -286,142 +290,299 @@ const ClassForm = () => {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
       <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 4 }}>
-        {/* Header */}
-        <Box display="flex" alignItems="center" mb={3}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => navigate('/classes')}
-            sx={{ mr: 2 }}
+        {/* Header Section with Gradient */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4, 
+            mb: 3,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={() => navigate('/classes')}
+              sx={{ 
+                mr: 2,
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.3)',
+                },
+              }}
+            >
+              Back
+            </Button>
+            <Box
+              sx={{
+                p: 1.5,
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ClassIcon sx={{ fontSize: 32 }} />
+            </Box>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                {isEditMode ? 'Edit Class' : 'Create New Class'}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                {isEditMode ? 'Update class information' : 'Add a new class to your system'}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Main Form */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4,
+            borderRadius: 3,
+            border: '1px solid #e0e0e0',
+          }}
+        >
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {success}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit}>
+            {/* Basic Information Section */}
+          <Card 
+            elevation={0}
+            sx={{ 
+              mb: 3,
+              border: '1px solid #e0e0e0',
+              borderRadius: 2,
+            }}
           >
-            Back
-          </Button>
-          <Typography variant="h4" fontWeight="bold">
-            {isEditMode ? 'Edit Class' : 'Add New Class'}
-          </Typography>
-        </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            {success}
-          </Alert>
-        )}
-
-        {/* Form */}
-        <Box component="form" onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Class Name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Class Name"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Class Code"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
-                placeholder="Class Code"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Group</InputLabel>
-                <Select
-                  name="group"
-                  value={formData.group}
-                  onChange={handleChange}
-                  label="Group"
-                >
-                  <MenuItem value="">Select Group</MenuItem>
-                  {groups.map((group) => (
-                    <MenuItem key={group._id} value={group._id}>
-                      {group.name} ({group.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <FormControl fullWidth>
-                  <InputLabel>Fee Type</InputLabel>
-                  <Select
-                    name="feeType"
-                    value={formData.feeType}
+            <CardContent>
+              <Box display="flex" alignItems="center" gap={1} mb={3}>
+                <Info sx={{ color: '#667eea' }} />
+                <Typography variant="h6" fontWeight="bold" color="#667eea">
+                  Basic Information
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 3 }} />
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Class Name"
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
-                    label="Fee Type"
-                  >
-                    <MenuItem value="">Select Fee Type</MenuItem>
-                    {feeTypes.map((feeType) => (
-                      <MenuItem key={feeType._id} value={feeType._id}>
-                        {feeType.name} ({feeType.code}) - PKR {feeType.amount}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <IconButton
-                  color="primary"
-                  onClick={() => setFeeTypeDialogOpen(true)}
-                  sx={{ mt: 1 }}
-                  title="Add New Fee Type"
-                >
-                  <Add />
-                </IconButton>
-              </Box>
-            </Grid>
+                    placeholder="Enter class name (e.g., 1st Class, 2nd Class)"
+                    InputProps={{
+                      startAdornment: (
+                        <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                          <ClassIcon sx={{ color: '#667eea', fontSize: 20 }} />
+                        </Box>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': {
+                          borderColor: '#667eea',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#667eea',
+                        },
+                      },
+                    }}
+                  />
+                </Grid>
 
-            <Grid item xs={12}>
-              <Box display="flex" gap={2} justifyContent="flex-end" sx={{ mt: 3 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => navigate('/classes')}
-                  sx={{ minWidth: 100 }}
-                >
-                  Close
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={<Save />}
-                  disabled={loading}
-                  sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    minWidth: 100
-                  }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Save'}
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </Box>
-      </Paper>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Class Code"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    placeholder="Enter class code (e.g., CLS001)"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': {
+                          borderColor: '#667eea',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#667eea',
+                        },
+                      },
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl 
+                    fullWidth 
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': {
+                          borderColor: '#667eea',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#667eea',
+                        },
+                      },
+                    }}
+                  >
+                    <InputLabel>Group</InputLabel>
+                    <Select
+                      name="group"
+                      value={formData.group}
+                      onChange={handleChange}
+                      label="Group"
+                    >
+                      <MenuItem value="">Select Group</MenuItem>
+                      {groups.map((group) => (
+                        <MenuItem key={group._id} value={group._id}>
+                          {group.name} ({group.code})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <FormControl 
+                      fullWidth
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          },
+                        },
+                      }}
+                    >
+                      <InputLabel>Fee Type</InputLabel>
+                      <Select
+                        name="feeType"
+                        value={formData.feeType}
+                        onChange={handleChange}
+                        label="Fee Type"
+                      >
+                        <MenuItem value="">Select Fee Type</MenuItem>
+                        {feeTypes.map((feeType) => (
+                          <MenuItem key={feeType._id} value={feeType._id}>
+                            {feeType.name} ({feeType.code}) - PKR {feeType.amount}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <IconButton
+                      color="primary"
+                      onClick={() => setFeeTypeDialogOpen(true)}
+                      sx={{ 
+                        mt: 1,
+                        bgcolor: '#667eea15',
+                        '&:hover': {
+                          bgcolor: '#667eea25',
+                        },
+                      }}
+                      title="Add New Fee Type"
+                    >
+                      <Add />
+                    </IconButton>
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+            <Divider sx={{ my: 3 }} />
+            <Box display="flex" gap={2} justifyContent="flex-end" flexWrap="wrap">
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/classes')}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 3,
+                  borderColor: '#667eea',
+                  color: '#667eea',
+                  '&:hover': {
+                    borderColor: '#5568d3',
+                    bgcolor: '#667eea15',
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={loading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Save />}
+                disabled={loading}
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 4,
+                  fontWeight: 'bold',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5568d3 0%, #653a8b 100%)',
+                  },
+                }}
+              >
+                {loading ? 'Saving...' : isEditMode ? 'Update Class' : 'Create Class'}
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
       </Container>
 
       {/* Add Fee Type Dialog */}
-      <Dialog open={feeTypeDialogOpen} onClose={() => setFeeTypeDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={feeTypeDialogOpen} 
+        onClose={() => setFeeTypeDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            fontWeight: 'bold',
+          }}
+        >
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Add New Fee Type</Typography>
-            <IconButton onClick={() => setFeeTypeDialogOpen(false)} size="small">
+            <Box display="flex" alignItems="center" gap={1}>
+              <Payment />
+              <Typography variant="h6">Add New Fee Type</Typography>
+            </Box>
+            <IconButton onClick={() => setFeeTypeDialogOpen(false)} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
           </Box>
@@ -460,14 +621,22 @@ const ClassForm = () => {
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFeeTypeDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ p: 2, pt: 1 }}>
+          <Button 
+            onClick={() => setFeeTypeDialogOpen(false)}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleAddFeeType}
             variant="contained"
             disabled={!newFeeType.name || !newFeeType.code}
             sx={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              textTransform: 'none',
+              borderRadius: 2,
+              fontWeight: 'bold',
             }}
           >
             Add Fee Type

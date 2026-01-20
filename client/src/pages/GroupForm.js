@@ -8,10 +8,15 @@ import {
   Button,
   Alert,
   CircularProgress,
+  Card,
+  CardContent,
+  Divider,
+  Grid,
 } from '@mui/material';
-import { Save, ArrowBack } from '@mui/icons-material';
+import { Save, ArrowBack, Group as GroupIcon, Description, Info } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 
 const GroupForm = () => {
   const navigate = useNavigate();
@@ -80,7 +85,7 @@ const GroupForm = () => {
     if (!formData.institution) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/v1/departments?institution=${formData.institution}`, {
+      const response = await axios.get(getApiUrl(`departments?institution=${formData.institution}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const depts = response.data.data || [];
@@ -99,7 +104,7 @@ const GroupForm = () => {
       setFetchLoading(true);
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:5000/api/v1/groups/${id}`,
+        getApiUrl(`groups/${id}`),
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -218,7 +223,7 @@ const GroupForm = () => {
 
       if (isEditMode) {
         await axios.put(
-          `http://localhost:5000/api/v1/groups/${id}`,
+          getApiUrl(`groups/${id}`),
           payload,
           {
             headers: { Authorization: `Bearer ${token}` }
@@ -227,7 +232,7 @@ const GroupForm = () => {
         setSuccess('Group updated successfully!');
       } else {
         await axios.post(
-          'http://localhost:5000/api/v1/groups',
+          getApiUrl('groups'),
           payload,
           {
             headers: { Authorization: `Bearer ${token}` }
@@ -258,62 +263,247 @@ const GroupForm = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
-      <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
-        <Paper sx={{ p: 4 }}>
-          <Box display="flex" alignItems="center" mb={3}>
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        {/* Header Section with Gradient */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4, 
+            mb: 3,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
             <Button
               startIcon={<ArrowBack />}
               onClick={() => navigate('/groups')}
-              sx={{ mr: 2 }}
+              sx={{ 
+                mr: 2,
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.3)',
+                },
+              }}
             >
               Back
             </Button>
-            <Typography variant="h4" fontWeight="bold">
-              {isEditMode ? 'Edit Group' : 'Add New Group'}
-            </Typography>
+            <Box
+              sx={{
+                p: 1.5,
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <GroupIcon sx={{ fontSize: 32 }} />
+            </Box>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                {isEditMode ? 'Edit Group' : 'Create New Group'}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                {isEditMode ? 'Update group information' : 'Add a new group to your system'}
+              </Typography>
+            </Box>
           </Box>
+        </Paper>
+
+        {/* Main Form */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4,
+            borderRadius: 3,
+            border: '1px solid #e0e0e0',
+          }}
+        >
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+            <Alert 
+              severity="error" 
+              sx={{ mb: 3, borderRadius: 2 }} 
+              onClose={() => setError('')}
+            >
               {error}
             </Alert>
           )}
 
           {success && (
-            <Alert severity="success" sx={{ mb: 3 }}>
+            <Alert 
+              severity="success" 
+              sx={{ mb: 3, borderRadius: 2 }}
+            >
               {success}
             </Alert>
           )}
 
           <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              required
-              label="Group Name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Group Name"
-              sx={{ mb: 3 }}
-            />
+            {/* Basic Information Section */}
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3,
+                border: '1px solid #e0e0e0',
+                borderRadius: 2,
+              }}
+            >
+              <CardContent>
+                <Box display="flex" alignItems="center" gap={1} mb={3}>
+                  <Info sx={{ color: '#667eea' }} />
+                  <Typography variant="h6" fontWeight="bold" color="#667eea">
+                    Basic Information
+                  </Typography>
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      required
+                      label="Group Name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Enter group name (e.g., Science Group, Arts Group)"
+                      InputProps={{
+                        startAdornment: (
+                          <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                            <GroupIcon sx={{ color: '#667eea', fontSize: 20 }} />
+                          </Box>
+                        ),
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Group Code"
+                      name="code"
+                      value={formData.code}
+                      onChange={handleChange}
+                      placeholder="Auto-generated if left empty"
+                      helperText="Leave empty to auto-generate from name"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Academic Year"
+                      name="academicYear"
+                      value={formData.academicYear}
+                      onChange={handleChange}
+                      placeholder="2024-2025"
+                      helperText="Format: YYYY-YYYY"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="Description"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      placeholder="Enter a brief description of this group..."
+                      InputProps={{
+                        startAdornment: (
+                          <Box sx={{ mr: 1, display: 'flex', alignItems: 'flex-start', pt: 1 }}>
+                            <Description sx={{ color: '#667eea', fontSize: 20 }} />
+                          </Box>
+                        ),
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
 
-            <Box display="flex" gap={2} justifyContent="flex-end">
+            <Divider sx={{ my: 3 }} />
+            <Box display="flex" gap={2} justifyContent="flex-end" flexWrap="wrap">
               <Button
                 variant="outlined"
                 onClick={() => navigate('/groups')}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 3,
+                  borderColor: '#667eea',
+                  color: '#667eea',
+                  '&:hover': {
+                    borderColor: '#5568d3',
+                    bgcolor: '#667eea15',
+                  },
+                }}
               >
-                Close
+                Cancel
               </Button>
               <Button
                 type="submit"
                 variant="contained"
-                startIcon={<Save />}
+                startIcon={loading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Save />}
                 disabled={loading}
                 sx={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 4,
+                  fontWeight: 'bold',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5568d3 0%, #653a8b 100%)',
+                  },
                 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Save'}
+                {loading ? 'Saving...' : isEditMode ? 'Update Group' : 'Create Group'}
               </Button>
             </Box>
           </Box>
