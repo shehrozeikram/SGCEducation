@@ -485,9 +485,9 @@ const StudentPromotion = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%' }}>
-        <Paper sx={{ p: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5', overflowX: 'hidden' }}>
+      <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <Paper sx={{ p: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h4" fontWeight="bold" color="#667eea">
               Student Promotion & Transfer
@@ -517,7 +517,7 @@ const StudentPromotion = () => {
           </Box>
 
           {tabValue < 3 && (
-            <Box>
+            <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
               {/* Student Selection Section */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
@@ -570,8 +570,8 @@ const StudentPromotion = () => {
                   <CircularProgress />
                 </Box>
               ) : (
-                <TableContainer component={Paper}>
-                  <Table>
+                <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
+                  <Table sx={{ minWidth: 650 }}>
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#667eea', '& .MuiTableCell-head': { color: 'white', fontWeight: 'bold' } }}>
                         <TableCell padding="checkbox">
@@ -658,7 +658,7 @@ const StudentPromotion = () => {
                   {tabValue === 0 ? 'PROMOTION DETAILS' : tabValue === 1 ? 'TRANSFER DETAILS' : 'PASS OUT DETAILS'}
                 </Typography>
 
-                    <Grid container spacing={2}>
+                    <Grid container spacing={2} sx={{ width: '100%', maxWidth: '100%' }}>
                       {/* From Section */}
                       <Grid item xs={12}>
                         <Divider sx={{ mb: 2 }}>
@@ -848,7 +848,7 @@ const StudentPromotion = () => {
 
           {/* History Tab */}
           {tabValue === 3 && (
-            <Box>
+            <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
               <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                 <FormControl size="small" sx={{ minWidth: 200 }}>
                   <InputLabel>Institution</InputLabel>
@@ -889,8 +889,8 @@ const StudentPromotion = () => {
                 </Button>
               </Box>
 
-              <TableContainer>
-                <Table>
+              <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+                <Table sx={{ minWidth: 650 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>
