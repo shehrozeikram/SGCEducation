@@ -18,6 +18,7 @@ import {
 import { Assessment, Download, PictureAsPdf, TableChart } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
+import { getApiUrl } from '../../config/api';
 import * as XLSX from 'xlsx';
 
 const AdmissionByMonthReport = () => {
@@ -161,7 +162,7 @@ const AdmissionByMonthReport = () => {
       setError('');
       const token = localStorage.getItem('token');
 
-      const response = await axios.get('http://localhost:5000/api/v1/admissions/reports/by-month-detailed', {
+      const response = await axios.get(getApiUrl('admissions/reports/by-month-detailed'), {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           month: filters.month,

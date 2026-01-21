@@ -46,8 +46,9 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { format } from 'date-fns';
+import { getApiBaseUrl } from '../config/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = getApiBaseUrl();
 
 const Performance = () => {
   const [systemHealth, setSystemHealth] = useState(null);

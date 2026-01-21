@@ -22,8 +22,9 @@ import {
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiBaseUrl } from '../config/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = getApiBaseUrl();
 
 const Settings = () => {
   const [currentTab, setCurrentTab] = useState(0);

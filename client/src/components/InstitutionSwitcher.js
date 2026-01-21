@@ -26,8 +26,9 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiBaseUrl } from '../config/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = getApiBaseUrl();
 
 const InstitutionSwitcher = () => {
   const navigate = useNavigate();

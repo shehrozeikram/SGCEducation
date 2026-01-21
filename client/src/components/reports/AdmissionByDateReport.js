@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { Assessment, DateRange, Print } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiUrl } from '../../config/api';
 
 const AdmissionByDateReport = () => {
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ const AdmissionByDateReport = () => {
         const token = localStorage.getItem('token');
         
         if (isSuperAdmin) {
-          const response = await axios.get('http://localhost:5000/api/v1/institutions', {
+          const response = await axios.get(getApiUrl('institutions'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           setInstitutions(response.data.data || []);
@@ -65,7 +66,7 @@ const AdmissionByDateReport = () => {
           // For non-superadmin (admin role), fetch all institutions
           // The API will automatically filter to return only their institution
           try {
-            const response = await axios.get('http://localhost:5000/api/v1/institutions', {
+            const response = await axios.get(getApiUrl('institutions'), {
               headers: { Authorization: `Bearer ${token}` }
             });
             const fetchedInstitutions = response.data.data || [];
@@ -155,7 +156,7 @@ const AdmissionByDateReport = () => {
       setError('');
       const token = localStorage.getItem('token');
 
-      const response = await axios.get('http://localhost:5000/api/v1/admissions/reports/by-date', {
+      const response = await axios.get(getApiUrl('admissions/reports/by-date'), {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           institutions: selectedInstitutions.join(','),

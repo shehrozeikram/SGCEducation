@@ -37,8 +37,9 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
+import { getApiBaseUrl } from '../config/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = getApiBaseUrl();
 
 const Calendar = () => {
   const [events, setEvents] = useState([]);

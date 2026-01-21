@@ -68,8 +68,9 @@ import {
   formatCurrency,
   matchesVoucherMonthYear
 } from '../utils/feeUtils';
+import { getApiBaseUrl } from '../config/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = getApiBaseUrl();
 
 const FeeManagement = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');

@@ -48,6 +48,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { createAdmission, updateAdmission, getAdmissionById, updateAdmissionStatus, approveAndEnroll } from '../services/admissionService';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 import { capitalizeFirstOnly } from '../utils/textUtils';
 
 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -212,7 +213,7 @@ const AdmissionForm = () => {
       // For new admission: fetch dropdowns with current institution
       fetchClasses();
       fetchSections();
-      fetchGroups();
+      fetchGroups(getInstitutionId());
     }
     
     // Update institution when selectedInstitution changes
@@ -242,11 +243,17 @@ const AdmissionForm = () => {
     return fetchSectionsWithInstitution(institutionId);
   };
 
-  const fetchGroups = async () => {
+  const fetchGroups = async (institutionIdParam) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/v1/groups', {
-        headers: { Authorization: `Bearer ${token}` }
+      const params = {};
+      const institutionId = institutionIdParam || getInstitutionId();
+      if (institutionId) {
+        params.institution = institutionId;
+      }
+      const response = await axios.get(getApiUrl('groups'), {
+        headers: { Authorization: `Bearer ${token}` },
+        params
       });
       setGroups(response.data.data || []);
     } catch (err) {
@@ -305,7 +312,7 @@ const AdmissionForm = () => {
         params.institution = institutionId;
       }
       
-      const response = await axios.get('http://localhost:5000/api/v1/classes', {
+      const response = await axios.get(getApiUrl('classes'), {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
@@ -326,7 +333,7 @@ const AdmissionForm = () => {
         params.institution = institutionId;
       }
       
-      const response = await axios.get('http://localhost:5000/api/v1/sections', {
+      const response = await axios.get(getApiUrl('sections'), {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
@@ -352,7 +359,7 @@ const AdmissionForm = () => {
       await Promise.all([
         fetchClassesWithInstitution(institutionId),
         fetchSectionsWithInstitution(institutionId),
-        fetchGroups()
+        fetchGroups(institutionId)
       ]);
       
       // Map backend data to form structure
@@ -488,7 +495,7 @@ const AdmissionForm = () => {
       };
       
       const response = await axios.post(
-        'http://localhost:5000/api/v1/classes',
+        getApiUrl('classes'),
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -505,7 +512,7 @@ const AdmissionForm = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/v1/sections',
+        getApiUrl('sections'),
         {
           name: newSection.name,
           code: newSection.code,
@@ -528,7 +535,7 @@ const AdmissionForm = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/v1/groups',
+        getApiUrl('groups'),
         {
           name: newGroup.name,
           institution: user.institution || undefined,
