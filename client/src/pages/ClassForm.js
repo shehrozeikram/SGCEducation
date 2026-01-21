@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -13,16 +13,11 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
   Card,
   CardContent,
   Divider,
 } from '@mui/material';
-import { Save, ArrowBack, Add, Close, Class as ClassIcon, Info, Description, Payment } from '@mui/icons-material';
+import { Save, ArrowBack, Class as ClassIcon, Info } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
@@ -36,13 +31,8 @@ const ClassForm = () => {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [feeTypes, setFeeTypes] = useState([]);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
-
-  // Dialogs for adding new items
-  const [feeTypeDialogOpen, setFeeTypeDialogOpen] = useState(false);
-  const [newFeeType, setNewFeeType] = useState({ name: '', code: '', amount: 0 });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
@@ -59,11 +49,21 @@ const ClassForm = () => {
     institution: getUserInstitutionId(),
     department: '',
     group: '',
-    feeType: '',
     academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
   });
 
   const location = useLocation();
+
+  const getSelectedInstitutionId = () => {
+    const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+    if (!selectedInstitutionStr) return '';
+    try {
+      const parsed = JSON.parse(selectedInstitutionStr);
+      return parsed?._id || parsed || '';
+    } catch {
+      return selectedInstitutionStr;
+    }
+  };
 
   // Initialise institution/department from user or URL (e.g. ?department=...)
   useEffect(() => {
@@ -77,8 +77,6 @@ const ClassForm = () => {
   }, [location.search]);
 
   useEffect(() => {
-    fetchFeeTypes();
-    fetchGroups();
     if (!isEditMode) {
       // For new class, ensure we have a department if provided via query
       const params = new URLSearchParams(location.search);
@@ -92,27 +90,12 @@ const ClassForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, location.search]);
 
-  const fetchFeeTypes = async () => {
+  const fetchGroups = useCallback(async (institutionIdParam) => {
     try {
       const token = localStorage.getItem('token');
-      const url = formData.institution 
-        ? getApiUrl(`fee-types?institution=${formData.institution}`)
-        : getApiUrl('fee-types');
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setFeeTypes(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching fee types:', err);
-      setFeeTypes([]);
-    }
-  };
-
-  const fetchGroups = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const url = formData.institution
-        ? getApiUrl(`groups?institution=${formData.institution}`)
+      const institutionId = institutionIdParam || formData.institution || getSelectedInstitutionId();
+      const url = institutionId
+        ? getApiUrl(`groups?institution=${institutionId}`)
         : getApiUrl('groups');
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -122,7 +105,13 @@ const ClassForm = () => {
       console.error('Error fetching groups:', err);
       setGroups([]);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.institution]);
+
+  // Refetch groups whenever institution changes (for super-admin)
+  useEffect(() => {
+    fetchGroups(formData.institution);
+  }, [fetchGroups, formData.institution]);
 
   const fetchClass = async () => {
     try {
@@ -142,7 +131,6 @@ const ClassForm = () => {
         institution: cls.institution?._id || user.institution || '',
         department: cls.department?._id || '',
         group: cls.group?._id || '',
-        feeType: cls.feeType?._id || '',
         academicYear: cls.academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
       });
     } catch (err) {
@@ -158,37 +146,6 @@ const ClassForm = () => {
       ...formData,
       [name]: value
     });
-  };
-
-  const handleAddFeeType = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
-      // Extract institution ID if it's an object
-      let institutionId = user.institution;
-      if (institutionId && typeof institutionId === 'object') {
-        institutionId = institutionId._id;
-      }
-      
-      const response = await axios.post(
-        getApiUrl('fee-types'),
-        {
-          ...newFeeType,
-          institution: institutionId || undefined
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setFeeTypes([...feeTypes, response.data.data]);
-      setFormData({ ...formData, feeType: response.data.data._id });
-      setFeeTypeDialogOpen(false);
-      setNewFeeType({ name: '', code: '', amount: 0 });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add fee type');
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -242,7 +199,6 @@ const ClassForm = () => {
         name: formData.name,
         code: formData.code,
         group: formData.group,
-        feeType: formData.feeType,
         academicYear: formData.academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
         institution: institutionId,
         // department is optional; include if present (from form or query)
@@ -465,53 +421,6 @@ const ClassForm = () => {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                    <FormControl 
-                      fullWidth
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 2,
-                          '&:hover fieldset': {
-                            borderColor: '#667eea',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#667eea',
-                          },
-                        },
-                      }}
-                    >
-                      <InputLabel>Fee Type</InputLabel>
-                      <Select
-                        name="feeType"
-                        value={formData.feeType}
-                        onChange={handleChange}
-                        label="Fee Type"
-                      >
-                        <MenuItem value="">Select Fee Type</MenuItem>
-                        {feeTypes.map((feeType) => (
-                          <MenuItem key={feeType._id} value={feeType._id}>
-                            {feeType.name} ({feeType.code}) - PKR {feeType.amount}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <IconButton
-                      color="primary"
-                      onClick={() => setFeeTypeDialogOpen(true)}
-                      sx={{ 
-                        mt: 1,
-                        bgcolor: '#667eea15',
-                        '&:hover': {
-                          bgcolor: '#667eea25',
-                        },
-                      }}
-                      title="Add New Fee Type"
-                    >
-                      <Add />
-                    </IconButton>
-                  </Box>
-                </Grid>
               </Grid>
             </CardContent>
           </Card>
@@ -558,91 +467,6 @@ const ClassForm = () => {
         </Paper>
       </Container>
 
-      {/* Add Fee Type Dialog */}
-      <Dialog 
-        open={feeTypeDialogOpen} 
-        onClose={() => setFeeTypeDialogOpen(false)} 
-        maxWidth="sm" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-          }
-        }}
-      >
-        <DialogTitle
-          sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            fontWeight: 'bold',
-          }}
-        >
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Box display="flex" alignItems="center" gap={1}>
-              <Payment />
-              <Typography variant="h6">Add New Fee Type</Typography>
-            </Box>
-            <IconButton onClick={() => setFeeTypeDialogOpen(false)} size="small" sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Fee Type Name"
-                value={newFeeType.name}
-                onChange={(e) => setNewFeeType({ ...newFeeType, name: e.target.value })}
-                placeholder="e.g., Tuition Fee, Admission Fee"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Fee Type Code"
-                value={newFeeType.code}
-                onChange={(e) => setNewFeeType({ ...newFeeType, code: e.target.value.toUpperCase() })}
-                placeholder="e.g., TUF, ADF"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Amount"
-                type="number"
-                value={newFeeType.amount}
-                onChange={(e) => setNewFeeType({ ...newFeeType, amount: parseFloat(e.target.value) || 0 })}
-                placeholder="0.00"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1 }}>
-          <Button 
-            onClick={() => setFeeTypeDialogOpen(false)}
-            sx={{ textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAddFeeType}
-            variant="contained"
-            disabled={!newFeeType.name || !newFeeType.code}
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              textTransform: 'none',
-              borderRadius: 2,
-              fontWeight: 'bold',
-            }}
-          >
-            Add Fee Type
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

@@ -35,7 +35,7 @@ const classSchema = new mongoose.Schema({
   feeType: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'FeeType',
-    required: [true, 'Please provide fee type']
+    default: null // Optional: fee type is no longer mandatory
   },
   description: {
     type: String,
