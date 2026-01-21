@@ -124,7 +124,7 @@ const Groups = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4, mt: '64px' }}>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         {/* Header Section with Gradient */}
         <Paper 

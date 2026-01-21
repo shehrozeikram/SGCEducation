@@ -302,7 +302,8 @@ const UserForm = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
+    <Box sx={{ mt: '64px' }}>
+      <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
       {/* Header Section */}
       <Box sx={{ mb: 3 }}>
         <Button
@@ -812,6 +813,7 @@ const UserForm = () => {
         </Grid>
       </Box>
     </Container>
+    </Box>
   );
 };
 
