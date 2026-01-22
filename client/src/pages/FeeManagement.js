@@ -869,7 +869,19 @@ const FeeManagement = () => {
                 // If dates are missing, assume payment is for this voucher if there's remaining
                 return true;
               }
-              return new Date(f.lastPaymentDate) >= voucherGeneratedDate;
+              const paymentDate = new Date(f.lastPaymentDate);
+              const genDate = new Date(voucherGeneratedDate);
+              
+              // Use >= and consider same-day payments as valid for the voucher
+              // We reset seconds/milliseconds to be safe if the backend fix is not fully propagated
+              const pDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+              const gDate = new Date(genDate.getFullYear(), genDate.getMonth(), genDate.getDate());
+
+              if (pDate > gDate) return true;
+              if (pDate < gDate) return false;
+              
+              // Same day: trust the timestamp
+              return paymentDate >= genDate;
             });
             
             if (hasPaymentAfterVoucher) {
@@ -1500,7 +1512,18 @@ const FeeManagement = () => {
                         // If dates are missing, assume payment is for this voucher if there's remaining
                         return true;
                       }
-                      return new Date(f.lastPaymentDate) >= voucherGeneratedDate;
+                      const paymentDate = new Date(f.lastPaymentDate);
+                      const genDate = new Date(voucherGeneratedDate);
+                      
+                      // Use >= and consider same-day payments as valid for the voucher
+                      const pDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+                      const gDate = new Date(genDate.getFullYear(), genDate.getMonth(), genDate.getDate());
+
+                      if (pDate > gDate) return true;
+                      if (pDate < gDate) return false;
+                      
+                      // Same day: trust the timestamp
+                      return paymentDate >= genDate;
                     });
                     
                     if (hasPaymentAfterVoucher) {

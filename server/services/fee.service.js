@@ -888,7 +888,21 @@ class FeeService {
     const newPaidAmount = (studentFee.paidAmount || 0) + amount;
     studentFee.paidAmount = newPaidAmount;
     studentFee.remainingAmount = Math.max(0, studentFee.finalAmount - newPaidAmount);
-    studentFee.lastPaymentDate = paymentDate || new Date();
+    
+    // Improved payment date handling: If payment is for today, use current timestamp to ensure
+    // it's recorded after voucher generation on the same day.
+    const now = new Date();
+    let finalPaymentDate = paymentDate ? new Date(paymentDate) : now;
+    
+    // If paymentDate was a string without time, it might default to 00:00:00 UTC
+    // If it refers to today's date, use 'now' to preserve the current time.
+    if (paymentDate && typeof paymentDate === 'string' && paymentDate.length <= 10) {
+      if (finalPaymentDate.toDateString() === now.toDateString()) {
+        finalPaymentDate = now;
+      }
+    }
+    
+    studentFee.lastPaymentDate = finalPaymentDate;
 
     // Update status
     if (studentFee.remainingAmount <= 0) {
