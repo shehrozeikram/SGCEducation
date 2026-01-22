@@ -191,6 +191,8 @@ const FeeManagement = () => {
   const [generateVoucherLoading, setGenerateVoucherLoading] = useState(false);
   const [feeHeadSelectionDialogOpen, setFeeHeadSelectionDialogOpen] = useState(false);
   const [selectedFeeHeadIds, setSelectedFeeHeadIds] = useState([]);
+  const DEFAULT_DUE_DAY = 20;
+  const [voucherDueDay, setVoucherDueDay] = useState(DEFAULT_DUE_DAY); // Default for newly generated vouchers
   const [feeHeadAmounts, setFeeHeadAmounts] = useState({}); // { feeHeadId: amount }
   const [loadingFeeHeadAmounts, setLoadingFeeHeadAmounts] = useState(false);
 
@@ -1017,8 +1019,11 @@ const FeeManagement = () => {
 
       // Get actual student IDs (not admission IDs)
       const studentIds = selectedGenerateVoucherStudents
-        .map(s => s.studentId || s._id)
-        .filter(id => id);
+      .map(s => {
+        const id = s.studentId || s._id;
+        return (typeof id === 'object' ? id._id || id : id).toString();
+      })
+      .filter(id => id);
 
       if (studentIds.length === 0) {
         setFeeHeadAmounts({});
@@ -1037,11 +1042,13 @@ const FeeManagement = () => {
       
       // Filter fees for selected students only
       const selectedStudentFees = allStudentFees.filter(sf => {
-        const studentId = sf.student?._id || sf.student;
-        if (!studentId) return false;
+        const sfStudentId = sf.student?._id || sf.student;
+        if (!sfStudentId) return false;
+        const sfStudentIdStr = sfStudentId.toString();
+        
         return studentIds.some(id => {
-          const idStr = typeof id === 'object' ? id._id || id.toString() : id.toString();
-          return studentId.toString() === idStr;
+          const idStr = (typeof id === 'object' ? id._id || id : id).toString();
+          return sfStudentIdStr === idStr;
         });
       });
 
@@ -1118,6 +1125,7 @@ const FeeManagement = () => {
     setFeeHeadSelectionDialogOpen(false);
     setSelectedFeeHeadIds([]);
     setFeeHeadAmounts({});
+    setVoucherDueDay(DEFAULT_DUE_DAY); // Always reset to default for next time
   };
 
   // Handle fee head selection toggle
@@ -1153,7 +1161,20 @@ const FeeManagement = () => {
       // Handle month/year format (could be YYYY-MM or M-YYYY)
       const { month, year } = parseMonthYear(generateVoucherFilters.monthYear);
 
-      const studentIds = selectedGenerateVoucherStudents.map(s => s._id);
+      const studentIds = selectedGenerateVoucherStudents
+        .map(s => {
+          const id = s.studentId || s._id;
+          return (typeof id === 'object' ? id._id || id : id).toString();
+        })
+        .filter(id => id);
+      
+      // Validate due day for the selected month
+      const maxDaysInMonth = new Date(year, month, 0).getDate();
+      const validDueDay = Math.min(voucherDueDay, maxDaysInMonth);
+      
+      if (validDueDay !== voucherDueDay) {
+        notifyError(`Due day adjusted to ${validDueDay} (max for selected month)`);
+      }
 
       // Call API to generate vouchers with selected fee heads
       const response = await axios.post(
@@ -1162,7 +1183,8 @@ const FeeManagement = () => {
           studentIds: studentIds,
           month: month,
           year: year,
-          feeHeadIds: selectedFeeHeadIds
+          feeHeadIds: selectedFeeHeadIds,
+          dueDay: validDueDay // Send custom due day
         },
         createAxiosConfig()
       );
@@ -2148,6 +2170,19 @@ const FeeManagement = () => {
           if (dueDate < now) {
             // Apply flat late fee of Rs. 200 after due date
             lateFeeFine = 200;
+            
+            // Check if payment is unpaid into the next month
+            const dueMonth = dueDate.getMonth();
+            const dueYear = dueDate.getFullYear();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            // If we're in a different month than the due date month (and it's later)
+            const monthsDiff = (currentYear - dueYear) * 12 + (currentMonth - dueMonth);
+            if (monthsDiff >= 1) {
+              // Add Rs. 500 fine for unpaid into next month
+              lateFeeFine += 500;
+            }
           }
 
           totalAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
@@ -4740,6 +4775,7 @@ const FeeManagement = () => {
           </DialogActions>
         </Dialog>
 
+
         {/* Assign Fee Structure Dialog */}
         <Dialog
           open={assignFeeStructureDialog}
@@ -4950,6 +4986,25 @@ const FeeManagement = () => {
                 Month/Year: {generateVoucherFilters.monthYear}
               </Typography>
             </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <TextField
+                fullWidth
+                label="Due Date (Day of Month)"
+                type="number"
+                value={voucherDueDay}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (value >= 1 && value <= 31) {
+                    setVoucherDueDay(value);
+                  }
+                }}
+                inputProps={{ min: 1, max: 31 }}
+                helperText="Enter the day of the month (1-31). Default is 20."
+                size="small"
+              />
+            </Box>
+
             <Divider sx={{ my: 2 }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="subtitle1" fontWeight="bold">
