@@ -68,11 +68,38 @@ const SectionForm = () => {
     }
   }, [id]);
 
+  const getInstitutionId = () => {
+    // Super admins use the navbar selection
+    if (user.role === 'super_admin') {
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+      if (selectedInstitutionStr) {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          return parsed._id || parsed;
+        } catch (e) {
+          return selectedInstitutionStr;
+        }
+      }
+    }
+    
+    // For other roles or as fallback, use user.institution
+    if (user.institution) {
+      return typeof user.institution === 'object' ? user.institution._id : user.institution;
+    }
+    
+    return null;
+  };
+
   const fetchClasses = async () => {
     try {
       const token = localStorage.getItem('token');
+      const institutionId = getInstitutionId();
+      const params = {};
+      if (institutionId) params.institution = institutionId;
+
       const response = await axios.get(getApiUrl('classes'), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        params
       });
       setClasses(response.data.data);
     } catch (err) {

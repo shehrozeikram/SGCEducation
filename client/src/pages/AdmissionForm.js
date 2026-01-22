@@ -169,25 +169,21 @@ const AdmissionForm = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.role === 'super_admin';
 
-  // Helper function to get institution ID from various sources
   const getInstitutionId = () => {
-    // First priority: selectedInstitution from localStorage (navbar selection)
-    const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
-    if (selectedInstitutionStr) {
-      try {
-        const parsed = JSON.parse(selectedInstitutionStr);
-        if (parsed && parsed._id) {
-          return parsed._id;
-        } else if (typeof parsed === 'string') {
-          return parsed;
+    // Super admins use the navbar selection
+    if (user.role === 'super_admin') {
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+      if (selectedInstitutionStr) {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          return parsed?._id || parsed;
+        } catch (e) {
+          return selectedInstitutionStr;
         }
-      } catch (e) {
-        // If it's not JSON, it might be a plain string ID
-        return selectedInstitutionStr;
       }
     }
     
-    // Second priority: user.institution (extract _id if it's an object)
+    // For other roles or as fallback, use user.institution
     if (user.institution) {
       return typeof user.institution === 'object' ? user.institution._id : user.institution;
     }

@@ -66,14 +66,25 @@ const ClassForm = () => {
   const location = useLocation();
 
   const getSelectedInstitutionId = () => {
-    const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
-    if (!selectedInstitutionStr) return '';
-    try {
-      const parsed = JSON.parse(selectedInstitutionStr);
-      return parsed?._id || parsed || '';
-    } catch {
-      return selectedInstitutionStr;
+    // Super admins use the navbar selection
+    if (user.role === 'super_admin') {
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+      if (selectedInstitutionStr) {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          return parsed?._id || parsed;
+        } catch (e) {
+          return selectedInstitutionStr;
+        }
+      }
     }
+    
+    // For other roles or as fallback, use user.institution
+    if (user.institution) {
+      return typeof user.institution === 'object' ? user.institution._id : user.institution;
+    }
+    
+    return '';
   };
 
   // Initialise institution/department from user or URL (e.g. ?department=...)

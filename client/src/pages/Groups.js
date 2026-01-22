@@ -80,6 +80,28 @@ const Groups = () => {
     fetchData();
   }, []);
 
+  const getInstitutionId = () => {
+    // Super admins use the navbar selection
+    if (user.role === 'super_admin') {
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+      if (selectedInstitutionStr) {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          return parsed._id || parsed;
+        } catch (e) {
+          return selectedInstitutionStr;
+        }
+      }
+    }
+    
+    // For other roles or as fallback, use user.institution
+    if (user.institution) {
+      return typeof user.institution === 'object' ? user.institution._id : user.institution;
+    }
+    
+    return null;
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -90,13 +112,18 @@ const Groups = () => {
         throw new Error('No authentication token found');
       }
 
-      // Fetch groups (only search filter)
-      let url = getApiUrl('groups');
-      const params = [];
-      if (searchTerm) params.push(`search=${encodeURIComponent(searchTerm)}`);
-      if (params.length > 0) url += `?${params.join('&')}`;
+      // Build query params
+      const params = new URLSearchParams();
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      
+      const institutionId = getInstitutionId();
+      if (institutionId) {
+        params.append('institution', institutionId);
+      }
 
-      const groupResponse = await axios.get(url, {
+      const groupResponse = await axios.get(getApiUrl(`groups?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 

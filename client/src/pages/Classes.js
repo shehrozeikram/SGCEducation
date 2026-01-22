@@ -81,6 +81,28 @@ const Classes = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const getInstitutionId = () => {
+    // Super admins use the navbar selection
+    if (user.role === 'super_admin') {
+      const selectedInstitutionStr = localStorage.getItem('selectedInstitution');
+      if (selectedInstitutionStr) {
+        try {
+          const parsed = JSON.parse(selectedInstitutionStr);
+          return parsed._id || parsed;
+        } catch (e) {
+          return selectedInstitutionStr;
+        }
+      }
+    }
+    
+    // For other roles or as fallback, use user.institution
+    if (user.institution) {
+      return typeof user.institution === 'object' ? user.institution._id : user.institution;
+    }
+    
+    return null;
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -91,8 +113,15 @@ const Classes = () => {
         throw new Error('No authentication token found');
       }
 
+      // Build query params
+      const params = new URLSearchParams();
+      const institutionId = getInstitutionId();
+      if (institutionId) {
+        params.append('institution', institutionId);
+      }
+
       // Fetch classes
-      const classResponse = await axios.get(getApiUrl('classes'), {
+      const classResponse = await axios.get(getApiUrl(`classes?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 

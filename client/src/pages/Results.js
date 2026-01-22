@@ -92,6 +92,20 @@ const Results = () => {
     // Fetch institutions for super admin
     if (user.role === 'super_admin') {
       fetchInstitutions();
+      
+      // Auto-set the selected institution from localStorage if available
+      const selectedInst = localStorage.getItem('selectedInstitution');
+      if (selectedInst) {
+        try {
+          const parsed = JSON.parse(selectedInst);
+          const instId = parsed?._id || parsed;
+          if (instId) {
+            setSelectedInstitution(instId);
+          }
+        } catch (e) {
+          console.error('Failed to parse selected institution', e);
+        }
+      }
     }
     // Fetch classes on mount (for non-super-admin, based on their institution)
     fetchClasses();
