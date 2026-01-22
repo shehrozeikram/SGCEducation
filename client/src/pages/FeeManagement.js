@@ -855,41 +855,15 @@ const FeeManagement = () => {
 
 
 
-          // Determine voucher status based on remaining amount and payment timing
-          // If remaining is 0, the voucher is paid (regardless of when payment was made)
-          // This is because payments reduce the overall remaining amount
+          // Determine voucher status based on paid and remaining amounts
+          // For monthly fees, each month gets its own StudentFee record,
+          // so paidAmount already reflects payments for this specific voucher
           if (totalRemainingForVoucher <= 0.01) {
             // Fully paid - remaining amount is 0
             voucherStatus = 'Paid';
-          } else if (totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
+          } else if (totalPaidForVoucher > 0) {
             // Partially paid - some payment made but still has remaining
-            // Check if payment was made after voucher generation to determine if it's for this voucher
-            const hasPaymentAfterVoucher = feesWithVoucher.some(f => {
-              if (!f.lastPaymentDate || !voucherGeneratedDate) {
-                // If dates are missing, assume payment is for this voucher if there's remaining
-                return true;
-              }
-              const paymentDate = new Date(f.lastPaymentDate);
-              const genDate = new Date(voucherGeneratedDate);
-              
-              // Use >= and consider same-day payments as valid for the voucher
-              // We reset seconds/milliseconds to be safe if the backend fix is not fully propagated
-              const pDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
-              const gDate = new Date(genDate.getFullYear(), genDate.getMonth(), genDate.getDate());
-
-              if (pDate > gDate) return true;
-              if (pDate < gDate) return false;
-              
-              // Same day: trust the timestamp
-              return paymentDate >= genDate;
-            });
-            
-            if (hasPaymentAfterVoucher) {
-              voucherStatus = 'Partial';
-            } else {
-              // Payment was made before this voucher was generated (for previous voucher)
-              voucherStatus = 'Unpaid';
-            }
+            voucherStatus = 'Partial';
           } else {
             // No payment made for this voucher
             voucherStatus = 'Unpaid';
@@ -1498,40 +1472,15 @@ const FeeManagement = () => {
                   // Calculate total remaining for fees with this voucher
                   totalRemainingForVoucher = feesWithVoucher.reduce((sum, f) => sum + parseFloat(f.remainingAmount || 0), 0);
 
-                  // Determine voucher status based on remaining amount and payment timing
-                  // If remaining is 0, the voucher is paid (regardless of when payment was made)
-                  // This is because payments reduce the overall remaining amount
+                  // Determine voucher status based on paid and remaining amounts
+                  // For monthly fees, each month gets its own StudentFee record,
+                  // so paidAmount already reflects payments for this specific voucher
                   if (totalRemainingForVoucher <= 0.01) {
                     // Fully paid - remaining amount is 0
                     voucherStatus = 'Paid';
-                  } else if (totalPaidForVoucher > 0 && totalRemainingForVoucher > 0) {
+                  } else if (totalPaidForVoucher > 0) {
                     // Partially paid - some payment made but still has remaining
-                    // Check if payment was made after voucher generation to determine if it's for this voucher
-                    const hasPaymentAfterVoucher = feesWithVoucher.some(f => {
-                      if (!f.lastPaymentDate || !voucherGeneratedDate) {
-                        // If dates are missing, assume payment is for this voucher if there's remaining
-                        return true;
-                      }
-                      const paymentDate = new Date(f.lastPaymentDate);
-                      const genDate = new Date(voucherGeneratedDate);
-                      
-                      // Use >= and consider same-day payments as valid for the voucher
-                      const pDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
-                      const gDate = new Date(genDate.getFullYear(), genDate.getMonth(), genDate.getDate());
-
-                      if (pDate > gDate) return true;
-                      if (pDate < gDate) return false;
-                      
-                      // Same day: trust the timestamp
-                      return paymentDate >= genDate;
-                    });
-                    
-                    if (hasPaymentAfterVoucher) {
-                      voucherStatus = 'Partial';
-                    } else {
-                      // Payment was made before this voucher was generated (for previous voucher)
-                      voucherStatus = 'Unpaid';
-                    }
+                    voucherStatus = 'Partial';
                   } else {
                     // No payment made for this voucher
                     voucherStatus = 'Unpaid';
