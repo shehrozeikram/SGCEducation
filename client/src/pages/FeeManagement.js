@@ -702,7 +702,7 @@ const FeeManagement = () => {
 
       const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({ params }));
 
-      const allStudentFees = response.data.data || [];
+      const allStudentFees = response.data.data || response.data || [];
       
       // Filter to only include students with vouchers for the selected month/year
       const studentsWithVouchers = allStudentFees.filter(sf => {
@@ -808,32 +808,39 @@ const FeeManagement = () => {
              const paid = parseFloat(f.paidAmount || 0);
              const calculatedRemaining = final - paid;
              
-             // Use stored remaining if available and lower (conservative), otherwise calculated
+             // Use stored remaining if available, but trust calculated more
              let remaining = calculatedRemaining;
              if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
                 const storedRemaining = parseFloat(f.remainingAmount);
                 if (paid > 0) {
                    remaining = calculatedRemaining;
                 } else {
-                   remaining = storedRemaining;
+                   remaining = Math.min(storedRemaining, final);
                 }
              }
 
-             if (remaining <= 0.01 || f.status === 'paid') return sum; // Paid or negligible
+             if (remaining <= 0.01 || (f.status && f.status.toLowerCase() === 'paid')) return sum;
              
              // Check if fee is from a previous month (critical for arrears)
+             let isPrevious = false;
              if (f.dueDate) {
                 const feeDate = new Date(f.dueDate);
-                if (feeDate >= startDate) return sum; // Not from previous month
-             } else if (f.createdAt) {
-                const createdDate = new Date(f.createdAt);
-                if (createdDate >= startDate) return sum; // Not from previous month
-             } else {
-                // No date info, skip to be safe
-                return sum;
+                if (!isNaN(feeDate.getTime())) {
+                   isPrevious = feeDate < startDate;
+                }
              }
              
-             return sum + remaining;
+             // If still not determined, check createdAt
+             if (!isPrevious && f.createdAt) {
+                const createdDate = new Date(f.createdAt);
+                if (!isNaN(createdDate.getTime())) {
+                   isPrevious = createdDate < startDate;
+                }
+             }
+
+             if (!isPrevious) return sum;
+             
+             return sum + Math.max(0, remaining);
         }, 0);
 
         // Determine voucher status based on payments for this specific voucher
@@ -1541,32 +1548,39 @@ const FeeManagement = () => {
                   const paid = parseFloat(f.paidAmount || 0);
                   const calculatedRemaining = final - paid;
                   
-                  // Use stored remaining if available and lower (conservative), otherwise calculated
+                  // Use stored remaining if available, but trust calculated more
                   let remaining = calculatedRemaining;
                   if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
                     const storedRemaining = parseFloat(f.remainingAmount);
                     if (paid > 0) {
                       remaining = calculatedRemaining;
                     } else {
-                      remaining = storedRemaining;
+                      remaining = Math.min(storedRemaining, final);
                     }
                   }
 
-                  if (remaining <= 0.01 || f.status === 'paid') return sum; // Paid or negligible
+                  if (remaining <= 0.01 || (f.status && f.status.toLowerCase() === 'paid')) return sum;
                   
                   // Check if fee is from a previous month (critical for arrears)
+                  let isPrevious = false;
                   if (f.dueDate) {
                     const feeDate = new Date(f.dueDate);
-                    if (feeDate >= startDate) return sum; // Not from previous month
-                  } else if (f.createdAt) {
-                    const createdDate = new Date(f.createdAt);
-                    if (createdDate >= startDate) return sum; // Not from previous month
-                  } else {
-                    // No date info, skip to be safe
-                    return sum;
+                    if (!isNaN(feeDate.getTime())) {
+                      isPrevious = feeDate < startDate;
+                    }
                   }
                   
-                  return sum + remaining;
+                  // If still not determined, check createdAt
+                  if (!isPrevious && f.createdAt) {
+                    const createdDate = new Date(f.createdAt);
+                    if (!isNaN(createdDate.getTime())) {
+                      isPrevious = createdDate < startDate;
+                    }
+                  }
+
+                  if (!isPrevious) return sum;
+                  
+                  return sum + Math.max(0, remaining);
                 }, 0);
                 
                 studentsWithVouchers.push({
@@ -2024,7 +2038,7 @@ const FeeManagement = () => {
       let totalAmount = 0;
       let lateFeeFine = 0;
       let absentFine = 0;
-      let arrears = 0;
+      let arrears = typeof student.arrears === 'number' ? student.arrears : 0;
       let dueDate = new Date(year, month, 20); // Default to 20th of the month
       let studentFees = []; // Declare outside try block for use later
       let voucherNumber = 'N/A'; // Declare outside try block for use in return statement
@@ -2041,7 +2055,7 @@ const FeeManagement = () => {
           }
         }));
 
-        studentFees = feeResponse.data.data || [];
+        studentFees = feeResponse.data.data || feeResponse.data || [];
         
         // Filter to only include StudentFee records that have vouchers for the selected month/year
         // This ensures we only show fee heads that were selected during voucher generation
@@ -2121,60 +2135,64 @@ const FeeManagement = () => {
             }
           }
 
-          // Calculate arrears (unpaid/partial payments from previous months)
-          // Get all outstanding fees from previous months (not just those with vouchers for current month)
-          const previousMonthFees = studentFees.filter(f => {
-            // Exclude fees that have vouchers for current month (they're already included above)
-            const hasCurrentVoucher = f.vouchers && f.vouchers.some(v => {
-              const vMonth = typeof v.month === 'string' ? parseInt(v.month, 10) : Number(v.month);
-              const vYear = typeof v.year === 'string' ? parseInt(v.year, 10) : Number(v.year);
-              return vMonth === month && vYear === year;
-            });
-            
-            if (hasCurrentVoucher) return false;
-            
-            // Include fees with remaining balance from previous months
-            const remainingAmount = f.remainingAmount || (f.finalAmount - (f.paidAmount || 0));
-            if (remainingAmount <= 0 || f.status === 'paid') return false;
-            
-            // Check if fee is from a previous month
-            if (f.dueDate) {
-              const feeDate = new Date(f.dueDate);
-              return feeDate < startDate;
-            }
-            
-            // If no due date, check creation date
-            if (f.createdAt) {
-              const createdDate = new Date(f.createdAt);
-              return createdDate < startDate;
-            }
-            
-            return false;
-          });
-          
-          // Calculate total arrears from previous months
-          arrears = previousMonthFees.reduce((sum, f) => {
-            // Calculate remaining amount dynamically to ensure accuracy
-            // Prefer calculation over stored remainingAmount in case of sync issues
-            const final = parseFloat(f.finalAmount || 0);
-            const paid = parseFloat(f.paidAmount || 0);
-            const calculatedRemaining = final - paid;
-            
-            // Use stored remaining if available and lower (conservative), otherwise calculated
-            let remaining = calculatedRemaining;
-            if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
-              const storedRemaining = parseFloat(f.remainingAmount);
-              // If stored is significantly different (and logic suggests calculated is clearer), use calculated
-              // But strictly, let's trust calculated as primary if paid > 0
-              if (paid > 0) {
-                remaining = calculatedRemaining;
-              } else {
-                remaining = storedRemaining;
+          // Only calculate arrears if not passed from student object or if 0 (to re-verify)
+          if (arrears === 0) {
+            // Calculate arrears (unpaid/partial payments from previous months)
+            const previousMonthFees = studentFees.filter(f => {
+              const hasCurrentVoucher = f.vouchers && f.vouchers.some(v => {
+                const vMonth = typeof v.month === 'string' ? parseInt(v.month, 10) : Number(v.month);
+                const vYear = typeof v.year === 'string' ? parseInt(v.year, 10) : Number(v.year);
+                return vMonth === month && vYear === year;
+              });
+              
+              if (hasCurrentVoucher) return false;
+              
+              const remainingAmount = f.remainingAmount || (parseFloat(f.finalAmount || 0) - (parseFloat(f.paidAmount || 0)));
+              if (remainingAmount <= 0 || (f.status && f.status.toLowerCase() === 'paid')) return false;
+              
+              let isPrevious = false;
+              if (f.dueDate) {
+                const feeDate = new Date(f.dueDate);
+                if (!isNaN(feeDate.getTime())) isPrevious = feeDate < startDate;
               }
-            }
-            
-            return sum + Math.max(0, remaining);
-          }, 0);
+              if (!isPrevious && f.createdAt) {
+                const createdDate = new Date(f.createdAt);
+                if (!isNaN(createdDate.getTime())) isPrevious = createdDate < startDate;
+              }
+              
+              return isPrevious;
+            });
+
+            // Calculate total arrears from previous months
+            arrears = previousMonthFees.reduce((sum, f) => {
+              const final = parseFloat(f.finalAmount || 0);
+              const paid = parseFloat(f.paidAmount || 0);
+              const calculatedRemaining = final - paid;
+              
+              let remaining = calculatedRemaining;
+              if (f.remainingAmount !== undefined && f.remainingAmount !== null) {
+                const storedRemaining = parseFloat(f.remainingAmount);
+                if (paid > 0) {
+                  remaining = calculatedRemaining;
+                } else {
+                  remaining = Math.min(storedRemaining, final);
+                }
+              }
+              
+              return sum + Math.max(0, remaining);
+            }, 0);
+          }
+          
+          // Add arrears to feeHeads list for display in the voucher table if > 0
+          if (arrears > 0) {
+            feeHeads.push({
+              name: 'Arrears (Prev. Balance)',
+              amount: arrears,
+              priority: 998 // Show near the end (before fine)
+            });
+            // Re-sort to maintain order
+            feeHeads.sort((a, b) => a.priority - b.priority);
+          }
 
           // Calculate late fee fine if due date has passed
           const now = new Date();
@@ -2203,9 +2221,16 @@ const FeeManagement = () => {
       }
 
       // Calculate payable amounts based on fees with vouchers only
-      // If no fees found with vouchers, show empty voucher
-      const totalFeeAmount = feeHeads.reduce((sum, head) => sum + (head.amount || 0), 0);
-      const payableWithinDueDate = totalFeeAmount + arrears;
+      // Calculate total amount for CURRENT month fees only
+      const currentMonthFeeTotal = feeHeads.reduce((sum, head) => {
+        // Exclude Arrears and Fines from the current month total calculation to avoid double counting
+        if (head.name.toLowerCase().includes('arrears') || head.name.toLowerCase().includes('fine')) {
+          return sum;
+        }
+        return sum + (head.amount || 0);
+      }, 0);
+      
+      const payableWithinDueDate = currentMonthFeeTotal + arrears;
       const payableAfterDueDate = payableWithinDueDate + lateFeeFine + absentFine;
 
       // Format dates correctly
@@ -2274,10 +2299,12 @@ const FeeManagement = () => {
           ...feeHeads.filter(h => !h.name.toLowerCase().includes('arrears') &&
                                   !h.name.toLowerCase().includes('fine')),
           { name: 'Arrears', amount: arrears },
-          { name: 'Previous Fee Fine', amount: 0 },
           { name: 'Late Fee Fine', amount: lateFeeFine },
           { name: 'Absent Fine', amount: absentFine }
         ],
+        arrears: arrears,
+        lateFeeFine: lateFeeFine,
+        absentFine: absentFine,
         payableWithinDueDate: payableWithinDueDate,
         payableAfterDueDate: payableAfterDueDate,
         institution: institutionData
@@ -4809,6 +4836,14 @@ const FeeManagement = () => {
                           ))}
                           <tr>
                             <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                              Arrears:
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                              {(voucherData.arrears || 0).toLocaleString()}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
                               Payable within due date:
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
@@ -4820,7 +4855,7 @@ const FeeManagement = () => {
                               Late fee fine:
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
-                              {(voucherData.feeHeads.find(h => h.name === 'Late Fee Fine')?.amount || 0).toLocaleString()}
+                              {(voucherData.lateFeeFine || 0).toLocaleString()}
                             </td>
                           </tr>
                           <tr>
