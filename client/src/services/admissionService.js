@@ -120,6 +120,17 @@ export const getAdmissionAnalytics = async (filters = {}) => {
   return response.data;
 };
 
+// Get next available roll number
+export const getNextRollNumber = async (institutionId) => {
+  const params = new URLSearchParams();
+  if (institutionId) params.append('institution', institutionId);
+
+  const response = await axios.get(`${getApiUrl('admissions/next-roll-number')}?${params.toString()}`, {
+    headers: getAuthHeader()
+  });
+  return response.data;
+};
+
 export default {
   getAllAdmissions,
   getAdmissionById,
@@ -131,5 +142,6 @@ export default {
   deleteAdmission,
   getAdmissionStats,
   getAdmissionsByDepartment,
-  getAdmissionAnalytics
+  getAdmissionAnalytics,
+  getNextRollNumber
 };

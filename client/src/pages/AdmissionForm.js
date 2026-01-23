@@ -46,7 +46,14 @@ import {
   Info,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createAdmission, updateAdmission, getAdmissionById, updateAdmissionStatus, approveAndEnroll } from '../services/admissionService';
+import { 
+  createAdmission, 
+  updateAdmission, 
+  getAdmissionById, 
+  updateAdmissionStatus, 
+  approveAndEnroll,
+  getNextRollNumber
+} from '../services/admissionService';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { capitalizeFirstOnly } from '../utils/textUtils';
@@ -209,7 +216,9 @@ const AdmissionForm = () => {
       // For new admission: fetch dropdowns with current institution
       fetchClasses();
       fetchSections();
-      fetchGroups(getInstitutionId());
+      const institutionId = getInstitutionId();
+      fetchGroups(institutionId);
+      fetchNextAvailableRollNumber(institutionId);
     }
     
     // Update institution when selectedInstitution changes
@@ -217,6 +226,10 @@ const AdmissionForm = () => {
       const institutionId = getInstitutionId();
       if (institutionId && !isEditMode) {
         setFormData(prev => ({ ...prev, institution: institutionId }));
+        fetchNextAvailableRollNumber(institutionId);
+        fetchClassesWithInstitution(institutionId);
+        fetchSectionsWithInstitution(institutionId);
+        fetchGroups(institutionId);
       }
     };
     
@@ -316,6 +329,17 @@ const AdmissionForm = () => {
     } catch (err) {
       console.error('Error fetching classes:', err);
       setError('Failed to load classes. Please refresh the page.');
+    }
+  };
+
+  const fetchNextAvailableRollNumber = async (institutionId) => {
+    try {
+      const response = await getNextRollNumber(institutionId);
+      if (response.success && response.data) {
+        setFormData(prev => ({ ...prev, rollNumber: response.data }));
+      }
+    } catch (err) {
+      console.error('Error fetching next roll number:', err);
     }
   };
 
@@ -1021,9 +1045,12 @@ const AdmissionForm = () => {
                     value={formData.rollNumber}
                     onChange={(e) => handleChange('rollNumber', e.target.value)}
                     placeholder="Roll Number"
+                    InputProps={{
+                      readOnly: true,
+                    }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        bgcolor: 'white',
+                        bgcolor: '#f1f3f4', // Slightly greyed out for read-only
                         '&:hover': {
                           '& .MuiOutlinedInput-notchedOutline': {
                             borderColor: 'primary.main',
@@ -1031,6 +1058,7 @@ const AdmissionForm = () => {
                         },
                       },
                     }}
+                    helperText="Auto-generated sequential roll number"
                   />
                 </Grid>
                 
