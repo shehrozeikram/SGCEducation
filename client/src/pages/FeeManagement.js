@@ -80,7 +80,7 @@ const FeeManagement = () => {
   const [loading, setLoading] = useState(false);
 
   // Tab name mappings
-  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'misc-operations', 'print-voucher', 'fee-deposit', 'receipt'];
+  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'voucher-generation', 'print-voucher', 'fee-deposit', 'receipt'];
   const miscSubTabNames = ['generate-voucher', 'student-operations'];
 
   // Tab management - initialize from URL or default
@@ -96,7 +96,7 @@ const FeeManagement = () => {
   const getSubTabFromURL = (tabIndex) => {
     const subtabParam = searchParams.get('subtab');
     if (subtabParam) {
-      if (tabIndex === 3) { // misc-operations
+      if (tabIndex === 3) { // voucher-generation
         const subtabIndex = miscSubTabNames.indexOf(subtabParam);
         return subtabIndex >= 0 ? subtabIndex : 0;
       }
@@ -160,7 +160,7 @@ const FeeManagement = () => {
   // Status options
   const [enrolledOptions, setEnrolledOptions] = useState([]);
 
-  // Misc Fee Operations
+  // Voucher Generation
   const [miscFeeStudents, setMiscFeeStudents] = useState([]);
   const [selectedMiscFeeStudents, setSelectedMiscFeeStudents] = useState([]);
   const [miscFeeFilters, setMiscFeeFilters] = useState({
@@ -2689,7 +2689,7 @@ const FeeManagement = () => {
               <Tab label="Fee Heads" />
               <Tab label="Fee Structure" />
               <Tab label="Assign Fee Structure" />
-              <Tab label="Misc Fee Operations" />
+              <Tab label="Voucher Generation" />
               <Tab label="Print Voucher" />
               <Tab label="Fee Deposit" />
               <Tab label="Receipt" />
@@ -3003,7 +3003,7 @@ const FeeManagement = () => {
           </Box>
         )}
 
-        {/* Tab Panel 2: Misc Fee Operations */}
+        {/* Tab Panel 2: Voucher Generation */}
         {/* Tab Panel 2: Assign Fee Structure */}
         {activeTab === 2 && (
           <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
@@ -3084,14 +3084,14 @@ const FeeManagement = () => {
           </Box>
         )}
 
-        {/* Tab Panel 3: Misc Fee Operations */}
+        {/* Tab Panel 3: Voucher Generation */}
         {activeTab === 3 && (
           <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-              MISC FEE OPERATIONS
+              VOUCHER GENERATION
             </Typography>
 
-            {/* Sub-tabs for Misc Fee Operations */}
+            {/* Sub-tabs for Voucher Generation */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
               <Tabs value={miscFeeSubTab} onChange={handleMiscFeeSubTabChange}>
                 <Tab label="Generate Voucher" />
