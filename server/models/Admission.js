@@ -78,13 +78,11 @@ const admissionSchema = new mongoose.Schema({
   contactInfo: {
     email: {
       type: String,
-      required: [true, 'Please provide email'],
       lowercase: true,
       trim: true
     },
     phone: {
       type: String,
-      required: [true, 'Please provide phone number'],
       trim: true
     },
     alternatePhone: {

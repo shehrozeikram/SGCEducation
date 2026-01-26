@@ -153,15 +153,17 @@ class AdmissionService {
       throw new ApiError(403, 'You can only create admissions for your institution');
     }
 
-    // Check if email already has a pending/approved application
-    const existingAdmission = await Admission.findOne({
-      'contactInfo.email': admissionData.contactInfo.email,
-      institution,
-      status: { $in: ['pending', 'under_review', 'approved'] }
-    });
+    // Check if email already has a pending/approved application (only if email is provided)
+    if (admissionData.contactInfo.email) {
+      const existingAdmission = await Admission.findOne({
+        'contactInfo.email': admissionData.contactInfo.email,
+        institution,
+        status: { $in: ['pending', 'under_review', 'approved'] }
+      });
 
-    if (existingAdmission) {
-      throw new ApiError(400, 'An active application already exists with this email');
+      if (existingAdmission) {
+        throw new ApiError(400, 'An active application already exists with this email');
+      }
     }
 
     // Create admission
@@ -282,8 +284,11 @@ class AdmissionService {
       throw new ApiError(400, 'Admission must be approved before enrollment');
     }
 
-    // Check if user already exists with this email
-    let user = await User.findOne({ email: admission.contactInfo.email });
+    // Check if user already exists with this email (only if email is provided)
+    let user = null;
+    if (admission.contactInfo.email) {
+      user = await User.findOne({ email: admission.contactInfo.email });
+    }
 
     if (user) {
       // Check if student already exists for this user
@@ -297,13 +302,16 @@ class AdmissionService {
     if (!user) {
       // Create user account
       const tempPassword = Math.random().toString(36).slice(-8);
+      // Use provided email or generate a placeholder if missing
+      const studentEmail = admission.contactInfo.email || `${admission.applicationNumber.toLowerCase()}@no-email.system`;
+
       user = await User.create({
         name: admission.personalInfo.name || 'Student',
-        email: admission.contactInfo.email,
+        email: studentEmail,
         password: tempPassword,
         role: 'student',
         institution: admission.institution._id,
-        phone: admission.contactInfo.phone,
+        phone: admission.contactInfo.phone || '',
         dateOfBirth: admission.personalInfo.dateOfBirth,
         gender: admission.personalInfo.gender,
         address: admission.contactInfo.currentAddress?.street || ''

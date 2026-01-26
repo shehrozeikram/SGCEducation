@@ -1174,7 +1174,7 @@ const Admissions = () => {
               <TableRow sx={{ bgcolor: '#667eea' }}>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Application No.</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Applicant Name</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Email</TableCell>
+
                 {isSuperAdmin && <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Institution</TableCell>}
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Class</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Applied On</TableCell>
@@ -1185,7 +1185,7 @@ const Admissions = () => {
             <TableBody>
               {filteredAdmissions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isSuperAdmin ? 8 : 7} align="center">
+                  <TableCell colSpan={isSuperAdmin ? 7 : 6} align="center">
                     <Box py={4}>
                       <Typography variant="body2" color="text.secondary">
                         No admissions found
@@ -1209,9 +1209,7 @@ const Admissions = () => {
                         )}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{admission.contactInfo?.email || 'N/A'}</Typography>
-                    </TableCell>
+
                     {isSuperAdmin && (
                       <TableCell>
                         <Typography variant="body2">{admission.institution?.name || 'N/A'}</Typography>
