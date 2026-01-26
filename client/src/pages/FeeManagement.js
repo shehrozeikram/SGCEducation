@@ -80,8 +80,9 @@ const FeeManagement = () => {
   const [loading, setLoading] = useState(false);
 
   // Tab name mappings
-  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'voucher-generation', 'print-voucher', 'fee-deposit', 'receipt'];
+  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'voucher-generation', 'print-voucher', 'fee-deposit', 'receipt', 'suspense'];
   const miscSubTabNames = ['generate-voucher', 'student-operations'];
+  const suspenseSubTabNames = ['unidentified', 'reconciled'];
 
   // Tab management - initialize from URL or default
   const getTabFromURL = () => {
@@ -100,12 +101,17 @@ const FeeManagement = () => {
         const subtabIndex = miscSubTabNames.indexOf(subtabParam);
         return subtabIndex >= 0 ? subtabIndex : 0;
       }
+      if (tabIndex === 7) { // suspense
+        const subtabIndex = suspenseSubTabNames.indexOf(subtabParam);
+        return subtabIndex >= 0 ? subtabIndex : 0;
+      }
     }
     return 0;
   };
 
   const [activeTab, setActiveTab] = useState(getTabFromURL());
   const [miscFeeSubTab, setMiscFeeSubTab] = useState(getSubTabFromURL(3));
+  const [suspenseSubTab, setSuspenseSubTab] = useState(getSubTabFromURL(7));
 
   // Update URL when tabs change
   const updateURL = (tabIndex, subtabIndex = null) => {
@@ -115,6 +121,9 @@ const FeeManagement = () => {
     if (subtabIndex !== null) {
       if (tabIndex === 3) { // misc-operations
         params.set('subtab', miscSubTabNames[subtabIndex]);
+      }
+      if (tabIndex === 7) { // suspense
+        params.set('subtab', suspenseSubTabNames[subtabIndex]);
       }
     }
     
@@ -131,6 +140,12 @@ const FeeManagement = () => {
   const handleMiscFeeSubTabChange = (event, newValue) => {
     setMiscFeeSubTab(newValue);
     updateURL(3, newValue);
+  };
+
+  // Handle suspense sub-tab change
+  const handleSuspenseSubTabChange = (event, newValue) => {
+    setSuspenseSubTab(newValue);
+    updateURL(7, newValue);
   };
 
 
@@ -153,6 +168,10 @@ const FeeManagement = () => {
     
     if (tabFromURL === 3 && subtabFromURL !== miscFeeSubTab) {
       setMiscFeeSubTab(subtabFromURL);
+    }
+    
+    if (tabFromURL === 7 && subtabFromURL !== suspenseSubTab) {
+      setSuspenseSubTab(subtabFromURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -307,6 +326,33 @@ const FeeManagement = () => {
     setExpandedTransactions(newExpanded);
   };
 
+  // Suspense Management
+  const [suspenseEntries, setSuspenseEntries] = useState([]);
+  const [suspenseLoading, setSuspenseLoading] = useState(false);
+  const [suspenseDialogOpen, setSuspenseDialogOpen] = useState(false);
+  const [suspenseFormData, setSuspenseFormData] = useState({
+    amount: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentMethod: 'bank_transfer',
+    transactionId: '',
+    bankName: '',
+    remarks: ''
+  });
+  const [savingSuspense, setSavingSuspense] = useState(false);
+  
+  // Reconciliation
+  const [reconciliationDialogOpen, setReconciliationDialogOpen] = useState(false);
+  const [selectedSuspenseEntry, setSelectedSuspenseEntry] = useState(null);
+  const [reconciliationSearch, setReconciliationSearch] = useState({
+    id: '',
+    rollNumber: '',
+    studentName: ''
+  });
+  const [reconciliationStudents, setReconciliationStudents] = useState([]);
+  const [searchingReconciliationStudents, setSearchingReconciliationStudents] = useState(false);
+  const [selectedReconciliationStudent, setSelectedReconciliationStudent] = useState(null);
+  const [reconciling, setReconciling] = useState(false);
+
   // Institutions
   const [institutions, setInstitutions] = useState([]);
 
@@ -321,7 +367,9 @@ const FeeManagement = () => {
     receipt: { page: 0, rowsPerPage: 12 },
     outstandingFees: { page: 0, rowsPerPage: 12 },
     feeHeadSelection: { page: 0, rowsPerPage: 12 },
-    assignFeeStructureDialog: { page: 0, rowsPerPage: 12 }
+    assignFeeStructureDialog: { page: 0, rowsPerPage: 12 },
+    suspense: { page: 0, rowsPerPage: 12 },
+    reconciliationStudents: { page: 0, rowsPerPage: 12 }
   });
 
   // Helper function to handle pagination change
@@ -388,6 +436,14 @@ const FeeManagement = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, printVoucherFilters.monthYear]);
+
+  // Handle auto-fetch for Suspense Entries
+  useEffect(() => {
+    if (activeTab === 7) {
+      fetchSuspenseEntries();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, suspenseSubTab]);
 
   // Account Type options
   const accountTypeOptions = [
@@ -1944,7 +2000,6 @@ const FeeManagement = () => {
         if (receiptSearch.receiptNumber) {
           params.receiptNumber = receiptSearch.receiptNumber.trim();
         }
-        // Always include dates if they are set (they should be by default)
         if (receiptSearch.startDate) {
           params.startDate = receiptSearch.startDate;
         }
@@ -1953,21 +2008,15 @@ const FeeManagement = () => {
         }
       }
 
-      // Fetch payments/receipts - we'll need to create this endpoint or use existing one
-      // For now, using a direct query approach
       const response = await axios.get(`${API_URL}/fees/payments`, createAxiosConfig({
         params: params,
         paramsSerializer: { indexes: null }
       }));
 
       const payments = response.data.data || response.data || [];
-      
-      // Transform payments to include student information
-      // Check if student info is already populated in the response
       const receiptsWithStudentInfo = payments.map((payment) => {
         const student = payment.student || {};
         const admission = student.admission || payment.admission || {};
-        
         return {
           ...payment,
           studentName: admission.personalInfo?.name || student.name || 'N/A',
@@ -1982,16 +2031,111 @@ const FeeManagement = () => {
       setReceipts(receiptsWithStudentInfo);
     } catch (err) {
       console.error('Error fetching receipts:', err);
-      if (err.response?.status === 404) {
-        // Endpoint doesn't exist yet, show empty list
-        setReceipts([]);
-        notifyError('Receipt endpoint not available. Please contact administrator.');
-      } else {
-        notifyError(err.response?.data?.message || 'Failed to fetch receipts');
-        setReceipts([]);
-      }
+      notifyError(err.response?.data?.message || 'Failed to fetch receipts');
+      setReceipts([]);
     } finally {
       setReceiptsLoading(false);
+    }
+  };
+
+  // Fetch suspense entries
+  const fetchSuspenseEntries = async () => {
+    try {
+      setSuspenseLoading(true);
+      const institutionId = getInstitutionId();
+      if (!institutionId) return;
+
+      const status = suspenseSubTab === 0 ? 'unidentified' : 'reconciled';
+      const response = await axios.get(`${API_URL}/fees/suspense`, createAxiosConfig({
+        params: { institution: institutionId, status }
+      }));
+
+      setSuspenseEntries(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching suspense entries:', err);
+      notifyError(err.response?.data?.message || 'Failed to fetch suspense entries');
+    } finally {
+      setSuspenseLoading(false);
+    }
+  };
+
+  // Handle suspense save
+  const handleSuspenseSave = async () => {
+    try {
+      setSavingSuspense(true);
+      const institutionId = getInstitutionId();
+      const payload = {
+        ...suspenseFormData,
+        amount: parseFloat(suspenseFormData.amount),
+        institution: institutionId
+      };
+
+      await axios.post(`${API_URL}/fees/suspense`, payload, createAxiosConfig());
+      notifySuccess('Suspense entry recorded successfully');
+      setSuspenseDialogOpen(false);
+      setSuspenseFormData({
+        amount: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        paymentMethod: 'bank_transfer',
+        transactionId: '',
+        bankName: '',
+        remarks: ''
+      });
+      fetchSuspenseEntries();
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Failed to record suspense entry');
+    } finally {
+      setSavingSuspense(false);
+    }
+  };
+
+  // Reconciliation students search
+  const fetchReconciliationStudents = async () => {
+    try {
+      setSearchingReconciliationStudents(true);
+      const institutionId = getInstitutionId();
+      
+      const params = { institution: institutionId };
+      if (reconciliationSearch.id) params.studentId = reconciliationSearch.id;
+      if (reconciliationSearch.rollNumber) params.rollNumber = reconciliationSearch.rollNumber;
+      if (reconciliationSearch.studentName) params.search = reconciliationSearch.studentName;
+
+      const response = await axios.get(`${API_URL}/admissions`, createAxiosConfig({ params }));
+      const admissions = response.data.data || [];
+      const transformed = admissions.map(admission => transformStudentData(admission));
+      setReconciliationStudents(transformed);
+    } catch (err) {
+      notifyError('Failed to search students for reconciliation');
+    } finally {
+      setSearchingReconciliationStudents(false);
+    }
+  };
+
+  // Handle reconciliation
+  const handleReconcile = async (studentId, studentFeeId) => {
+    try {
+      setReconciling(true);
+      const institutionId = getInstitutionId();
+      const payload = {
+        suspenseEntryId: selectedSuspenseEntry._id,
+        studentId,
+        studentFeeId,
+        remarks: 'Reconciled from Suspense Dialog',
+        institution: institutionId
+      };
+
+      await axios.post(`${API_URL}/fees/suspense/reconcile`, payload, createAxiosConfig());
+      notifySuccess('Payment reconciled successfully');
+      setReconciliationDialogOpen(false);
+      setSelectedSuspenseEntry(null);
+      setSelectedReconciliationStudent(null);
+      setReconciliationStudents([]);
+      setOutstandingFees([]);
+      fetchSuspenseEntries();
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Failed to reconcile payment');
+    } finally {
+      setReconciling(false);
     }
   };
 
@@ -2694,6 +2838,7 @@ const FeeManagement = () => {
               <Tab label="Print Voucher" />
               <Tab label="Fee Deposit" />
               <Tab label="Receipt" />
+              <Tab label="Suspense" />
             </Tabs>
           </Box>
 
@@ -4421,6 +4566,104 @@ const FeeManagement = () => {
           </Box>
         )}
 
+        {/* Tab Panel 7: Suspense */}
+        {activeTab === 7 && (
+          <Box sx={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                SUSPENSE MANAGEMENT
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => setSuspenseDialogOpen(true)}
+                sx={{ bgcolor: '#667eea' }}
+              >
+                Add Suspense Entry
+              </Button>
+            </Box>
+
+            <Tabs 
+              value={suspenseSubTab} 
+              onChange={handleSuspenseSubTabChange} 
+              sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+            >
+              <Tab label="Unidentified Payments" />
+              <Tab label="Reconciled History" />
+            </Tabs>
+
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Transaction ID</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Bank/Method</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Remarks</TableCell>
+                    {suspenseSubTab === 1 && (
+                      <TableCell sx={{ fontWeight: 'bold' }}>Reconciled To</TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {suspenseLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center"><CircularProgress /></TableCell>
+                    </TableRow>
+                  ) : suspenseEntries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">No entries found</TableCell>
+                    </TableRow>
+                  ) : (
+                    getPaginatedData(suspenseEntries, 'suspense').map((entry) => (
+                      <TableRow key={entry._id}>
+                        <TableCell>
+                          {entry.status === 'unidentified' && (
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              onClick={() => {
+                                setSelectedSuspenseEntry(entry);
+                                setReconciliationDialogOpen(true);
+                              }}
+                            >
+                              Reconcile
+                            </Button>
+                          )}
+                        </TableCell>
+                        <TableCell>{new Date(entry.paymentDate).toLocaleDateString()}</TableCell>
+                        <TableCell>Rs. {entry.amount.toLocaleString()}</TableCell>
+                        <TableCell>{entry.transactionId || 'N/A'}</TableCell>
+                        <TableCell>{entry.bankName || entry.paymentMethod}</TableCell>
+                        <TableCell>{entry.remarks}</TableCell>
+                        {suspenseSubTab === 1 && (
+                          <TableCell>
+                            {entry.reconciledData?.student?.firstName} {entry.reconciledData?.student?.lastName}
+                            <Typography variant="caption" display="block">
+                              Receipt: {entry.reconciledData?.payment?.receiptNumber}
+                            </Typography>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <TablePagination
+                component="div"
+                count={suspenseEntries.length}
+                page={pagination.suspense.page}
+                onPageChange={(e, p) => handleChangePage('suspense', e, p)}
+                rowsPerPage={pagination.suspense.rowsPerPage}
+                onRowsPerPageChange={(e) => handleChangeRowsPerPage('suspense', e)}
+                rowsPerPageOptions={[12, 25, 50]}
+              />
+            </TableContainer>
+          </Box>
+        )}
+
         {/* Change Status Dialog */}
         <Dialog open={changeStatusDialog} onClose={() => setChangeStatusDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Change Status</DialogTitle>
@@ -5271,6 +5514,174 @@ const FeeManagement = () => {
             >
               {generateVoucherLoading ? <CircularProgress size={24} /> : 'Generate Vouchers'}
             </Button>
+          </DialogActions>
+        </Dialog>
+        {/* Suspense Entry Dialog */}
+        <Dialog open={suspenseDialogOpen} onClose={() => setSuspenseDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Add Suspense Entry</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Amount"
+                  type="number"
+                  value={suspenseFormData.amount}
+                  onChange={(e) => setSuspenseFormData({ ...suspenseFormData, amount: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Payment Date"
+                  type="date"
+                  value={suspenseFormData.paymentDate}
+                  onChange={(e) => setSuspenseFormData({ ...suspenseFormData, paymentDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Transaction ID"
+                  value={suspenseFormData.transactionId}
+                  onChange={(e) => setSuspenseFormData({ ...suspenseFormData, transactionId: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Bank Name"
+                  value={suspenseFormData.bankName}
+                  onChange={(e) => setSuspenseFormData({ ...suspenseFormData, bankName: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Remarks"
+                  multiline
+                  rows={2}
+                  value={suspenseFormData.remarks}
+                  onChange={(e) => setSuspenseFormData({ ...suspenseFormData, remarks: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSuspenseDialogOpen(false)}>Cancel</Button>
+            <Button 
+                variant="contained" 
+                onClick={handleSuspenseSave} 
+                disabled={savingSuspense || !suspenseFormData.amount}
+                sx={{ bgcolor: '#667eea' }}
+            >
+              {savingSuspense ? <CircularProgress size={24} /> : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Reconciliation Dialog */}
+        <Dialog open={reconciliationDialogOpen} onClose={() => setReconciliationDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Reconcile Payment: Rs. {selectedSuspenseEntry?.amount.toLocaleString()}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mb: 2, mt: 1 }}>
+              <Grid container spacing={1}>
+                <Grid item xs={4}>
+                  <TextField 
+                    fullWidth size="small" label="Name" 
+                    value={reconciliationSearch.studentName}
+                    onChange={(e) => setReconciliationSearch({ ...reconciliationSearch, studentName: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField 
+                    fullWidth size="small" label="Roll #" 
+                    value={reconciliationSearch.rollNumber}
+                    onChange={(e) => setReconciliationSearch({ ...reconciliationSearch, rollNumber: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <Button variant="contained" fullWidth onClick={fetchReconciliationStudents} disabled={searchingReconciliationStudents}>
+                    Search
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+
+            {reconciliationStudents.length > 0 && !selectedReconciliationStudent && (
+              <TableContainer sx={{ maxHeight: 300 }}>
+                <Table stickyHeader size="small">
+                  <TableBody>
+                    {reconciliationStudents.map((s) => (
+                      <TableRow key={s._id} hover onClick={() => {
+                          setSelectedReconciliationStudent(s);
+                          const studentId = s.studentId?._id || s.studentId;
+                          if (studentId) fetchOutstandingFees(studentId);
+                      }} sx={{ cursor: 'pointer' }}>
+                        <TableCell>{s.name}</TableCell>
+                        <TableCell>{s.rollNumber}</TableCell>
+                        <TableCell>{s.class}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {selectedReconciliationStudent && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Outstanding Fees for {selectedReconciliationStudent.name}
+                </Typography>
+                <TableContainer sx={{ maxHeight: 300 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Voucher #</TableCell>
+                        <TableCell>Fee Head</TableCell>
+                        <TableCell>Remaining</TableCell>
+                        <TableCell>Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {loadingOutstandingFees ? (
+                        <TableRow><TableCell colSpan={4} align="center"><CircularProgress /></TableCell></TableRow>
+                      ) : outstandingFees.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} align="center">No outstanding fees</TableCell></TableRow>
+                      ) : (
+                        outstandingFees.map((fee) => (
+                          <TableRow key={fee._id}>
+                            <TableCell>{fee.vouchers?.[0]?.voucherNumber}</TableCell>
+                            <TableCell>{fee.feeHead?.name}</TableCell>
+                            <TableCell>Rs. {(fee.remainingAmount || (fee.finalAmount - (fee.paidAmount || 0))).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="contained" 
+                                color="success" 
+                                size="small"
+                                onClick={() => handleReconcile(selectedReconciliationStudent.studentId?._id || selectedReconciliationStudent.studentId, fee._id)}
+                                disabled={reconciling}
+                              >
+                                Apply Fund
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+                setReconciliationDialogOpen(false);
+                setSelectedReconciliationStudent(null);
+                setReconciliationStudents([]);
+            }}>Cancel</Button>
           </DialogActions>
         </Dialog>
         </Paper>

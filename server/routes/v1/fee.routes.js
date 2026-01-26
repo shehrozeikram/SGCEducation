@@ -31,4 +31,9 @@ router.get('/payments', feeController.getPayments);
 // Voucher routes
 router.delete('/vouchers', isAdmin, feeController.deleteVoucher);
 
+// Suspense management routes
+router.get('/suspense', feeController.getSuspenseEntries);
+router.post('/suspense', isAdmin, feeController.recordSuspenseEntry);
+router.post('/suspense/reconcile', isAdmin, feeController.reconcileSuspenseEntry);
+
 module.exports = router;

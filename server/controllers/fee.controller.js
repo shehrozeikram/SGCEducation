@@ -196,6 +196,56 @@ const deleteVoucher = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/v1/fees/suspense
+ * @desc    Get unidentified payments
+ * @access  Private
+ */
+const getSuspenseEntries = asyncHandler(async (req, res) => {
+  const filters = {
+    institution: req.query.institution,
+    status: req.query.status,
+    transactionId: req.query.transactionId
+  };
+
+  const entries = await feeService.getSuspenseEntries(filters, req.user);
+
+  res.json({
+    success: true,
+    data: entries
+  });
+});
+
+/**
+ * @route   POST /api/v1/fees/suspense
+ * @desc    Record an unidentified payment
+ * @access  Private (Admin)
+ */
+const recordSuspenseEntry = asyncHandler(async (req, res) => {
+  const entry = await feeService.recordSuspenseEntry(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: 'Suspense entry recorded successfully',
+    data: entry
+  });
+});
+
+/**
+ * @route   POST /api/v1/fees/suspense/reconcile
+ * @desc    Reconcile an unidentified payment to a student
+ * @access  Private (Admin)
+ */
+const reconcileSuspenseEntry = asyncHandler(async (req, res) => {
+  const result = await feeService.reconcileSuspenseEntry(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: result.message,
+    data: result
+  });
+});
+
 module.exports = {
   getFeeStructureMatrix,
   getFeeStructureByClass,
@@ -207,5 +257,8 @@ module.exports = {
   recordPayment,
   getOutstandingBalances,
   getPayments,
-  deleteVoucher
+  deleteVoucher,
+  getSuspenseEntries,
+  recordSuspenseEntry,
+  reconcileSuspenseEntry
 };

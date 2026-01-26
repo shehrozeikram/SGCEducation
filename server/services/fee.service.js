@@ -5,6 +5,7 @@ const Student = require('../models/Student');
 const StudentFee = require('../models/StudentFee');
 const Admission = require('../models/Admission');
 const FeePayment = require('../models/FeePayment');
+const SuspenseEntry = require('../models/SuspenseEntry');
 const { ApiError } = require('../middleware/error.middleware');
 const { getInstitutionId, extractInstitutionId } = require('../utils/userUtils');
 const { generateReceiptNumber } = require('../utils/receiptUtils');
@@ -1392,6 +1393,136 @@ class FeeService {
       deletedCount,
       reversedPaymentsCount,
       totalReversedAmount
+    };
+  }
+
+  // Suspense Management - Record unidentified payment
+  async recordSuspenseEntry(suspenseData, currentUser) {
+    const institutionId = suspenseData.institution || getInstitutionId(currentUser);
+    
+    const suspenseEntry = await SuspenseEntry.create({
+      ...suspenseData,
+      institution: institutionId,
+      createdBy: currentUser._id
+    });
+
+    return suspenseEntry;
+  }
+
+  // Suspense Management - Get unidentified payments
+  async getSuspenseEntries(filters = {}, currentUser) {
+    const institutionId = filters.institution || getInstitutionId(currentUser);
+    
+    // Create query object and remove undefined/null values
+    const query = { ...filters };
+    Object.keys(query).forEach(key => {
+      if (query[key] === undefined || query[key] === null || query[key] === '') {
+        delete query[key];
+      }
+    });
+
+    if (institutionId) query.institution = institutionId;
+
+    // Default to unidentified if no status provided
+    if (!query.status) {
+      query.status = 'unidentified';
+    }
+
+    const entries = await SuspenseEntry.find(query)
+      .populate('reconciledData.student', 'firstName lastName admissionNumber')
+      .populate('reconciledData.payment', 'receiptNumber')
+      .populate('createdBy', 'name')
+      .sort({ paymentDate: -1 });
+
+    return entries;
+  }
+
+  // Suspense Management - Reconcile unidentified payment to a student
+  async reconcileSuspenseEntry(reconciliationData, currentUser) {
+    const { suspenseEntryId, studentId, studentFeeId, remarks } = reconciliationData;
+    const institutionId = reconciliationData.institution || getInstitutionId(currentUser);
+
+    const suspenseEntry = await SuspenseEntry.findOne({
+      _id: suspenseEntryId,
+      institution: institutionId,
+      status: 'unidentified'
+    });
+
+    if (!suspenseEntry) {
+      throw new ApiError(404, 'Unidentified payment entry not found or already reconciled');
+    }
+
+    const student = await Student.findOne({ _id: studentId, institution: institutionId });
+    if (!student) {
+      throw new ApiError(404, 'Student not found');
+    }
+
+    const studentFee = await StudentFee.findById(studentFeeId);
+    if (!studentFee) throw new ApiError(404, 'Student fee not found');
+
+    // Calculate how much can be paid (capped by fee remaining amount)
+    // Use slightly higher precision comparison to avoid floating point issues
+    let paymentAmount = suspenseEntry.amount;
+    const remainingFee = studentFee.remainingAmount;
+    
+    // Check if we need to split (if suspense amount > fee remaining)
+    let originalSuspenseEntry = suspenseEntry;
+    let reconciledSuspenseEntry = suspenseEntry;
+
+    if (paymentAmount > remainingFee) {
+        paymentAmount = remainingFee;
+        const balanceAmount = suspenseEntry.amount - paymentAmount;
+
+        // 1. Update the original entry to have the balance amount (it stays Unidentified)
+        originalSuspenseEntry.amount = balanceAmount;
+        originalSuspenseEntry.remarks = `Balance after reconciling ${paymentAmount} to ${studentId}`;
+        await originalSuspenseEntry.save();
+
+        // 2. Create a NEW entry for the reconciled portion
+        reconciledSuspenseEntry = await SuspenseEntry.create({
+            institution: institutionId,
+            amount: paymentAmount,
+            paymentDate: suspenseEntry.paymentDate,
+            paymentMethod: suspenseEntry.paymentMethod,
+            transactionId: suspenseEntry.transactionId ? `${suspenseEntry.transactionId}_PAID_${Date.now()}` : undefined,
+            bankName: suspenseEntry.bankName,
+            remarks: `[Reconciled Portion] ${remarks || ''}`.trim(),
+            status: 'reconciled', // Will be updated with reconciledData below
+            createdBy: currentUser._id
+        });
+    }
+
+    // Record the payment using the existing recordPayment logic
+    const paymentData = {
+      student: studentId,
+      studentFeeId: studentFeeId,
+      amount: paymentAmount,
+      paymentDate: reconciledSuspenseEntry.paymentDate,
+      paymentMethod: reconciledSuspenseEntry.paymentMethod,
+      transactionId: reconciledSuspenseEntry.transactionId,
+      bankName: reconciledSuspenseEntry.bankName,
+      remarks: `[Reconciled from Suspense] ${remarks || ''} ${reconciledSuspenseEntry.remarks || ''}`.trim()
+    };
+
+    const paymentResult = await this.recordPayment(paymentData, currentUser);
+
+    // Update the reconciled entry status and link
+    reconciledSuspenseEntry.status = 'reconciled';
+    reconciledSuspenseEntry.reconciledData = {
+      student: studentId,
+      payment: paymentResult.payment._id,
+      reconciledAt: Date.now(),
+      reconciledBy: currentUser._id
+    };
+
+    await reconciledSuspenseEntry.save();
+
+    return {
+      message: paymentAmount < suspenseEntry.amount ? 
+        `Partial reconciliation successful. Balance of ${originalSuspenseEntry.amount} remains.` : 
+        'Suspense entry reconciled successfully',
+      payment: paymentResult.payment,
+      suspenseEntry: reconciledSuspenseEntry
     };
   }
 }
