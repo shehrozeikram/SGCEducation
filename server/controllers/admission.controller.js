@@ -274,6 +274,23 @@ const getAdmissionStatuses = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/v1/admissions/next-roll-number
+ * @desc    Get next available roll number
+ * @access  Private
+ */
+const getNextRollNumber = asyncHandler(async (req, res) => {
+  const { institution } = req.query;
+  const institutionId = institution || req.user.institution;
+
+  const nextRollNumber = await admissionService.getNextRollNumber(institutionId);
+
+  res.json({
+    success: true,
+    data: nextRollNumber
+  });
+});
+
 module.exports = {
   getAdmissions,
   getAdmissionById,
@@ -288,5 +305,6 @@ module.exports = {
   getAdmissionReports,
   getAdmissionByDateReport,
   getAdmissionByMonthDetailedReport,
-  getAdmissionStatuses
+  getAdmissionStatuses,
+  getNextRollNumber
 };

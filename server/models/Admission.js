@@ -298,6 +298,32 @@ admissionSchema.pre('save', async function() {
     });
     this.applicationNumber = `ADM${year}${String(count + 1).padStart(6, '0')}`;
   }
+
+  // Generate roll number if not exists and it's a new admission (or missing)
+  if (!this.rollNumber) {
+    // Find highest roll number in Admissions and Students
+    const latestAdmission = await mongoose.model('Admission').findOne({ institution: this.institution })
+      .sort({ rollNumber: -1 })
+      .select('rollNumber');
+
+    const latestStudent = await mongoose.model('Student').findOne({ institution: this.institution })
+      .sort({ rollNumber: -1 })
+      .select('rollNumber');
+
+    let maxRoll = 99;
+
+    if (latestAdmission && latestAdmission.rollNumber) {
+      const rollNum = parseInt(latestAdmission.rollNumber);
+      if (!isNaN(rollNum)) maxRoll = Math.max(maxRoll, rollNum);
+    }
+
+    if (latestStudent && latestStudent.rollNumber) {
+      const rollNum = parseInt(latestStudent.rollNumber);
+      if (!isNaN(rollNum)) maxRoll = Math.max(maxRoll, rollNum);
+    }
+
+    this.rollNumber = String(maxRoll + 1);
+  }
 });
 
 // Indexes for better query performance

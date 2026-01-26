@@ -7,10 +7,50 @@ const Section = require('../models/Section');
 const { ApiError } = require('../middleware/error.middleware');
 const mongoose = require('mongoose');
 
+const StudentPromotion = require('../models/StudentPromotion');
+
 /**
  * Admission Service - Handles admission-related business logic
  */
 class AdmissionService {
+  /**
+   * Get the next available roll number for an institution
+   * Starting from 100
+   */
+  async getNextRollNumber(institutionId) {
+    if (!institutionId) {
+      throw new ApiError(400, 'Institution ID is required');
+    }
+
+    // Find the highest roll number in Admission model for this institution
+    const latestAdmission = await Admission.findOne({ institution: institutionId })
+      .sort({ rollNumber: -1 })
+      .select('rollNumber');
+
+    // Find the highest roll number in Student model for this institution
+    const latestStudent = await Student.findOne({ institution: institutionId })
+      .sort({ rollNumber: -1 })
+      .select('rollNumber');
+
+    let maxRoll = 99; // Start from 100, so base is 99
+
+    if (latestAdmission && latestAdmission.rollNumber) {
+      const rollNum = parseInt(latestAdmission.rollNumber);
+      if (!isNaN(rollNum)) {
+        maxRoll = Math.max(maxRoll, rollNum);
+      }
+    }
+
+    if (latestStudent && latestStudent.rollNumber) {
+      const rollNum = parseInt(latestStudent.rollNumber);
+      if (!isNaN(rollNum)) {
+        maxRoll = Math.max(maxRoll, rollNum);
+      }
+    }
+
+    return String(maxRoll + 1);
+  }
+
   /**
    * Get all admissions (filtered by user role and institution)
    */

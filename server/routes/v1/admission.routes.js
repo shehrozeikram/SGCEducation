@@ -32,6 +32,7 @@ router.use(authenticate);
 // IMPORTANT: Specific routes must come before parameterized routes (:id)
 router.get('/', admissionController.getAdmissions);
 router.get('/statuses', admissionController.getAdmissionStatuses);
+router.get('/next-roll-number', admissionController.getNextRollNumber);
 router.get('/stats/overview', admissionController.getAdmissionStats);
 
 // Analytics route - must be before /:id to avoid route conflicts
