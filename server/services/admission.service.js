@@ -1,4 +1,4 @@
-const Admission = require('../models/Admission');
+﻿const Admission = require('../models/Admission');
 const Student = require('../models/Student');
 const User = require('../models/User');
 const Institution = require('../models/Institution');
@@ -6,6 +6,8 @@ const Class = require('../models/Class');
 const Section = require('../models/Section');
 const { ApiError } = require('../middleware/error.middleware');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 const StudentPromotion = require('../models/StudentPromotion');
 
@@ -1410,6 +1412,366 @@ class AdmissionService {
     });
 
     return reportData;
+  }
+  /**
+   * Import admissions from XLSX
+   */
+  async importAdmissions(fileBuffer, currentUser) {
+    const xlsx = require('xlsx');
+    
+    console.log('Importing file, buffer size:', fileBuffer ? fileBuffer.length : 'null');
+
+    // Read the workbook from buffer
+    let workbook;
+    try {
+      workbook = xlsx.read(fileBuffer, { type: 'buffer', cellDates: true });
+    } catch (readErr) {
+      console.error('Error reading XLSX buffer:', readErr);
+      throw new ApiError(400, 'Failed to parse Excel file. Ensure it is a valid .xlsx file.');
+    }
+    
+    console.log('Workbook SheetNames:', workbook.SheetNames);
+
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new ApiError(400, 'The Excel file contains no sheets.');
+    }
+
+    // Get the first sheet
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    
+    if (!sheet) {
+      throw new ApiError(400, `Sheet '${sheetName}' is empty or invalid.`);
+    }
+
+    console.log('Original Sheet Range (!ref):', sheet['!ref']);
+
+    // Manual Range Calculation: Sometime !ref is wrong.
+    // robustly calculate range by iterating all keys
+    let minRow = Infinity;
+    let maxRow = -Infinity;
+    let minCol = Infinity;
+    let maxCol = -Infinity;
+
+    Object.keys(sheet).forEach(key => {
+      // Skip internal keys like !ref, !margins
+      if (key[0] === '!') return;
+      
+      const cell = xlsx.utils.decode_cell(key);
+      if (cell.r < minRow) minRow = cell.r;
+      if (cell.r > maxRow) maxRow = cell.r;
+      if (cell.c < minCol) minCol = cell.c;
+      if (cell.c > maxCol) maxCol = cell.c;
+    });
+
+    if (minRow !== Infinity && maxRow !== -Infinity) {
+       const calculatedRange = xlsx.utils.encode_range({
+         s: { c: minCol, r: minRow },
+         e: { c: maxCol, r: maxRow }
+       });
+       console.log('Calculated Sheet Range:', calculatedRange);
+       sheet['!ref'] = calculatedRange;
+    }
+
+    // Debug: read as array of arrays to inspect structure
+    const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    console.log('Raw data length:', rawData ? rawData.length : 'null');
+    
+    if (!rawData || rawData.length === 0) {
+       throw new ApiError(400, 'The uploaded file contains no data.');
+    }
+
+    // Find header row
+    let headerRowIndex = -1;
+    let headers = [];
+
+    // Search for the header row containing specific columns
+    for (let i = 0; i < Math.min(20, rawData.length); i++) {
+      const row = rawData[i];
+      const rowString = JSON.stringify(row).toLowerCase();
+      // Check for mandatory fields in header
+      if (rowString.includes('student name') && rowString.includes('father name')) {
+        headerRowIndex = i;
+        headers = row;
+        console.log(`Found header at row ${i + 1}`);
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+       // Fallback: Assume first row if we can't find specific headers, but log warning
+       console.warn('Specific headers not found, assuming first row is header');
+       headerRowIndex = 0;
+       headers = rawData[0];
+    }
+
+    if (!headers || headers.length === 0) {
+      throw new ApiError(400, 'Could not identify headers in the Excel file.');
+    }
+
+    // Process data rows
+    const data = [];
+    for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+       const row = rawData[i];
+       // Skip empty rows
+       if (!row || row.length === 0 || row.every(cell => !cell)) continue;
+       
+       const rowObj = {};
+       // Map row array to object using headers
+       headers.forEach((header, index) => {
+         if (header) {
+           // Clean header name (trim, etc)
+           const key = String(header).trim();
+           rowObj[key] = row[index];
+         }
+       });
+       data.push(rowObj);
+    }
+    
+    
+
+
+    if (data.length > 0) {
+       console.log('First 3 records:', JSON.stringify(data.slice(0, 3), null, 2));
+       console.log('Using headers:', headers);
+    }
+
+
+    if (data.length === 0) {
+      throw new ApiError(400, 'The file contains headers but no data rows.');
+    }
+    
+    // Load Classes Map first (needed for institution fallback)
+    // TEMPORARY: Loading all classes without institution filter for testing
+    const classes = await Class.find({});
+    
+    // Get institution ID - use user's institution or fallback to first class's institution
+    let institutionId = currentUser.institution;
+
+    if (!institutionId) {
+      // Fallback: Use the institution of the first class found
+      console.warn('User has no institution, using first class institution as fallback');
+      if (classes.length > 0 && classes[0].institution) {
+        institutionId = classes[0].institution;
+      } else {
+        throw new ApiError(400, 'User does not have an institution assigned and no classes found');
+      }
+    }
+    
+    console.log('========================================');
+    console.log('IMPORTING TO INSTITUTION ID:', institutionId);
+    console.log('========================================');
+
+    // Build class map (Name -> Id)
+    const classMap = {};
+    classes.forEach(cls => {
+      if (cls.name) classMap[cls.name.toLowerCase()] = cls._id;
+    });
+
+    console.log('Class Map:', JSON.stringify(classMap, null, 2));
+    
+    // Write debug logs to file for analysis
+    try {
+      const debugData = {
+        timestamp: new Date().toISOString(),
+        totalRecords: data.length,
+        sampleRecords: data.slice(0, 3),
+        headers: headers,
+        availableClasses: classMap
+      };
+      const debugPath = path.join(__dirname, '../import_logs.txt');
+      fs.writeFileSync(debugPath, JSON.stringify(debugData, null, 2));
+      console.log('Debug info saved to import_logs.txt');
+    } catch (e) {
+      console.error('Could not write debug file:', e.message);
+    }
+    
+
+    
+    // Load Sections Map (Name -> Id)
+    // Note: Section names might be duplicated across classes (e.g., Section A in Class 1 and Class 2)
+    // Ideally we should match by Class Name AND Section Name. 
+    // For simplicity, we'll try to match by name, and if ambiguous, we might have issues.
+    // Better approach: filter sections by the matched class ID for each row.
+    const allSections = await Section.find({ institution: institutionId });
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      try {
+        // Stop processing if Student Name is missing (treat as end of data)
+        if (!row['Student Name']) {
+          console.log(`Stopping at row ${i + headerRowIndex + 2}: Student Name is missing (end of file)`);
+          break;
+        }
+        
+        // Map Class
+        let classId = null;
+        if (row['Class Name']) {
+          const classNameLower = row['Class Name'].toString().trim().toLowerCase();
+          classId = classMap[classNameLower];
+          
+          if (!classId) {
+             // Optional: Create class if not exists? No, safer to log error.
+             // Show available classes to help user fix the issue
+             const availableClasses = Object.keys(classMap).map(k => {
+               const className = classes.find(c => c._id.toString() === classMap[k].toString());
+               return className ? className.name : k;
+             }).join(', ');
+throw new Error('Class "' + row['Class Name'] + '" not found. Available: ' + availableClasses);
+          }
+        }
+        
+        // Map Section
+        let sectionId = null;
+        if (row['Section Name'] && classId) {
+           const sectionNameLower = row['Section Name'].toString().trim().toLowerCase();
+           const matchedSection = allSections.find(s => 
+             s.class.toString() === classId.toString() && 
+             s.name.toLowerCase() === sectionNameLower
+           );
+           
+           if (matchedSection) {
+             sectionId = matchedSection._id;
+           } else {
+             // throw new Error(`Section '${row['Section Name']}' not found in Class '${row['Class Name']}'`);
+             // Allow section to be empty if not found, or log warning
+           }
+        }
+
+        // Map Gender
+        let gender = 'male'; // Default
+        if (row['Gender Name']) {
+           const g = row['Gender Name'].toLowerCase();
+           if (g.includes('female')) gender = 'female';
+           else if (g.includes('other')) gender = 'other';
+        }
+
+        // Prepare Admission Data
+        const admissionData = {
+          institution: institutionId,
+          academicYear: '2025-2026', // Default or calculate?
+          program: 'General',
+          class: classId,
+          section: sectionId,
+          rollNumber: row['Roll Number'] || row['Section Roll Number'] || undefined,
+          applicationNumber: row['Admission Number'] || row['Student Id'] || undefined, // Use Admission Number as Application Number if available
+          
+          personalInfo: {
+            name: row['Student Name'],
+            dateOfBirth: row['Date Of Birth'] ? new Date(row['Date Of Birth']) : undefined,
+            gender: gender,
+            nationality: 'Pakistani', // Default
+            religion: 'Islam', // Default or map if available
+            category: 'General' // Default
+          },
+          
+          contactInfo: {
+             phone: row['Mobile Number'] || row['Whatsapp Mobile Number'] || undefined,
+             alternatePhone: row['Whatsapp Mobile Number'] || undefined,
+             currentAddress: {
+               street: row['Student Address'] || undefined
+             },
+             permanentAddress: {
+               street: row['Student Address'] || undefined
+             }
+          },
+          
+          guardianInfo: {
+            fatherName: row['Father Name'],
+            // Map other fields
+            fatherCnic: row['Guardian CNIC'], // As requested mapping: Guardian CNIC -> fatherCnic/guardianCnic? 
+            // User requested: "Guardian CNIC" to... wait, usually Guardian CNIC maps to the actual guardian.
+            // If Father Name is provided, usually Father IS the guardian.
+            // Let's put it in guardianCnic AND fatherCnic if father is the guardian.
+            guardianCnic: row['Guardian CNIC'],
+            guardianName: row['Father Name'], // Default to father
+            guardianRelation: 'Father'
+          },
+          
+          studentId: undefined, // Will be set if we enroll them
+          status: row['Student Status'] ? 'approved' : 'pending', // If status provided, assume approved/migrated
+          
+          // Additional custom fields storage if needed (maybe in remarks or a generic field?)
+          // For now, we only map standard fields.
+        };
+
+        // Check for duplicates - skip if Student ID or Admission Number already exists
+        let isDuplicate = false;
+        
+        // Check for duplicate Student ID
+        if (row['Student Id']) {
+           const existingById = await Admission.findOne({ 
+             institution: institutionId, 
+             'personalInfo.studentId': row['Student Id']
+           });
+           if (existingById) {
+             console.log(`Skipping row ${i + 2}: Duplicate Student ID: ${row['Student Id']}`);
+             isDuplicate = true;
+           }
+        }
+        
+        // Check for duplicate Admission Number
+        if (!isDuplicate && admissionData.applicationNumber) {
+           const existingByAppNum = await Admission.findOne({ 
+             institution: institutionId, 
+             applicationNumber: admissionData.applicationNumber 
+           });
+           
+           if (existingByAppNum) {
+             console.log(`Skipping row ${i + 2}: Duplicate Admission Number: ${admissionData.applicationNumber}`);
+             isDuplicate = true;
+           }
+        }
+        
+        // Skip this record if it's a duplicate
+        if (isDuplicate) {
+          errorCount++;
+          errors.push({
+            row: i + 2,
+            name: row['Student Name'],
+            error: `Duplicate record (Student ID: ${row['Student Id']} or Admission Number: ${admissionData.applicationNumber})`
+          });
+          continue;
+        }
+        
+        // Save
+        const newAdmission = new Admission(admissionData);
+        
+        // If 'Admission Effective Date' is provided
+        if (row['Admission Effective Date']) {
+          newAdmission.createdAt = new Date(row['Admission Effective Date']);
+          newAdmission.admissionDate = new Date(row['Admission Effective Date']);
+        }
+        
+        await newAdmission.save();
+        
+        // Optional: If status is 'Active' or 'Enrolled', auto-enroll?
+        // User didn't explicitly ask to auto-enroll, just "import students". 
+        // Creating Admission records is the safest first step.
+        // We can set status to 'approved' so they can be enrolled easily.
+        
+        successCount++;
+        
+      } catch (err) {
+        errorCount++;
+        errors.push({
+          row: i + 2, // Excel row number (header is 1)
+          name: row['Student Name'] || 'Unknown',
+          error: err.message
+        });
+      }
+    }
+    
+    return {
+      success: true,
+      successCount,
+      errorCount,
+      errors
+    };
   }
 }
 

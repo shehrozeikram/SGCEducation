@@ -115,6 +115,10 @@ const admissionSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    fatherCnic: {
+      type: String,
+      trim: true
+    },
     fatherOccupation: {
       type: String,
       trim: true
@@ -124,6 +128,10 @@ const admissionSchema = new mongoose.Schema({
       trim: true
     },
     motherName: {
+      type: String,
+      trim: true
+    },
+    motherCnic: {
       type: String,
       trim: true
     },
@@ -140,6 +148,10 @@ const admissionSchema = new mongoose.Schema({
       trim: true
     },
     guardianRelation: {
+      type: String,
+      trim: true
+    },
+    guardianCnic: {
       type: String,
       trim: true
     },

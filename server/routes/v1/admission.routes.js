@@ -58,4 +58,10 @@ router.post('/:id/approve-enroll', validateObjectId, isAdmin, admissionControlle
 router.put('/:id/reject', validateObjectId, isAdmin, admissionController.rejectAdmission);
 router.delete('/:id', validateObjectId, isAdmin, admissionController.deleteAdmission);
 
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Import route
+router.post('/import', upload.single('file'), admissionController.importAdmissions);
+
 module.exports = router;

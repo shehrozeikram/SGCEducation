@@ -291,6 +291,30 @@ const getNextRollNumber = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   POST /api/v1/admissions/import
+ * @desc    Import admissions from XLSX
+ * @access  Private
+ */
+const importAdmissions = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please upload a file'
+    });
+  }
+
+  const result = await admissionService.importAdmissions(
+    req.file.buffer,
+    req.user
+  );
+
+  res.json({
+    success: true,
+    data: result
+  });
+});
+
 module.exports = {
   getAdmissions,
   getAdmissionById,
@@ -306,5 +330,6 @@ module.exports = {
   getAdmissionByDateReport,
   getAdmissionByMonthDetailedReport,
   getAdmissionStatuses,
-  getNextRollNumber
+  getNextRollNumber,
+  importAdmissions
 };
