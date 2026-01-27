@@ -16,6 +16,7 @@ import Groups from './pages/Groups';
 import GroupForm from './pages/GroupForm';
 import Admissions from './pages/Admissions';
 import AdmissionForm from './pages/AdmissionForm';
+import ImportStudents from './pages/ImportStudents';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import Notifications from './pages/Notifications';
@@ -299,7 +300,7 @@ function App() {
             path="/admissions/students/import"
             element={
               <ProtectedRoute>
-                <Admissions />
+                <ImportStudents />
               </ProtectedRoute>
             }
           />
