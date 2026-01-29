@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-01-29T10:01:00.388Z",
-  "totalRecords": 116,
+  "timestamp": "2026-01-29T12:17:36.124Z",
+  "totalRecords": 91,
   "sampleRecords": [
     {
       "Student Id": 1,
       "Student Name": "Shaiyma Khurram",
-      "Father Name": "Khurram Shehzad ",
+      "Father Name": "Khurram Shehzad",
       "Date Of Birth": "2025-01-28",
       "Blood Group Name": "O+",
       "Hobbies": "[Hobbies]",
@@ -39,45 +39,9 @@
       "Student Search 3": ""
     },
     {
-      "Student Id": 2,
-      "Student Name": "Nabiha",
-      "Father Name": "Father Name",
-      "Date Of Birth": "2025-01-28",
-      "Blood Group Name": "O+",
-      "Hobbies": "[Hobbies]",
-      "Student Category Name": "Active",
-      "Family Number": "[FamilyNumber]",
-      "Admission Date": "2024-02-09",
-      "Gender Name": "Female",
-      "Package Name": "",
-      "Fee Package Start Date": "2024-10-01",
-      "Fee Package End Date": "2026-04-30",
-      "Section Roll Number": "",
-      "Admission Number": "2",
-      "Roll Number": "2",
-      "Section Name": "A",
-      "Class Name": "Play Group",
-      "Admission Effective Date": "2024-02-09",
-      "Student Status": "Expelled",
-      "School Type Name": "TIGES - TAJ CAMPUS",
-      "Student Address": "Taj Campus",
-      "Last School Name": "",
-      "Placeof Birth": "",
-      "Last Class Attended": "",
-      "Guardian CNIC": "00000-0000000-0",
-      "Mobile Number": "923242901689",
-      "Whatsapp Mobile Number": "",
-      "Mobile Number 1": "",
-      "Whatsapp Mobile Number 1": "",
-      "Has Pic": "No Picture",
-      "Student Search 1": "",
-      "Student Search 2": "",
-      "Student Search 3": ""
-    },
-    {
       "Student Id": 3,
       "Student Name": "Ashab Abbas",
-      "Father Name": "Waqar Ahmed ",
+      "Father Name": "Waqar Ahmed",
       "Date Of Birth": "2021-01-28",
       "Blood Group Name": "O+",
       "Hobbies": "[Hobbies]",
@@ -92,17 +56,53 @@
       "Admission Number": "3",
       "Roll Number": "3",
       "Section Name": "A",
-      "Class Name": "Cor.Mon",
+      "Class Name": "Core Montessori",
       "Admission Effective Date": "2024-02-09",
       "Student Status": "Enrolled",
       "School Type Name": "TIGES - TAJ CAMPUS",
-      "Student Address": "Lakhu, Near Darbar Ghazi ImamNoon, Islamabad ",
+      "Student Address": "Lakhu, Near Darbar Ghazi ImamNoon, Islamabad",
       "Last School Name": "",
       "Placeof Birth": "",
       "Last Class Attended": "",
       "Guardian CNIC": "61101-3755167-5",
       "Mobile Number": "923242901689",
       "Whatsapp Mobile Number": "",
+      "Mobile Number 1": "",
+      "Whatsapp Mobile Number 1": "",
+      "Has Pic": "No Picture",
+      "Student Search 1": "",
+      "Student Search 2": "",
+      "Student Search 3": ""
+    },
+    {
+      "Student Id": 4,
+      "Student Name": "Muhammad Ibrahim",
+      "Father Name": "M. Asif",
+      "Date Of Birth": "2020-01-28",
+      "Blood Group Name": "O+",
+      "Hobbies": "[Hobbies]",
+      "Student Category Name": "Active",
+      "Family Number": "[FamilyNumber]",
+      "Admission Date": "2024-03-08",
+      "Gender Name": "Male",
+      "Package Name": "",
+      "Fee Package Start Date": "2024-09-01",
+      "Fee Package End Date": "2025-12-31",
+      "Section Roll Number": 0,
+      "Admission Number": "4",
+      "Roll Number": "4",
+      "Section Name": "A",
+      "Class Name": "Core Montessori",
+      "Admission Effective Date": "2024-03-08",
+      "Student Status": "Enrolled",
+      "School Type Name": "TIGES - TAJ CAMPUS",
+      "Student Address": "Taj Campus",
+      "Last School Name": "",
+      "Placeof Birth": "",
+      "Last Class Attended": "",
+      "Guardian CNIC": "37405-7670033-7",
+      "Mobile Number": "923309041848",
+      "Whatsapp Mobile Number": "923309041848",
       "Mobile Number 1": "",
       "Whatsapp Mobile Number 1": "",
       "Has Pic": "No Picture",
@@ -148,19 +148,336 @@
     "Student Search 3"
   ],
   "availableClasses": {
-    "play group": "693ff79912daa6760b51a943",
-    "core montessory": "693fffcd12daa6760b51ab75",
-    "advance montessori": "69439035a6fe226c4638e6d8",
-    "one": "69721ed0ff085e0d24df0145",
-    "two": "697864a5774148aebf6bafbb",
-    "three": "694390a1a6fe226c4638e756",
-    "four": "69439106a6fe226c4638e780",
-    "5th": "69439132a6fe226c4638e7aa",
-    "6th": "69439153a6fe226c4638e7d4",
-    "7th": "69439171a6fe226c4638e7fe",
-    "8th": "69439196a6fe226c4638e828",
-    "9th": "694632b2b5943dd4170cf5bf",
-    "cor.mon": "69707d855df2c79b5043e925",
-    "11th": "697082535df2c79b5043ed26"
+    "play group": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 2,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "693ff79912daa6760b51a943",
+      "name": "Play Group",
+      "code": "01",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe36a127b866bb64737c1",
+      "group": "693fb899127b866bb647340e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-15T11:57:13.552Z",
+      "updatedAt": "2026-01-27T07:06:03.722Z",
+      "__v": 0
+    },
+    "core montessory": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "693fffcd12daa6760b51ab75",
+      "name": "core montessory",
+      "code": "02",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe480127b866bb64737c9",
+      "group": "693fb88c127b866bb64733e6",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-15T12:32:13.012Z",
+      "updatedAt": "2025-12-15T12:32:13.012Z",
+      "__v": 0
+    },
+    "advance montessori": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439035a6fe226c4638e6d8",
+      "name": "Advance Montessori",
+      "code": "1",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe3fc127b866bb64737c5",
+      "group": "693fb88c127b866bb64733e6",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:25:09.983Z",
+      "updatedAt": "2026-01-27T07:09:01.938Z",
+      "__v": 0
+    },
+    "one": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 0,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69721ed0ff085e0d24df0145",
+      "name": "one",
+      "code": "01",
+      "institution": "6939586be7f0c105a13a297b",
+      "academicYear": "2026-2027",
+      "group": "69721ebaff085e0d24df0030",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "692d44aa7efdf8f2264bfccd",
+      "createdAt": "2026-01-22T12:57:52.149Z",
+      "updatedAt": "2026-01-22T12:57:52.150Z",
+      "__v": 0
+    },
+    "two": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 0,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "697864a5774148aebf6bafbb",
+      "name": "Two",
+      "code": "02",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2026-2027",
+      "group": "693fb684127b866bb6473312",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "692d44aa7efdf8f2264bfccd",
+      "createdAt": "2026-01-27T07:09:25.685Z",
+      "updatedAt": "2026-01-27T07:09:25.685Z",
+      "__v": 0
+    },
+    "three": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "694390a1a6fe226c4638e756",
+      "name": "Three",
+      "code": "06",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe4c5127b866bb64737d5",
+      "group": "693fb684127b866bb6473312",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:26:57.480Z",
+      "updatedAt": "2025-12-18T05:26:57.480Z",
+      "__v": 0
+    },
+    "four": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439106a6fe226c4638e780",
+      "name": "Four",
+      "code": "07",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe4d4127b866bb64737d9",
+      "group": "693fb899127b866bb647340e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:28:38.848Z",
+      "updatedAt": "2025-12-18T05:28:38.848Z",
+      "__v": 0
+    },
+    "5th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439132a6fe226c4638e7aa",
+      "name": "5th",
+      "code": "08",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe506127b866bb64737dd",
+      "group": "693fb899127b866bb647340e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:29:22.255Z",
+      "updatedAt": "2025-12-18T05:29:22.255Z",
+      "__v": 0
+    },
+    "6th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439153a6fe226c4638e7d4",
+      "name": "6th",
+      "code": "09",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe51e127b866bb64737e1",
+      "group": "693fb8ad127b866bb647345e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:29:55.212Z",
+      "updatedAt": "2025-12-18T05:29:55.212Z",
+      "__v": 0
+    },
+    "7th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439171a6fe226c4638e7fe",
+      "name": "7th",
+      "code": "10",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe52d127b866bb64737e5",
+      "group": "693fb8ad127b866bb647345e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:30:25.944Z",
+      "updatedAt": "2025-12-18T05:30:25.945Z",
+      "__v": 0
+    },
+    "8th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69439196a6fe226c4638e828",
+      "name": "8th",
+      "code": "11",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "grade": "693fe538127b866bb64737e9",
+      "group": "693fb684127b866bb6473312",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "693bff26a82941f27584aba7",
+      "createdAt": "2025-12-18T05:31:02.361Z",
+      "updatedAt": "2025-12-18T05:31:02.362Z",
+      "__v": 0
+    },
+    "9th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 1,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "694632b2b5943dd4170cf5bf",
+      "name": "9th",
+      "code": "009",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2025-2026",
+      "group": "693fb8ad127b866bb647345e",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "692d44aa7efdf8f2264bfccd",
+      "createdAt": "2025-12-20T05:22:58.314Z",
+      "updatedAt": "2025-12-20T05:22:58.319Z",
+      "__v": 0
+    },
+    "cor.mon": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 0,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "69707d855df2c79b5043e925",
+      "name": "Cor.Mon",
+      "code": "10",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2026-2027",
+      "group": "693fb8bb127b866bb6473486",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "692d44aa7efdf8f2264bfccd",
+      "createdAt": "2026-01-21T07:17:25.412Z",
+      "updatedAt": "2026-01-27T07:07:18.761Z",
+      "__v": 0
+    },
+    "11th": {
+      "schedule": {
+        "days": []
+      },
+      "stats": {
+        "totalSections": 0,
+        "totalStudents": 0,
+        "totalTeachers": 0
+      },
+      "_id": "697082535df2c79b5043ed26",
+      "name": "11th",
+      "code": "11",
+      "institution": "692d701e9f96bcdcb121598c",
+      "academicYear": "2026-2027",
+      "group": "693fb8bb127b866bb6473486",
+      "feeType": "693fdad0127b866bb6473787",
+      "capacity": 40,
+      "isActive": true,
+      "createdBy": "692d44aa7efdf8f2264bfccd",
+      "createdAt": "2026-01-21T07:37:55.323Z",
+      "updatedAt": "2026-01-21T07:37:55.324Z",
+      "__v": 0
+    }
   }
 }

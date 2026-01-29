@@ -1541,34 +1541,38 @@ class AdmissionService {
       throw new ApiError(400, 'The file contains headers but no data rows.');
     }
     
-    // Load Classes Map first (needed for institution fallback)
-    // TEMPORARY: Loading all classes without institution filter for testing
-    const classes = await Class.find({});
+    // Load all institutions to support per-row institution mapping
+    const institutions = await Institution.find({});
     
-    // Get institution ID - use user's institution or fallback to first class's institution
-    let institutionId = currentUser.institution;
-
-    if (!institutionId) {
-      // Fallback: Use the institution of the first class found
-      console.warn('User has no institution, using first class institution as fallback');
-      if (classes.length > 0 && classes[0].institution) {
-        institutionId = classes[0].institution;
-      } else {
-        throw new ApiError(400, 'User does not have an institution assigned and no classes found');
+    // Build institution map (Name -> ID) for School Type Name lookup
+    const institutionMap = {};
+    institutions.forEach(inst => {
+      if (inst.name) {
+        // Store by lowercase trimmed name for flexible matching
+        const key = inst.name.toLowerCase().trim();
+        institutionMap[key] = inst._id;
       }
-    }
+    });
     
     console.log('========================================');
-    console.log('IMPORTING TO INSTITUTION ID:', institutionId);
+    console.log('AVAILABLE INSTITUTIONS:', Object.keys(institutionMap));
+    console.log('USER INSTITUTION:', currentUser.institution);
+    console.log('USER ROLE:', currentUser.role);
     console.log('========================================');
+    
+    // Load all classes (no institution filter since we support multi-institution import)
+    const classes = await Class.find({});
 
-    // Build class map (Name -> Id)
+    // Build class map (Name -> Class Object) to include institution info
     const classMap = {};
     classes.forEach(cls => {
-      if (cls.name) classMap[cls.name.toLowerCase()] = cls._id;
+      if (cls.name) {
+        const key = cls.name.toLowerCase().trim();
+        classMap[key] = cls; // Store entire class object, not just ID
+      }
     });
 
-    console.log('Class Map:', JSON.stringify(classMap, null, 2));
+    console.log('Loaded', classes.length, 'classes across all institutions');
     
     // Write debug logs to file for analysis
     try {
@@ -1588,12 +1592,9 @@ class AdmissionService {
     
 
     
-    // Load Sections Map (Name -> Id)
-    // Note: Section names might be duplicated across classes (e.g., Section A in Class 1 and Class 2)
-    // Ideally we should match by Class Name AND Section Name. 
-    // For simplicity, we'll try to match by name, and if ambiguous, we might have issues.
-    // Better approach: filter sections by the matched class ID for each row.
-    const allSections = await Section.find({ institution: institutionId });
+    // Load all sections (no institution filter since we support multi-institution import)
+    // Sections will be filtered per-row based on class ID and institution
+    const allSections = await Section.find({});
     
     let successCount = 0;
     let errorCount = 0;
@@ -1608,24 +1609,68 @@ class AdmissionService {
           break;
         }
         
-        // Map Class
-        let classId = null;
-        if (row['Class Name']) {
-          const classNameLower = row['Class Name'].toString().trim().toLowerCase();
-          classId = classMap[classNameLower];
+        // === INSTITUTION MAPPING FROM "School Type Name" COLUMN ===
+        let rowInstitutionId = currentUser.institution; // Default fallback
+        
+        if (row['School Type Name']) {
+          const schoolTypeName = row['School Type Name'].toString().trim().toLowerCase();
+          const matchedInstitutionId = institutionMap[schoolTypeName];
           
-          if (!classId) {
-             // Optional: Create class if not exists? No, safer to log error.
-             // Show available classes to help user fix the issue
-             const availableClasses = Object.keys(classMap).map(k => {
-               const className = classes.find(c => c._id.toString() === classMap[k].toString());
-               return className ? className.name : k;
-             }).join(', ');
-throw new Error('Class "' + row['Class Name'] + '" not found. Available: ' + availableClasses);
+          if (matchedInstitutionId) {
+            rowInstitutionId = matchedInstitutionId;
+            console.log(`Row ${i + 2}: Mapped "${row['School Type Name']}" to institution ${rowInstitutionId}`);
+          } else {
+            // Institution not found - provide helpful error
+            const availableInstitutions = Object.keys(institutionMap).map(k => {
+              const inst = institutions.find(inst => inst._id.toString() === institutionMap[k].toString());
+              return inst ? inst.name : k;
+            }).join(', ');
+            throw new Error(`Institution "${row['School Type Name']}" not found. Available: ${availableInstitutions}`);
+          }
+        } else {
+          // No School Type Name provided - use user's institution if they have one
+          if (!currentUser.institution) {
+            throw new Error('School Type Name column is required when user has no assigned institution');
+          }
+          console.log(`Row ${i + 2}: No School Type Name provided, using user's institution ${rowInstitutionId}`);
+        }
+        
+        // === PERMISSION VALIDATION ===
+        // Super admins can import to any institution
+        // Regular users can only import to their own institution
+        if (currentUser.role !== 'super_admin') {
+          if (!currentUser.institution) {
+            throw new Error('You do not have an assigned institution and are not a super admin');
+          }
+          if (rowInstitutionId.toString() !== currentUser.institution.toString()) {
+            throw new Error(`Permission denied: You can only import data for your own institution (${currentUser.institution}), but this row is for institution ${rowInstitutionId}`);
           }
         }
         
-        // Map Section
+        // === CLASS MAPPING ===
+        let classId = null;
+        let classObj = null;
+        if (row['Class Name']) {
+          const classNameLower = row['Class Name'].toString().trim().toLowerCase();
+          classObj = classMap[classNameLower];
+          
+          if (!classObj) {
+             // Class not found - show available classes
+             const availableClasses = Object.keys(classMap).map(k => {
+               return classMap[k].name;
+             }).join(', ');
+             throw new Error('Class "' + row['Class Name'] + '" not found. Available: ' + availableClasses);
+          }
+          
+          // Validate class belongs to the correct institution
+          if (classObj.institution.toString() !== rowInstitutionId.toString()) {
+            throw new Error(`Class "${row['Class Name']}" does not belong to institution "${row['School Type Name'] || 'your institution'}". It belongs to a different institution.`);
+          }
+          
+          classId = classObj._id;
+        }
+        
+        // === SECTION MAPPING ===
         let sectionId = null;
         if (row['Section Name'] && classId) {
            const sectionNameLower = row['Section Name'].toString().trim().toLowerCase();
@@ -1637,8 +1682,8 @@ throw new Error('Class "' + row['Class Name'] + '" not found. Available: ' + ava
            if (matchedSection) {
              sectionId = matchedSection._id;
            } else {
-             // throw new Error(`Section '${row['Section Name']}' not found in Class '${row['Class Name']}'`);
              // Allow section to be empty if not found, or log warning
+             console.warn(`Section '${row['Section Name']}' not found in Class '${row['Class Name']}'`);
            }
         }
 
@@ -1652,7 +1697,7 @@ throw new Error('Class "' + row['Class Name'] + '" not found. Available: ' + ava
 
         // Prepare Admission Data
         const admissionData = {
-          institution: institutionId,
+          institution: rowInstitutionId, // Use per-row institution
           academicYear: '2025-2026', // Default or calculate?
           program: 'General',
           class: classId,
