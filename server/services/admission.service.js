@@ -1750,7 +1750,7 @@ class AdmissionService {
         // Check for duplicate Student ID
         if (row['Student Id']) {
            const existingById = await Admission.findOne({ 
-             institution: institutionId, 
+             institution: rowInstitutionId, // Check in TARGET institution only
              'personalInfo.studentId': row['Student Id']
            });
            if (existingById) {
@@ -1762,7 +1762,7 @@ class AdmissionService {
         // Check for duplicate Admission Number
         if (!isDuplicate && admissionData.applicationNumber) {
            const existingByAppNum = await Admission.findOne({ 
-             institution: institutionId, 
+             institution: rowInstitutionId, // Check in TARGET institution only
              applicationNumber: admissionData.applicationNumber 
            });
            
