@@ -151,6 +151,18 @@ export const restoreAdmissions = async (admissionIds) => {
   return response.data;
 };
 
+
+
+// Bulk status update
+export const bulkUpdateStatus = async (admissionIds, status, remarks) => {
+  const response = await axios.post(
+    getApiUrl('admissions/bulk-status-update'),
+    { admissionIds, status, remarks },
+    { headers: getAuthHeader() }
+  );
+  return response.data;
+};
+
 export default {
   getAllAdmissions,
   getAdmissionById,
@@ -165,5 +177,6 @@ export default {
   getAdmissionAnalytics,
   getNextRollNumber,
   bulkSoftDeleteAdmissions,
-  restoreAdmissions
+  restoreAdmissions,
+  bulkUpdateStatus
 };

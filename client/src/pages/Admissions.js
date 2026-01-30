@@ -99,7 +99,7 @@ import {
   Code,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission, bulkSoftDeleteAdmissions, restoreAdmissions } from '../services/admissionService';
+import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission, bulkSoftDeleteAdmissions, restoreAdmissions, bulkUpdateStatus } from '../services/admissionService';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { getAvailableModules } from '../config/modules';
@@ -760,6 +760,50 @@ const Admissions = () => {
   const handleExport = () => {
     // TODO: Implement export functionality
     alert('Export functionality coming soon!');
+  };
+
+  // Bulk Status Update State & Handlers
+  const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
+  const [selectedBulkStatus, setSelectedBulkStatus] = useState('');
+  const [bulkStatusRemarks, setBulkStatusRemarks] = useState('');
+
+  const handleOpenBulkStatusDialog = () => {
+    if (selectedAdmissions.length === 0) return;
+    setSelectedBulkStatus('');
+    setBulkStatusRemarks('');
+    setBulkStatusDialogOpen(true);
+  };
+
+  const handleCloseBulkStatusDialog = () => {
+    setBulkStatusDialogOpen(false);
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (!selectedBulkStatus) return;
+    
+    try {
+      setLoading(true);
+      await bulkUpdateStatus(selectedAdmissions, selectedBulkStatus, bulkStatusRemarks);
+      // Wait a moment for DB propagation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh data
+      // We need to re-fetch the current view's data
+      // Ideally we call the function that populates the current table (fetchData or fetchAdmissionData)
+      // Since we are in the 'register' or 'list' view, we can trigger a refresh via:
+      window.location.reload(); // Simplest way to ensure full consistency for now
+      
+      // Or cleaner:
+      // setBulkStatusDialogOpen(false);
+      // setSelectedAdmissions([]);
+      // window.dispatchEvent(new Event('admissionUpdated')); 
+      
+    } catch (err) {
+      console.error('Bulk status update error:', err);
+      // Show error but don't crash
+      alert(err.response?.data?.message || 'Failed to update statuses');
+      setLoading(false);
+    }
   };
 
   // Report type mapping
@@ -2348,6 +2392,23 @@ const Admissions = () => {
                   </Button>
                 )}
 
+                {/* Bulk Status Update Button */}
+                {selectedAdmissions.length > 0 && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Edit />}
+                    onClick={handleOpenBulkStatusDialog}
+                    sx={{
+                      bgcolor: '#ff9800',
+                      '&:hover': { bgcolor: '#f57c00' },
+                      textTransform: 'none',
+                      mr: 1
+                    }}
+                  >
+                    Update Status ({selectedAdmissions.length})
+                  </Button>
+                )}
+
                 {/* Bulk Restore Button */}
                 {selectedAdmissions.length > 0 && showDeleted && (
                   <Button
@@ -2977,6 +3038,50 @@ const Admissions = () => {
       </Dialog>
         </Box>
       </Box>
+      {/* Bulk Status Update Dialog */}
+      <Dialog open={bulkStatusDialogOpen} onClose={handleCloseBulkStatusDialog}>
+        <DialogTitle>Update Status for {selectedAdmissions.length} Students</DialogTitle>
+        <DialogContent sx={{ minWidth: 400, pt: 2 }}>
+          <Box sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>New Status</InputLabel>
+              <Select
+                value={selectedBulkStatus}
+                onChange={(e) => setSelectedBulkStatus(e.target.value)}
+                label="New Status"
+              >
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="under_review">Under Review</MenuItem>
+                <MenuItem value="approved">Approved</MenuItem>
+                <MenuItem value="rejected">Rejected</MenuItem>
+                <MenuItem value="enrolled">Enrolled</MenuItem>
+                <MenuItem value="cancelled">Cancelled</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Remarks (Optional)"
+              value={bulkStatusRemarks}
+              onChange={(e) => setBulkStatusRemarks(e.target.value)}
+              placeholder="Reason for status change..."
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseBulkStatusDialog}>Cancel</Button>
+          <Button 
+            onClick={handleBulkStatusUpdate} 
+            variant="contained" 
+            color="primary"
+            disabled={!selectedBulkStatus || loading}
+          >
+            {loading ? 'Updating...' : 'Update Status'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
