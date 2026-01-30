@@ -108,6 +108,7 @@ import AdmissionByDateReport from '../components/reports/AdmissionByDateReport';
 import AdmissionByMonthReport from '../components/reports/AdmissionByMonthReport';
 import { useTablePagination } from '../hooks/useTablePagination';
 
+
 const Admissions = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -229,7 +230,72 @@ const Admissions = () => {
   useEffect(() => {
     registerPagination.resetPagination();
   }, [searchTerm]);
+
   const [studentAllDataRows, setStudentAllDataRows] = useState([]);
+
+  // Report ref
+
+
+  // Extract filtering logic to a reusable function for register tab
+  const getFilteredRegisterAdmissions = () => {
+    return admissions.filter((admission) => {
+      // Filter by show deleted toggle
+      if (showDeleted && admission.isActive !== false) return false;
+      if (!showDeleted && admission.isActive === false) return false;
+      
+      // Filter by Student Name
+      if (filterStudentName) {
+        const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+        const admissionName = (admission.personalInfo?.name || '').toLowerCase();
+        const searchName = filterStudentName.toLowerCase();
+        if (!studentName.includes(searchName) && !admissionName.includes(searchName)) {
+          return false;
+        }
+      }
+
+      // Filter by Roll Number
+      if (filterRollNumber) {
+        const rollNumber = (admission.studentId?.rollNumber || '').toString().toLowerCase();
+        if (!rollNumber.includes(filterRollNumber.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Filter by Class
+      if (filterClass) {
+        const classId = admission.class?._id || admission.class;
+        if (classId !== filterClass) {
+          return false;
+        }
+      }
+
+      // Filter by Status
+      if (filterStatus && admission.status !== filterStatus) return false;
+
+      // Filter by Search Term (Global Search)
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+        const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
+        const admissionNo = (admission.applicationNumber || '').toLowerCase();
+        const phone = (admission.contactInfo?.phone || '').toLowerCase();
+        const admissionName = (admission.personalInfo?.name || '').toLowerCase();
+        if (!studentName.includes(search) && !fatherName.includes(search) && !admissionNo.includes(search) && !phone.includes(search) && !admissionName.includes(search)) return false;
+      }
+
+      return true;
+    });
+  };
+
+  const filteredRegisterAdmissions = getFilteredRegisterAdmissions();
+
+
+  
+  // Helper for selection
+  const isSelected = (id) => selectedAdmissions.indexOf(id) !== -1;
+
+  // Destructure pagination for easier access in register tab
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage } = registerPagination;
   
   // Reports state
   const [selectedReportTab, setSelectedReportTab] = useState(0);
@@ -2254,23 +2320,10 @@ const Admissions = () => {
                   </Button>
                 )}
 
-                <Button
-                  variant="contained"
-                  startIcon={<FileDownload />}
-                  onClick={() => {
-                    // TODO: Implement report generation
-                    window.print();
-                  }}
-                  sx={{
-                    bgcolor: '#0d6efd',
-                    '&:hover': { bgcolor: '#0b5ed7' },
-                    textTransform: 'none',
-                  }}
-                >
-                  GET REPORT
-                </Button>
+
               </Box>
             </Box>
+
 
 
             {/* Advanced Filters */}
@@ -2385,81 +2438,9 @@ const Admissions = () => {
                       <TableCell padding="checkbox" sx={{ color: 'white' }}>
                         <Checkbox
                           sx={{ color: 'white', '&.Mui-checked': { color: 'white' } }}
-                          indeterminate={selectedAdmissions.length > 0 && selectedAdmissions.length < (() => {
-                            const filteredRegisterAdmissions = admissions.filter((admission) => {
-                              if (showDeleted && admission.isActive !== false) return false;
-                              if (!showDeleted && admission.isActive === false) return false;
-                              if (filterStudentName) {
-                                const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                                const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                                if (!studentName.includes(filterStudentName.toLowerCase()) && !admissionName.includes(filterStudentName.toLowerCase())) return false;
-                              }
-                              if (filterRollNumber && !(admission.studentId?.rollNumber || '').toString().toLowerCase().includes(filterRollNumber.toLowerCase())) return false;
-                              if (filterClass && (admission.class?._id || admission.class) !== filterClass) return false;
-
-                              if (filterStatus && admission.status !== filterStatus) return false;
-                              if (searchTerm) {
-                                const search = searchTerm.toLowerCase();
-                                const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                                const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
-                                const admissionNo = (admission.applicationNumber || '').toLowerCase();
-                                const phone = (admission.contactInfo?.phone || '').toLowerCase();
-                                const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                                if (!studentName.includes(search) && !fatherName.includes(search) && !admissionNo.includes(search) && !phone.includes(search) && !admissionName.includes(search)) return false;
-                              }
-                              return true;
-                            });
-                            return filteredRegisterAdmissions.length;
-                          })()}
-                          checked={(() => {
-                            const filteredRegisterAdmissions = admissions.filter((admission) => {
-                              if (showDeleted && admission.isActive !== false) return false;
-                              if (!showDeleted && admission.isActive === false) return false;
-                              if (filterStudentName) {
-                                const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                                const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                                if (!studentName.includes(filterStudentName.toLowerCase()) && !admissionName.includes(filterStudentName.toLowerCase())) return false;
-                              }
-                              if (filterRollNumber && !(admission.studentId?.rollNumber || '').toString().toLowerCase().includes(filterRollNumber.toLowerCase())) return false;
-                              if (filterClass && (admission.class?._id || admission.class) !== filterClass) return false;
-
-                              if (filterStatus && admission.status !== filterStatus) return false;
-                              if (searchTerm) {
-                                const search = searchTerm.toLowerCase();
-                                const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                                const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
-                                const admissionNo = (admission.applicationNumber || '').toLowerCase();
-                                const phone = (admission.contactInfo?.phone || '').toLowerCase();
-                                const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                                if (!studentName.includes(search) && !fatherName.includes(search) && !admissionNo.includes(search) && !phone.includes(search) && !admissionName.includes(search)) return false;
-                              }
-                              return true;
-                            });
-                            return filteredRegisterAdmissions.length > 0 && selectedAdmissions.length === filteredRegisterAdmissions.length;
-                          })()}
-                          onChange={(e) => handleSelectAll(e, admissions.filter((admission) => {
-                            if (showDeleted && admission.isActive !== false) return false;
-                            if (!showDeleted && admission.isActive === false) return false;
-                            if (filterStudentName) {
-                              const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                              const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                              if (!studentName.includes(filterStudentName.toLowerCase()) && !admissionName.includes(filterStudentName.toLowerCase())) return false;
-                            }
-                            if (filterRollNumber && !(admission.studentId?.rollNumber || '').toString().toLowerCase().includes(filterRollNumber.toLowerCase())) return false;
-                            if (filterClass && (admission.class?._id || admission.class) !== filterClass) return false;
-
-                            if (filterStatus && admission.status !== filterStatus) return false;
-                            if (searchTerm) {
-                              const search = searchTerm.toLowerCase();
-                              const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                              const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
-                              const admissionNo = (admission.applicationNumber || '').toLowerCase();
-                              const phone = (admission.contactInfo?.phone || '').toLowerCase();
-                              const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                              if (!studentName.includes(search) && !fatherName.includes(search) && !admissionNo.includes(search) && !phone.includes(search) && !admissionName.includes(search)) return false;
-                            }
-                            return true;
-                          }))}
+                          indeterminate={selectedAdmissions.length > 0 && selectedAdmissions.length < filteredRegisterAdmissions.length}
+                          checked={filteredRegisterAdmissions.length > 0 && selectedAdmissions.length === filteredRegisterAdmissions.length}
+                          onChange={(e) => handleSelectAll(e, filteredRegisterAdmissions)}
                         />
                       </TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
@@ -2478,79 +2459,12 @@ const Admissions = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(() => {
-                      const filteredRegisterAdmissions = admissions.filter((admission) => {
-                        // Filter by show deleted toggle
-                        if (showDeleted && admission.isActive !== false) return false;
-                        if (!showDeleted && admission.isActive === false) return false;
-                        
-                        // Filter by Student Name
-                        if (filterStudentName) {
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                          const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                          const searchName = filterStudentName.toLowerCase();
-                          if (!studentName.includes(searchName) && !admissionName.includes(searchName)) {
-                            return false;
-                          }
-                        }
-
-                        // Filter by Roll Number
-                        if (filterRollNumber) {
-                          const rollNumber = (admission.studentId?.rollNumber || '').toString().toLowerCase();
-                          if (!rollNumber.includes(filterRollNumber.toLowerCase())) {
-                            return false;
-                          }
-                        }
-
-                        // Filter by Class
-                        if (filterClass) {
-                          const admissionClass = admission.class?._id || admission.class;
-                          if (admissionClass !== filterClass) {
-                            return false;
-                          }
-                        }
-
-                        // Filter by Status
-                        if (filterStatus) {
-                          if (admission.status !== filterStatus) {
-                            return false;
-                          }
-                        }
-                        
-                        // Legacy search filter (keep for backward compatibility)
-                        if (searchTerm) {
-                          const search = searchTerm.toLowerCase();
-                          const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                          const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
-                          const admissionNo = (admission.applicationNumber || '').toLowerCase();
-                          const phone = (admission.contactInfo?.phone || '').toLowerCase();
-                          const admissionName = (admission.personalInfo?.name || '').toLowerCase();
-                          if (!studentName.includes(search) && 
-                              !fatherName.includes(search) && 
-                              !admissionNo.includes(search) &&
-                              !phone.includes(search) &&
-                              !admissionName.includes(search)) {
-                            return false;
-                          }
-                        }
-
-                        return true;
-                      });
-
-                      if (filteredRegisterAdmissions.length === 0) {
-                        return (
-                          <TableRow>
-                            <TableCell colSpan={14} align="center" sx={{ py: 4 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                No admissions found
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }
-
-                      return registerPagination.getPaginatedData(filteredRegisterAdmissions).map((admission, idx) => {
-                        const actualIndex = registerPagination.page * registerPagination.rowsPerPage + idx;
+                    {filteredRegisterAdmissions
+                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                      .map((admission, idx) => {
+                        const isItemSelected = isSelected(admission._id);
+                        const labelId = `enhanced-table-checkbox-${idx}`;
+                        const actualIndex = page * rowsPerPage + idx;
                         const studentName = admission.personalInfo?.name || '';
                         const dateOfBirth = admission.personalInfo?.dateOfBirth 
                           ? new Date(admission.personalInfo.dateOfBirth).toLocaleDateString('en-GB', {
@@ -2641,36 +2555,9 @@ const Admissions = () => {
                             </TableCell>
                           </TableRow>
                         );
-                      });
-                    })()}
+                      })}
                   </TableBody>
                 </Table>
-                {(() => {
-                  const filteredRegisterAdmissions = admissions.filter((admission) => {
-                    if (!searchTerm) return true;
-                    const search = searchTerm.toLowerCase();
-                    const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
-                    const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
-                    const admissionNo = (admission.applicationNumber || '').toLowerCase();
-                    const phone = (admission.contactInfo?.phone || '').toLowerCase();
-                    return studentName.includes(search) || 
-                           fatherName.includes(search) || 
-                           admissionNo.includes(search) ||
-                           phone.includes(search);
-                  });
-                  return filteredRegisterAdmissions.length > 0 ? (
-                    <TablePagination
-                      component="div"
-                      count={filteredRegisterAdmissions.length}
-                      page={registerPagination.page}
-                      onPageChange={registerPagination.handleChangePage}
-                      rowsPerPage={registerPagination.rowsPerPage}
-                      onRowsPerPageChange={registerPagination.handleChangeRowsPerPage}
-                      rowsPerPageOptions={registerPagination.rowsPerPageOptions}
-                      labelRowsPerPage="Rows per page:"
-                    />
-                  ) : null;
-                })()}
               </TableContainer>
             )}
           </Paper>
