@@ -304,6 +304,13 @@ const AdmissionForm = () => {
     return digits.length === 13;
   };
 
+  // Validate Phone format (at least 10 digits)
+  const validatePhone = (value) => {
+    if (!value) return true; // Allow empty
+    const digits = value.toString().replace(/\D/g, '');
+    return digits.length >= 10;
+  };
+
   // Fetch classes with specific institution
   const fetchClassesWithInstitution = async (institutionId) => {
     try {
@@ -379,11 +386,19 @@ const AdmissionForm = () => {
       // If studentId exists (enrolled), prefer data from Student model, otherwise use Admission model
       const student = admission.studentId;
       const guardianInfo = student?.guardianInfo || admission.guardianInfo;
+
+      // Section Fix: If enrolled student has section string (e.g. "A"), find matching section ID
+      let preloadedSection = admission.section?._id || admission.section || '';
+      if (!preloadedSection && student?.section) {
+        // Try to find section ID by name in current institution's sections
+        const matchingSection = sections.find(s => s.name === student.section);
+        if (matchingSection) preloadedSection = matchingSection._id;
+      }
       
       setFormData(prev => ({
         ...prev,
         class: admission.class?._id || admission.class || '',
-        section: admission.section?._id || admission.section || student?.section || '',
+        section: preloadedSection,
         // Group comes from the class if available
         group: admission.class?.group?._id || admission.class?.group || admission.group?._id || admission.group || '',
         admissionDate: admission.admissionDate ? new Date(admission.admissionDate).toISOString().split('T')[0] : prev.admissionDate,
@@ -391,8 +406,8 @@ const AdmissionForm = () => {
         studentName: admission.personalInfo?.name || '',
         fatherName: guardianInfo?.fatherName || '',
         dateOfBirth: admission.personalInfo?.dateOfBirth ? new Date(admission.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
-        // Roll number comes from Student model if enrolled, otherwise empty
-        rollNumber: student?.rollNumber || prev.rollNumber || '',
+        // Roll number comes from Student model if enrolled, otherwise Admission fallback
+        rollNumber: student?.rollNumber || admission.rollNumber || prev.rollNumber || '',
         religion: admission.personalInfo?.religion || 'Islam',
         gender: admission.personalInfo?.gender ? admission.personalInfo.gender.charAt(0).toUpperCase() + admission.personalInfo.gender.slice(1) : 'Male',
         admEffectNo: admission.admissionDate ? new Date(admission.admissionDate).toISOString().split('T')[0] : prev.admEffectNo,
@@ -1427,7 +1442,84 @@ const AdmissionForm = () => {
               </Box>
               
               <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  {/* Father Details */}
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="FATHER NAME"
+                      value={formData.father.name}
+                      onChange={(e) => handleNestedChange('father', 'name', e.target.value)}
+                      placeholder="Father Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="FATHER MOBILE"
+                      value={formData.father.mobileNumber}
+                      onChange={(e) => handleNestedChange('father', 'mobileNumber', e.target.value)}
+                      placeholder="e.g: 923001234567"
+                      error={formData.father.mobileNumber && !validatePhone(formData.father.mobileNumber)}
+                      helperText={formData.father.mobileNumber && !validatePhone(formData.father.mobileNumber) ? 'Invalid phone number (min 10 digits)' : ''}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>FATHER OPERATOR</InputLabel>
+                      <Select
+                        value={formData.father.mobileOperator}
+                        onChange={(e) => handleNestedChange('father', 'mobileOperator', e.target.value)}
+                        label="FATHER OPERATOR"
+                      >
+                        {mobileOperators.map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Mother Details */}
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="MOTHER NAME"
+                      value={formData.mother.name}
+                      onChange={(e) => handleNestedChange('mother', 'name', e.target.value)}
+                      placeholder="Mother Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="MOTHER MOBILE"
+                      value={formData.mother.mobileNumber}
+                      onChange={(e) => handleNestedChange('mother', 'mobileNumber', e.target.value)}
+                      placeholder="e.g: 923001234567"
+                      error={formData.mother.mobileNumber && !validatePhone(formData.mother.mobileNumber)}
+                      helperText={formData.mother.mobileNumber && !validatePhone(formData.mother.mobileNumber) ? 'Invalid phone number (min 10 digits)' : ''}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>MOTHER OPERATOR</InputLabel>
+                      <Select
+                        value={formData.mother.mobileOperator}
+                        onChange={(e) => handleNestedChange('mother', 'mobileOperator', e.target.value)}
+                        label="MOTHER OPERATOR"
+                      >
+                        {mobileOperators.map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Guardian Details */}
+                  <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
                       label="GUARDIAN NAME"
@@ -1436,7 +1528,7 @@ const AdmissionForm = () => {
                       placeholder="Guardian Name"
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
                       label="RELATION"
@@ -1445,7 +1537,7 @@ const AdmissionForm = () => {
                       placeholder="Relation"
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
                       label="GUARDIAN CNIC"
@@ -1457,13 +1549,15 @@ const AdmissionForm = () => {
                       helperText={formData.guardian.cnic && !validateCNIC(formData.guardian.cnic) ? 'CNIC must be 13 digits (format: XXXXX-XXXXXXX-X)' : ''}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
                       label="MOBILE NUMBER"
                       value={formData.guardian.mobileNumber}
                       onChange={(e) => handleNestedChange('guardian', 'mobileNumber', e.target.value)}
                       placeholder="e.g: 923001234567"
+                      error={formData.guardian.mobileNumber && !validatePhone(formData.guardian.mobileNumber)}
+                      helperText={formData.guardian.mobileNumber && !validatePhone(formData.guardian.mobileNumber) ? 'Invalid phone number (min 10 digits)' : ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>

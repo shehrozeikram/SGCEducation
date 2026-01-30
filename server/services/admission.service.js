@@ -201,9 +201,59 @@ class AdmissionService {
       throw new ApiError(403, 'You can only update admissions in your institution');
     }
 
-    // Prevent updating if already enrolled
+    // Update admission
+    // If enrolled, handle syncing with student and user records
     if (admission.status === 'enrolled') {
-      throw new ApiError(400, 'Cannot update an enrolled admission');
+      // Don't allow changing roll number if already set
+      if (updateData.rollNumber && updateData.rollNumber !== admission.rollNumber) {
+        delete updateData.rollNumber;
+      }
+
+      // Sync with Student record
+      const student = await Student.findOne({ admission: admissionId });
+      if (student) {
+        // Map updates to student fields
+        if (updateData.personalInfo) {
+          student.personalDetails = {
+            ...student.personalDetails,
+            bloodGroup: updateData.personalInfo.bloodGroup || student.personalDetails.bloodGroup,
+            nationality: updateData.personalInfo.nationality || student.personalDetails.nationality,
+            religion: updateData.personalInfo.religion || student.personalDetails.religion,
+            category: updateData.personalInfo.category || student.personalDetails.category
+          };
+        }
+        if (updateData.contactInfo) {
+          student.contactDetails = {
+            ...student.contactDetails,
+            alternatePhone: updateData.contactInfo.alternatePhone || student.contactDetails.alternatePhone,
+            currentAddress: updateData.contactInfo.currentAddress || student.contactDetails.currentAddress,
+            permanentAddress: updateData.contactInfo.permanentAddress || student.contactDetails.permanentAddress
+          };
+        }
+        if (updateData.guardianInfo) {
+          student.guardianInfo = {
+            ...student.guardianInfo,
+            ...updateData.guardianInfo
+          };
+        }
+        if (updateData.academicYear) student.academicYear = updateData.academicYear;
+        if (updateData.program) student.program = updateData.program;
+        
+        await student.save();
+
+        // Sync with User record
+        if (student.user) {
+          const user = await User.findById(student.user);
+          if (user) {
+            if (updateData.personalInfo?.name) user.name = updateData.personalInfo.name;
+            if (updateData.contactInfo?.phone) user.phone = updateData.contactInfo.phone;
+            if (updateData.personalInfo?.dateOfBirth) user.dateOfBirth = updateData.personalInfo.dateOfBirth;
+            if (updateData.personalInfo?.gender) user.gender = updateData.personalInfo.gender;
+            if (updateData.contactInfo?.currentAddress?.street) user.address = updateData.contactInfo.currentAddress.street;
+            await user.save();
+          }
+        }
+      }
     }
 
     // Update admission
