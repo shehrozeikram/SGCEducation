@@ -442,22 +442,45 @@ const Admissions = () => {
   };
 
   // Initialize institution on mount
+  // Initialize institution on mount and sync with localStorage
   useEffect(() => {
-    const institutionData = localStorage.getItem('selectedInstitution');
-    if (institutionData) {
-      try {
-        const institution = JSON.parse(institutionData);
-        const institutionId = institution._id || institution;
-        setSelectedInstitution(institutionId);
-      } catch (e) {
-        console.error('Failed to parse institution data', e);
+    const checkInstitution = () => {
+      const institutionData = localStorage.getItem('selectedInstitution');
+      if (institutionData) {
+        try {
+          const institution = JSON.parse(institutionData);
+          const institutionId = institution._id || institution;
+          // Only update if changed prevents infinite loops if specific object references differ
+          setSelectedInstitution(prev => prev !== institutionId ? institutionId : prev);
+        } catch (e) {
+          console.error('Failed to parse institution data', e);
+        }
+      } else if (!isSuperAdmin && user.institution) {
+        const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
+        setSelectedInstitution(prev => prev !== institutionId ? institutionId : prev);
       }
-    } else if (!isSuperAdmin && user.institution) {
-      // For admin users, use their own institution from user data
-      const institutionId = typeof user.institution === 'object' ? user.institution._id : user.institution;
-      setSelectedInstitution(institutionId);
-    }
-  }, []); // Run only once on mount
+    };
+
+    // Check immediately
+    checkInstitution();
+
+    // Set up interval to check for changes (since storage event only fires for other tabs)
+    const intervalId = setInterval(checkInstitution, 1000);
+
+    // Also listen for custom event if your app uses one, or window storage event
+    const handleStorageChange = (e) => {
+      if (e.key === 'selectedInstitution') {
+        checkInstitution();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // Run only once on mount, but sets up listeners
 
   // Update activeSection when URL path changes (e.g., browser back/forward, direct navigation)
   useEffect(() => {
