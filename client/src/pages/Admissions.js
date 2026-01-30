@@ -418,8 +418,15 @@ const Admissions = () => {
       }
     }
 
-    // Fetch data if super admin or if institution is set
-    if (isSuperAdmin || selectedInstitution) {
+    // For super_admins, REQUIRE institution to be selected
+    if (isSuperAdmin && !selectedInstitution) {
+      setError('Please select an institution from the navbar to view admissions.');
+      setLoading(false);
+      return;
+    }
+
+    // Fetch data only if institution is set
+    if (selectedInstitution) {
       fetchData();
     }
   }, [selectedInstitution, selectedDepartment, selectedStatus]);

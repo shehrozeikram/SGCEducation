@@ -61,8 +61,13 @@ class AdmissionService {
 
     // Apply institution filter based on role
     if (currentUser.role !== 'super_admin') {
+      // Regular users: use their assigned institution
       query.institution = currentUser.institution;
-    } else if (filters.institution) {
+    } else {
+      // Super admins: MUST provide institution filter
+      if (!filters.institution) {
+        throw new ApiError(400, 'Institution filter is required for super admin. Please select an institution.');
+      }
       query.institution = filters.institution;
     }
 
@@ -1744,30 +1749,18 @@ class AdmissionService {
           // For now, we only map standard fields.
         };
 
-        // Check for duplicates - skip if Student ID or Admission Number already exists
+        // Check for duplicates - skip if Admission Number already exists in this institution
         let isDuplicate = false;
         
-        // Check for duplicate Student ID
-        if (row['Student Id']) {
-           const existingById = await Admission.findOne({ 
-             institution: rowInstitutionId, // Check in TARGET institution only
-             'personalInfo.studentId': row['Student Id']
-           });
-           if (existingById) {
-             console.log(`Skipping row ${i + 2}: Duplicate Student ID: ${row['Student Id']}`);
-             isDuplicate = true;
-           }
-        }
-        
-        // Check for duplicate Admission Number
-        if (!isDuplicate && admissionData.applicationNumber) {
+        // Check for duplicate Admission Number (which maps from Student ID or Admission Number columns)
+        if (admissionData.applicationNumber) {
            const existingByAppNum = await Admission.findOne({ 
              institution: rowInstitutionId, // Check in TARGET institution only
              applicationNumber: admissionData.applicationNumber 
            });
            
            if (existingByAppNum) {
-             console.log(`Skipping row ${i + 2}: Duplicate Admission Number: ${admissionData.applicationNumber}`);
+             console.log(`Skipping row ${i + 2}: Duplicate Admission Number: ${admissionData.applicationNumber} in institution ${rowInstitutionId}`);
              isDuplicate = true;
            }
         }

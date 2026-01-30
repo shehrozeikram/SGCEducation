@@ -5,7 +5,6 @@ const admissionSchema = new mongoose.Schema({
   // Application Details
   applicationNumber: {
     type: String,
-    unique: true,
     uppercase: true
   },
   institution: {
@@ -342,7 +341,8 @@ admissionSchema.pre('save', async function() {
 admissionSchema.index({ institution: 1 });
 admissionSchema.index({ status: 1 });
 admissionSchema.index({ academicYear: 1 });
-admissionSchema.index({ applicationNumber: 1 }, { unique: true });
+// Compound unique index: same applicationNumber allowed across different institutions
+admissionSchema.index({ applicationNumber: 1, institution: 1 }, { unique: true });
 admissionSchema.index({ 'contactInfo.email': 1 });
 admissionSchema.index({ createdAt: -1 });
 
