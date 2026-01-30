@@ -131,6 +131,26 @@ export const getNextRollNumber = async (institutionId) => {
   return response.data;
 };
 
+// Bulk soft delete admissions
+export const bulkSoftDeleteAdmissions = async (admissionIds) => {
+  const response = await axios.post(
+    getApiUrl('admissions/bulk-soft-delete'),
+    { admissionIds },
+    { headers: getAuthHeader() }
+  );
+  return response.data;
+};
+
+// Restore admissions
+export const restoreAdmissions = async (admissionIds) => {
+  const response = await axios.post(
+    getApiUrl('admissions/restore'),
+    { admissionIds },
+    { headers: getAuthHeader() }
+  );
+  return response.data;
+};
+
 export default {
   getAllAdmissions,
   getAdmissionById,
@@ -143,5 +163,7 @@ export default {
   getAdmissionStats,
   getAdmissionsByDepartment,
   getAdmissionAnalytics,
-  getNextRollNumber
+  getNextRollNumber,
+  bulkSoftDeleteAdmissions,
+  restoreAdmissions
 };

@@ -1811,6 +1811,143 @@ class AdmissionService {
       errors
     };
   }
+
+  /**
+   * Bulk soft delete admissions (mark as inactive/cancelled)
+   */
+  async bulkSoftDeleteAdmissions(admissionIds, currentUser) {
+    if (!Array.isArray(admissionIds) || admissionIds.length === 0) {
+      throw new ApiError(400, 'Please provide admission IDs to delete');
+    }
+
+    // Check permissions
+    if (currentUser.role !== 'super_admin' && currentUser.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can delete admissions');
+    }
+
+    const results = {
+      deletedAdmissions: 0,
+      deletedStudents: 0,
+      errors: []
+    };
+
+    for (const admissionId of admissionIds) {
+      try {
+        const admission = await Admission.findById(admissionId);
+
+        if (!admission) {
+          results.errors.push({
+            admissionId,
+            error: 'Admission not found'
+          });
+          continue;
+        }
+
+        // Check permissions for non-super admins
+        if (currentUser.role !== 'super_admin' &&
+            admission.institution.toString() !== currentUser.institution?.toString()) {
+          results.errors.push({
+            admissionId,
+            error: 'Access denied to this admission'
+          });
+          continue;
+        }
+
+        // Soft delete admission
+        admission.isActive = false;
+        admission.status = 'cancelled';
+        await admission.save();
+        results.deletedAdmissions++;
+
+        // Soft delete linked student if exists
+        if (admission.studentId) {
+          const student = await Student.findById(admission.studentId);
+          if (student) {
+            student.isActive = false;
+            await student.save();
+            results.deletedStudents++;
+          }
+        }
+      } catch (err) {
+        results.errors.push({
+          admissionId,
+          error: err.message
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Restore soft-deleted admissions
+   */
+  async restoreAdmissions(admissionIds, currentUser) {
+    if (!Array.isArray(admissionIds) || admissionIds.length === 0) {
+      throw new ApiError(400, 'Please provide admission IDs to restore');
+    }
+
+    // Check permissions
+    if (currentUser.role !== 'super_admin' && currentUser.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can restore admissions');
+    }
+
+    const results = {
+      restoredAdmissions: 0,
+      restoredStudents: 0,
+      errors: []
+    };
+
+    for (const admissionId of admissionIds) {
+      try {
+        const admission = await Admission.findById(admissionId);
+
+        if (!admission) {
+          results.errors.push({
+            admissionId,
+            error: 'Admission not found'
+          });
+          continue;
+        }
+
+        // Check permissions for non-super admins
+        if (currentUser.role !== 'super_admin' &&
+            admission.institution.toString() !== currentUser.institution?.toString()) {
+          results.errors.push({
+            admissionId,
+            error: 'Access denied to this admission'
+          });
+          continue;
+        }
+
+        // Restore admission
+        admission.isActive = true;
+        // Restore to previous status or set to approved
+        if (admission.status === 'cancelled') {
+          admission.status = 'approved';  // Or restore to last known status if tracked
+        }
+        await admission.save();
+        results.restoredAdmissions++;
+
+        // Restore linked student if exists
+        if (admission.studentId) {
+          const student = await Student.findById(admission.studentId);
+          if (student) {
+            student.isActive = true;
+            await student.save();
+            results.restoredStudents++;
+          }
+        }
+      } catch (err) {
+        results.errors.push({
+          admissionId,
+          error: err.message
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
 module.exports = new AdmissionService();

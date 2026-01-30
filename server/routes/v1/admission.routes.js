@@ -61,6 +61,12 @@ router.put('/:id', validateObjectId, admissionController.updateAdmission);
 router.put('/:id/status', validateObjectId, isAdmin, admissionController.updateAdmissionStatus);
 router.post('/:id/approve-enroll', validateObjectId, isAdmin, admissionController.approveAndEnroll);
 router.put('/:id/reject', validateObjectId, isAdmin, admissionController.rejectAdmission);
+
+// Bulk operations (must come before individual delete route)
+router.post('/bulk-soft-delete', isAdmin, admissionController.bulkSoftDeleteAdmissions);
+router.post('/restore', isAdmin, admissionController.restoreAdmissions);
+
+// Individual delete
 router.delete('/:id', validateObjectId, isAdmin, admissionController.deleteAdmission);
 
 module.exports = router;

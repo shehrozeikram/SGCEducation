@@ -39,6 +39,7 @@ import {
   Drawer,
   Divider,
   TablePagination,
+  Checkbox,
 } from '@mui/material';
 import {
   Add,
@@ -97,7 +98,7 @@ import {
   Apps,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission } from '../services/admissionService';
+import { getAllAdmissions, getAdmissionStats, updateAdmissionStatus, approveAndEnroll, rejectAdmission, deleteAdmission, bulkSoftDeleteAdmissions, restoreAdmissions } from '../services/admissionService';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { getAvailableModules } from '../config/modules';
@@ -167,6 +168,10 @@ const Admissions = () => {
   const [activeSection, setActiveSection] = useState(getSectionFromPath()); // 'list', 'new', 'reports', 'register', 'analytics'
   const [admissionMenuOpen, setAdmissionMenuOpen] = useState(true);
   const [studentMenuOpen, setStudentMenuOpen] = useState(false);
+  
+  // Bulk operations state
+  const [selectedAdmissions, setSelectedAdmissions] = useState([]);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   // Search Student All Data state
   const allStudentStatusOptions = [
@@ -527,6 +532,79 @@ const Admissions = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Bulk soft delete handler
+  const handleBulkSoftDelete = async () => {
+    if (selectedAdmissions.length === 0) {
+      alert('Please select admissions to delete');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedAdmissions.length} selected admission(s)? They can be restored later.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const result = await bulkSoftDeleteAdmissions(selectedAdmissions);
+      alert(result.message || 'Admissions deleted successfully');
+      setSelectedAdmissions([]);
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting admissions:', err);
+      setError(err.response?.data?.message || 'Failed to delete admissions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bulk restore handler
+  const handleBulkRestore = async () => {
+    if (selectedAdmissions.length === 0) {
+      alert('Please select admissions to restore');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to restore ${selectedAdmissions.length} selected admission(s)?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const result = await restoreAdmissions(selectedAdmissions);
+      alert(result.message || 'Admissions restored successfully');
+      setSelectedAdmissions([]);
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error restoring admissions:', err);
+      setError(err.response?.data?.message || 'Failed to restore admissions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle select all checkbox
+  const handleSelectAll = (event, filteredAdmissions) => {
+    if (event.target.checked) {
+      const allIds = filteredAdmissions.map(adm => adm._id);
+      setSelectedAdmissions(allIds);
+    } else {
+      setSelectedAdmissions([]);
+    }
+  };
+
+  // Handle individual checkbox
+  const handleSelectAdmission = (admissionId) => {
+    setSelectedAdmissions(prev => {
+      if (prev.includes(admissionId)) {
+        return prev.filter(id => id !== admissionId);
+      } else {
+        return [...prev, admissionId];
+      }
+    });
   };
 
   const openActionDialog = (admission, type) => {
@@ -2116,6 +2194,60 @@ const Admissions = () => {
                 ADMISSIONS REGISTER
               </Typography>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                {/* Show Deleted Toggle */}
+                <Button
+                  variant={showDeleted ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => {
+                    setShowDeleted(!showDeleted);
+                    setSelectedAdmissions([]);
+                  }}
+                  sx={{
+                    textTransform: 'none',
+                    borderColor: '#6c757d',
+                    color: showDeleted ? 'white' : '#6c757d',
+                    bgcolor: showDeleted ? '#6c757d' : 'transparent',
+                    '&:hover': {
+                      bgcolor: showDeleted ? '#5c636a' : 'rgba(108, 117, 125, 0.1)',
+                      borderColor: '#5c636a',
+                    },
+                  }}
+                >
+                  {showDeleted ? 'Hide Deleted' : 'Show Deleted'}
+                </Button>
+                
+                {/* Bulk Delete Button */}
+                {selectedAdmissions.length > 0 && !showDeleted && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Delete />}
+                    onClick={handleBulkSoftDelete}
+                    sx={{
+                      bgcolor: '#dc3545',
+                      '&:hover': { bgcolor: '#c82333' },
+                      textTransform: 'none',
+                    }}
+                  >
+                    Delete Selected ({selectedAdmissions.length})
+                  </Button>
+                )}
+
+                {/* Bulk Restore Button */}
+                {selectedAdmissions.length > 0 && showDeleted && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Lock />}
+                    onClick={handleBulkRestore}
+                    sx={{
+                      bgcolor: '#28a745',
+                      '&:hover': { bgcolor: '#218838' },
+                      textTransform: 'none',
+                    }}
+                  >
+                    Restore Selected ({selectedAdmissions.length})
+                  </Button>
+                )}
+
                 <Button
                   variant="contained"
                   startIcon={<FileDownload />}
@@ -2164,6 +2296,61 @@ const Admissions = () => {
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#667eea' }}>
+                      <TableCell padding="checkbox" sx={{ color: 'white' }}>
+                        <Checkbox
+                          sx={{ color: 'white', '&.Mui-checked': { color: 'white' } }}
+                          indeterminate={selectedAdmissions.length > 0 && selectedAdmissions.length < (() => {
+                            const filteredRegisterAdmissions = admissions.filter((admission) => {
+                              // Filter by show deleted toggle
+                              if (showDeleted && admission.isActive !== false) return false;
+                              if (!showDeleted && admission.isActive === false) return false;
+                              // Search filter
+                              if (!searchTerm) return true;
+                              const search = searchTerm.toLowerCase();
+                              const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                              const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
+                              const admissionNo = (admission.applicationNumber || '').toLowerCase();
+                              const phone = (admission.contactInfo?.phone || '').toLowerCase();
+                              return studentName.includes(search) || 
+                                     fatherName.includes(search) || 
+                                     admissionNo.includes(search) ||
+                                     phone.includes(search);
+                            });
+                            return filteredRegisterAdmissions.length;
+                          })()}
+                          checked={(() => {
+                            const filteredRegisterAdmissions = admissions.filter((admission) => {
+                              if (showDeleted && admission.isActive !== false) return false;
+                              if (!showDeleted && admission.isActive === false) return false;
+                              if (!searchTerm) return true;
+                              const search = searchTerm.toLowerCase();
+                              const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                              const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
+                              const admissionNo = (admission.applicationNumber || '').toLowerCase();
+                              const phone = (admission.contactInfo?.phone || '').toLowerCase();
+                              return studentName.includes(search) || 
+                                     fatherName.includes(search) || 
+                                     admissionNo.includes(search) ||
+                                     phone.includes(search);
+                            });
+                            return filteredRegisterAdmissions.length > 0 && selectedAdmissions.length === filteredRegisterAdmissions.length;
+                          })()}
+                          onChange={(e) => handleSelectAll(e, admissions.filter((admission) => {
+                            if (showDeleted && admission.isActive !== false) return false;
+                            if (!showDeleted && admission.isActive === false) return false;
+                            if (!searchTerm) return true;
+                            const search = searchTerm.toLowerCase();
+                            const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
+                            const fatherName = (admission.guardianInfo?.fatherName || '').toLowerCase();
+                            const admissionNo = (admission.applicationNumber || '').toLowerCase();
+                            const phone = (admission.contactInfo?.phone || '').toLowerCase();
+                            return studentName.includes(search) || 
+                                    fatherName.includes(search) || 
+                                   admissionNo.includes(search) ||
+                                   phone.includes(search);
+                          }))}
+                        />
+                      </TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sr No</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date Of Admission</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission No</TableCell>
@@ -2186,6 +2373,11 @@ const Admissions = () => {
                   <TableBody>
                     {(() => {
                       const filteredRegisterAdmissions = admissions.filter((admission) => {
+                        // Filter by show deleted toggle
+                        if (showDeleted && admission.isActive !== false) return false;
+                        if (!showDeleted && admission.isActive === false) return false;
+                        
+                        // Search filter
                         if (!searchTerm) return true;
                         const search = searchTerm.toLowerCase();
                         const studentName = `${admission.personalInfo?.firstName || ''} ${admission.personalInfo?.middleName || ''} ${admission.personalInfo?.lastName || ''}`.toLowerCase();
@@ -2201,7 +2393,7 @@ const Admissions = () => {
                       if (filteredRegisterAdmissions.length === 0) {
                         return (
                           <TableRow>
-                            <TableCell colSpan={17} align="center" sx={{ py: 4 }}>
+                            <TableCell colSpan={18} align="center" sx={{ py: 4 }}>
                               <Typography variant="body2" color="text.secondary">
                                 No admissions found
                               </Typography>
@@ -2229,11 +2421,32 @@ const Admissions = () => {
                         const className = admission.class?.name || admission.program || 'N/A';
                         
                         return (
-                          <TableRow key={admission._id} hover>
+                          <TableRow 
+                            key={admission._id} 
+                            hover
+                            sx={{
+                              bgcolor: admission.isActive === false ? '#f8f9fa' : 'inherit',
+                              opacity: admission.isActive === false ? 0.7 : 1
+                            }}
+                          >
+                            <TableCell padding="checkbox">
+                              <Checkbox
+                                checked={selectedAdmissions.includes(admission._id)}
+                                onChange={() => handleSelectAdmission(admission._id)}
+                              />
+                            </TableCell>
                             <TableCell>{actualIndex + 1}</TableCell>
                             <TableCell>{admissionDate}</TableCell>
-                            <TableCell>{admission.applicationNumber || 'N/A'}</TableCell>
-                            <TableCell>{studentName || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Box sx={{ textDecoration: admission.isActive === false ? 'line-through' : 'none' }}>
+                                {admission.applicationNumber || 'N/A'}
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ textDecoration: admission.isActive === false ? 'line-through' : 'none' }}>
+                                {studentName || 'N/A'}
+                              </Box>
+                            </TableCell>
                             <TableCell>{admission.guardianInfo?.fatherName || 'N/A'}</TableCell>
                             <TableCell>{dateOfBirth}</TableCell>
                             <TableCell>{admission.contactInfo?.phone || 'N/A'}</TableCell>

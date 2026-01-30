@@ -315,6 +315,40 @@ const importAdmissions = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @route   POST /api/v1/admissions/bulk-soft-delete
+ * @desc    Bulk soft delete admissions
+ * @access  Private (Admin only)
+ */
+const bulkSoftDeleteAdmissions = asyncHandler(async (req, res) => {
+  const { admissionIds } = req.body;
+
+  const results = await admissionService.bulkSoftDeleteAdmissions(admissionIds, req.user);
+
+  res.json({
+    success: true,
+    message: `Successfully deleted ${results.deletedAdmissions} admission(s) and ${results.deletedStudents} student(s)`,
+    data: results
+  });
+});
+
+/**
+ * @route   POST /api/v1/admissions/restore
+ * @desc    Restore soft-deleted admissions
+ * @access  Private (Admin only)
+ */
+const restoreAdmissions = asyncHandler(async (req, res) => {
+  const { admissionIds } = req.body;
+
+  const results = await admissionService.restoreAdmissions(admissionIds, req.user);
+
+  res.json({
+    success: true,
+    message: `Successfully restored ${results.restoredAdmissions} admission(s) and ${results.restoredStudents} student(s)`,
+    data: results
+  });
+});
+
 module.exports = {
   getAdmissions,
   getAdmissionById,
@@ -331,5 +365,7 @@ module.exports = {
   getAdmissionByMonthDetailedReport,
   getAdmissionStatuses,
   getNextRollNumber,
-  importAdmissions
+  importAdmissions,
+  bulkSoftDeleteAdmissions,
+  restoreAdmissions
 };
