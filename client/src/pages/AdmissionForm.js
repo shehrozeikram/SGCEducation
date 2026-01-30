@@ -496,6 +496,17 @@ const AdmissionForm = () => {
           [field]: formatted,
         },
       }));
+    } else if (field === 'mobileNumber') {
+      // Allow only digits and limit to 11 characters
+      if (/^\d*$/.test(value) && value.length <= 11) {
+        setFormData(prev => ({
+          ...prev,
+          [section]: {
+            ...prev[section],
+            [field]: value,
+          },
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -506,6 +517,7 @@ const AdmissionForm = () => {
       }));
     }
   };
+
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
