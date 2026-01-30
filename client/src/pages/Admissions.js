@@ -2522,6 +2522,7 @@ const Admissions = () => {
             ) : error ? (
               <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
             ) : (
+              <>
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -2650,6 +2651,16 @@ const Admissions = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              <TablePagination
+                rowsPerPageOptions={[12, 24, 60, 100]}
+                component="div"
+                count={filteredRegisterAdmissions.length}
+                rowsPerPage={registerPagination.rowsPerPage}
+                page={registerPagination.page}
+                onPageChange={registerPagination.handleChangePage}
+                onRowsPerPageChange={registerPagination.handleChangeRowsPerPage}
+              />
+              </>
             )}
           </Paper>
         </Box>
