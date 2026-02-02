@@ -119,6 +119,68 @@ async function repairLiveData() {
       console.log(`Updated Sequence for Institution ${instId} to ${maxSeq}`);
     }
 
+    // 5. Fix Missing Sections (Create Default Section A if needed)
+    console.log('\n--- Step 5: Fixing Missing Section Links ---');
+    
+    // Import models explicitly if not globally available
+    const Class = require('../models/Class');
+    const Section = require('../models/Section');
+
+    const missingSectionAdmissions = await Admission.find({
+      academicYear: '2026-2027',
+      $or: [{ section: { $exists: false } }, { section: null }]
+    });
+
+    console.log(`Found ${missingSectionAdmissions.length} admissions missing section.`);
+    
+    const classGroups = {};
+    for (const admission of missingSectionAdmissions) {
+       if (!admission.class) continue;
+       const classId = admission.class.toString();
+       if (!classGroups[classId]) classGroups[classId] = [];
+       classGroups[classId].push(admission);
+    }
+
+    let sectionsCreated = 0;
+    let admissionsUpdated = 0;
+
+    for (const classId of Object.keys(classGroups)) {
+       try {
+         const classDoc = await Class.findById(classId);
+         if (!classDoc) continue;
+         
+         // Find ANY existing section for this class
+         let section = await Section.findOne({ class: classId });
+         
+         if (!section) {
+           console.log(`Creating default 'Section A' for Class '${classDoc.name}'...`);
+           section = await Section.create({
+              name: 'Section A',
+              code: 'SEC-A-' + classDoc.code + '-' + Math.floor(Math.random() * 1000), 
+              class: classId,
+              institution: classDoc.institution,
+              academicYear: '2026-2027', // REQUIRED FIELD
+              capacity: 50,
+              createdBy: classDoc.createdBy
+           });
+           sectionsCreated++;
+         }
+         
+         if (section) {
+             const admissionIds = classGroups[classId].map(a => a._id);
+             const result = await Admission.updateMany(
+               { _id: { $in: admissionIds } },
+               { $set: { section: section._id } }
+             );
+             admissionsUpdated += result.modifiedCount;
+         }
+       } catch (err) {
+         console.error(`Failed to process class ${classId}: ${err.message}`);
+       }
+    }
+    console.log(`Created ${sectionsCreated} new sections. Linked ${admissionsUpdated} admissions.`);
+
+
     console.log('\nAll repairs completed successfully.');
 
   } catch (error) {
