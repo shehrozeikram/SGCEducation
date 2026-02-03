@@ -314,6 +314,81 @@ class AdmissionService {
   }
 
   /**
+   * Helper: Create student record from admission
+   * Shared logic used by both individual and bulk enrollment
+   * @private
+   */
+  async _createStudentFromAdmission(admission, currentUser) {
+    // Check if student already exists for this admission
+    const existingStudent = await Student.findOne({ admission: admission._id });
+    if (existingStudent) {
+      return existingStudent; // Return existing student instead of throwing error
+    }
+
+    // Check if user already exists with this email (only if email is provided)
+    let user = null;
+    if (admission.contactInfo.email) {
+      user = await User.findOne({ email: admission.contactInfo.email });
+    }
+
+    if (user) {
+      // Check if student already exists for this user
+      const existingStudentWithUser = await Student.findOne({ user: user._id });
+      
+      if (existingStudentWithUser) {
+        throw new ApiError(400, `A student with email "${admission.contactInfo.email}" already exists. Please use a different email address.`);
+      }
+    }
+
+    if (!user) {
+      // Create user account
+      const tempPassword = Math.random().toString(36).slice(-8);
+      // Use provided email or generate a placeholder if missing
+      const studentEmail = admission.contactInfo.email || `${admission.applicationNumber.toLowerCase()}@no-email.system`;
+
+      user = await User.create({
+        name: admission.personalInfo.name || 'Student',
+        email: studentEmail,
+        password: tempPassword,
+        role: 'student',
+        institution: admission.institution._id || admission.institution,
+        phone: admission.contactInfo.phone || '',
+        dateOfBirth: admission.personalInfo.dateOfBirth,
+        gender: admission.personalInfo.gender,
+        address: admission.contactInfo.currentAddress?.street || ''
+      });
+    }
+
+    // Create new student record
+    const student = await Student.create({
+      user: user._id,
+      institution: admission.institution._id || admission.institution,
+      admission: admission._id,
+      admissionDate: Date.now(),
+      academicYear: admission.academicYear,
+      program: admission.program,
+      rollNumber: admission.rollNumber,
+      personalDetails: {
+        bloodGroup: admission.personalInfo.bloodGroup,
+        nationality: admission.personalInfo.nationality,
+        religion: admission.personalInfo.religion,
+        category: admission.personalInfo.category
+      },
+      contactDetails: {
+        alternatePhone: admission.contactInfo.alternatePhone,
+        currentAddress: admission.contactInfo.currentAddress,
+        permanentAddress: admission.contactInfo.permanentAddress
+      },
+      guardianInfo: admission.guardianInfo,
+      academicInfo: admission.academicBackground,
+      documents: admission.documents,
+      createdBy: currentUser.id || currentUser._id
+    });
+
+    return student;
+  }
+
+  /**
    * Approve admission and create student record
    */
   async approveAndEnroll(admissionId, currentUser) {
@@ -345,65 +420,8 @@ class AdmissionService {
       throw new ApiError(400, 'Admission must be approved before enrollment');
     }
 
-    // Check if user already exists with this email (only if email is provided)
-    let user = null;
-    if (admission.contactInfo.email) {
-      user = await User.findOne({ email: admission.contactInfo.email });
-    }
-
-    if (user) {
-      // Check if student already exists for this user
-      const existingStudent = await Student.findOne({ user: user._id });
-      
-      if (existingStudent) {
-        throw new ApiError(400, `A student with email "${admission.contactInfo.email}" already exists. Please use a different email address.`);
-      }
-    }
-
-    if (!user) {
-      // Create user account
-      const tempPassword = Math.random().toString(36).slice(-8);
-      // Use provided email or generate a placeholder if missing
-      const studentEmail = admission.contactInfo.email || `${admission.applicationNumber.toLowerCase()}@no-email.system`;
-
-      user = await User.create({
-        name: admission.personalInfo.name || 'Student',
-        email: studentEmail,
-        password: tempPassword,
-        role: 'student',
-        institution: admission.institution._id,
-        phone: admission.contactInfo.phone || '',
-        dateOfBirth: admission.personalInfo.dateOfBirth,
-        gender: admission.personalInfo.gender,
-        address: admission.contactInfo.currentAddress?.street || ''
-      });
-    }
-
-    // Create new student record
-    const student = await Student.create({
-      user: user._id,
-      institution: admission.institution._id,
-      admission: admission._id,
-      admissionDate: Date.now(),
-      academicYear: admission.academicYear,
-      program: admission.program,
-      rollNumber: admission.rollNumber,
-      personalDetails: {
-        bloodGroup: admission.personalInfo.bloodGroup,
-        nationality: admission.personalInfo.nationality,
-        religion: admission.personalInfo.religion,
-        category: admission.personalInfo.category
-      },
-      contactDetails: {
-        alternatePhone: admission.contactInfo.alternatePhone,
-        currentAddress: admission.contactInfo.currentAddress,
-        permanentAddress: admission.contactInfo.permanentAddress
-      },
-      guardianInfo: admission.guardianInfo,
-      academicInfo: admission.academicBackground,
-      documents: admission.documents,
-      createdBy: currentUser.id
-    });
+    // Use helper to create student record
+    const student = await this._createStudentFromAdmission(admission, currentUser);
 
     // Update admission with student reference
     admission.studentId = student._id;
@@ -415,6 +433,9 @@ class AdmissionService {
       changedAt: Date.now()
     });
     await admission.save();
+
+    // Get user from student
+    const user = await User.findById(student.user);
 
     return {
       admission,
@@ -2271,10 +2292,33 @@ class AdmissionService {
         });
 
         await admission.save();
+        
+        // If enrolling (status changed to 'enrolled'), create Student record
+        if (status === 'enrolled' && oldStatus !== 'enrolled') {
+          try {
+            // Populate institution for student creation
+            await admission.populate('institution');
+            
+            // Create student record using shared helper
+            const student = await this._createStudentFromAdmission(admission, currentUser);
+            
+            // Link student to admission
+            admission.studentId = student._id;
+            await admission.save();
+            
+            results.enrolledStudents = (results.enrolledStudents || 0) + 1;
+          } catch (studentErr) {
+            // If student creation fails, record error but keep status updated
+            results.errors.push({
+              admissionId,
+              error: `Status updated but student creation failed: ${studentErr.message}`
+            });
+          }
+        }
+        
         results.updatedAdmissions++;
 
         // If status changed to 'approved' and it wasn't before, maybe trigger some action?
-        // e.g. if (status === 'enrolled' && oldStatus !== 'enrolled') ...
         // For now, we just update the status.
 
       } catch (err) {

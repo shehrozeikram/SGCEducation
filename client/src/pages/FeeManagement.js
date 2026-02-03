@@ -210,8 +210,13 @@ const FeeManagement = () => {
   const [generateVoucherLoading, setGenerateVoucherLoading] = useState(false);
   const [feeHeadSelectionDialogOpen, setFeeHeadSelectionDialogOpen] = useState(false);
   const [selectedFeeHeadIds, setSelectedFeeHeadIds] = useState([]);
-  const DEFAULT_DUE_DAY = 20;
-  const [voucherDueDay, setVoucherDueDay] = useState(DEFAULT_DUE_DAY); // Default for newly generated vouchers
+  // Default due date: 20th of current month
+  const getDefaultDueDate = () => {
+    const date = new Date();
+    date.setDate(20);
+    return date.toISOString().split('T')[0];
+  };
+  const [voucherDueDate, setVoucherDueDate] = useState(getDefaultDueDate()); // Default for newly generated vouchers
   const [feeHeadAmounts, setFeeHeadAmounts] = useState({}); // { feeHeadId: amount }
   const [loadingFeeHeadAmounts, setLoadingFeeHeadAmounts] = useState(false);
 
@@ -1206,7 +1211,7 @@ const FeeManagement = () => {
     setFeeHeadSelectionDialogOpen(false);
     setSelectedFeeHeadIds([]);
     setFeeHeadAmounts({});
-    setVoucherDueDay(DEFAULT_DUE_DAY); // Always reset to default for next time
+    setVoucherDueDate(getDefaultDueDate()); // Reset to default for next time
   };
 
   // Handle fee head selection toggle
@@ -1249,13 +1254,11 @@ const FeeManagement = () => {
         })
         .filter(id => id);
       
-      // Validate due day for the selected month
-      const maxDaysInMonth = new Date(year, month, 0).getDate();
-      const validDueDay = Math.min(voucherDueDay, maxDaysInMonth);
-      
-      if (validDueDay !== voucherDueDay) {
-        notifyError(`Due day adjusted to ${validDueDay} (max for selected month)`);
-      }
+      // Parse due date from the date picker
+      const dueDate = new Date(voucherDueDate);
+      const dueDay = dueDate.getDate();
+      const dueMonth = dueDate.getMonth() + 1; // 0-indexed
+      const dueYear = dueDate.getFullYear();
 
       // Call API to generate vouchers with selected fee heads
       const response = await axios.post(
@@ -1265,7 +1268,8 @@ const FeeManagement = () => {
           month: month,
           year: year,
           feeHeadIds: selectedFeeHeadIds,
-          dueDay: validDueDay // Send custom due day
+          dueDay: dueDay, // Send custom due day from date picker
+          dueDate: voucherDueDate // Send full due date as well for backend use
         },
         createAxiosConfig()
       );
@@ -5443,18 +5447,13 @@ const FeeManagement = () => {
             <Box sx={{ mb: 3 }}>
               <TextField
                 fullWidth
-                label="Due Date (Day of Month)"
-                type="number"
-                value={voucherDueDay}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (value >= 1 && value <= 31) {
-                    setVoucherDueDay(value);
-                  }
-                }}
-                inputProps={{ min: 1, max: 31 }}
-                helperText="Enter the day of the month (1-31). Default is 20."
+                label="Due Date"
+                type="date"
+                value={voucherDueDate}
+                onChange={(e) => setVoucherDueDate(e.target.value)}
+                helperText="Select the due date for voucher payment (month, year, and day)"
                 size="small"
+                InputLabelProps={{ shrink: true }}
               />
             </Box>
 

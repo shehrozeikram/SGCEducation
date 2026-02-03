@@ -250,15 +250,15 @@ class FeeService {
     }
 
     // Get all active students in the institution
+    // Don't filter by status field as it might not be set consistently
     const students = await Student.find({
       institution: institutionId,
-      isActive: true,
-      status: 'active'
+      isActive: true
     })
       .populate('user', 'name email')
       .populate({
         path: 'admission',
-        select: 'applicationNumber class section',
+        select: 'applicationNumber class section academicYear',
         populate: [
           { path: 'class', select: 'name code' },
           { path: 'section', select: 'name code' }
