@@ -516,7 +516,7 @@ class FeeService {
    * feeHeadIds (optional): Array of fee head IDs to filter by. If provided, only vouchers for these fee heads will be generated.
    */
   async generateVouchers(voucherData, currentUser) {
-    const { studentIds, month, year, feeHeadIds, dueDay = 20 } = voucherData;
+    const { studentIds, month, year, feeHeadIds, dueDay = 20, dueDate } = voucherData;
 
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
       throw new ApiError(400, 'Student IDs are required');
@@ -528,6 +528,16 @@ class FeeService {
 
     if (!year || year < 2000) {
       throw new ApiError(400, 'Valid year is required');
+    }
+
+    // Parse due date: use full dueDate if provided, otherwise construct from dueDay
+    let dueDateObj;
+    if (dueDate) {
+      // Use the provided full due date
+      dueDateObj = new Date(dueDate);
+    } else {
+      // Fall back to old behavior: use voucher month/year with dueDay
+      dueDateObj = new Date(year, month - 1, dueDay);
     }
 
     // First, try to find students by ID directly
@@ -719,7 +729,7 @@ class FeeService {
              let feeToUpdate = latestFee;
              
              if (isUsed) {
-                const newDueDate = new Date(year, month - 1, dueDay);
+                // Use the parsed due date object
                 feeToUpdate = new StudentFee({
                   institution: latestFee.institution,
                   student: latestFee.student,
@@ -734,7 +744,7 @@ class FeeService {
                   paidAmount: 0,
                   remainingAmount: latestFee.finalAmount,
                   status: 'pending',
-                  dueDate: newDueDate,
+                  dueDate: dueDateObj,
                   academicYear: latestFee.academicYear,
                   isActive: true,
                   createdBy: currentUser._id,
