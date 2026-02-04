@@ -88,6 +88,21 @@ const assignFeeStructure = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   PUT /api/v1/fees/update-structure
+ * @desc    Update fee structure for a student
+ * @access  Private (Admin)
+ */
+const updateFeeStructure = asyncHandler(async (req, res) => {
+  const result = await feeService.updateFeeStructure(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: 'Fee structure updated successfully',
+    data: result
+  });
+});
+
+/**
  * @route   GET /api/v1/fees/student-fees
  * @desc    Get students with assigned fee structures
  * @access  Private
@@ -252,6 +267,7 @@ module.exports = {
   bulkSaveFeeStructure,
   getStudentsWithoutFeeStructure,
   assignFeeStructure,
+  updateFeeStructure,
   getStudentFees,
   generateVouchers,
   recordPayment,

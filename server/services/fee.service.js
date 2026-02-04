@@ -228,7 +228,7 @@ class FeeService {
 
   /**
    * Get students without fee structure
-   * Returns all active students in the institution who don't have any StudentFee records
+   * Returns all active students in the institution with a flag indicating if they have fee structures
    */
   async getStudentsWithoutFeeStructure(filters = {}, currentUser) {
     const { institution } = filters;
@@ -272,16 +272,15 @@ class FeeService {
       isActive: true
     }).distinct('student');
 
-    // Filter out students who have fee structures
-    const studentsWithoutFees = students.filter(
-      student => !studentsWithFees.some(id => id.toString() === student._id.toString())
-    );
+    // Convert to Set for faster lookup
+    const studentsWithFeesSet = new Set(studentsWithFees.map(id => id.toString()));
 
-    // Format response for frontend
-    const formattedStudents = studentsWithoutFees.map(student => {
+    // Format response for frontend with hasAssignedFee flag
+    const formattedStudents = students.map(student => {
       const admission = student.admission || {};
       const classDoc = admission.class || {};
       const sectionDoc = admission.section || {};
+      const hasAssignedFee = studentsWithFeesSet.has(student._id.toString());
       
       return {
         _id: student._id,
@@ -291,7 +290,8 @@ class FeeService {
         name: student.user?.name || '',
         class: classDoc.name || '',
         section: sectionDoc.name || student.section || '',
-        academicYear: student.academicYear
+        academicYear: student.academicYear,
+        hasAssignedFee: hasAssignedFee
       };
     });
 
@@ -430,6 +430,190 @@ class FeeService {
       studentFees: studentFees
     };
   }
+
+  /**
+   * Update fee structure for a student
+   * Updates existing StudentFee records with new amounts
+   * IMPORTANT: Preserves existing vouchers - they keep their original amounts
+   * Only future vouchers will use the updated amounts
+   */
+  async updateFeeStructure(updateData, currentUser) {
+    const { 
+      studentId, 
+      classId, 
+      discount = 0, 
+      discountType = 'amount', 
+      discountReason = '',
+      feeHeadDiscounts = {}
+    } = updateData;
+
+    if (!studentId || !classId) {
+      throw new ApiError(400, 'Student ID and Class ID are required');
+    }
+
+    // Verify student exists
+    const student = await Student.findById(studentId).populate('institution');
+    
+    if (!student) {
+      throw new ApiError(404, 'Student not found');
+    }
+
+    if (!student.isActive || student.status !== 'active') {
+      throw new ApiError(400, 'Student is not active');
+    }
+
+    const institutionId = student.institution._id || student.institution;
+
+    // Verify class exists
+    const classDoc = await Class.findById(classId);
+    if (!classDoc) {
+      throw new ApiError(404, 'Class not found');
+    }
+
+    // Get all fee structures for this class
+    const feeStructures = await FeeStructure.find({
+      class: classId,
+      isActive: true
+    }).populate('feeHead');
+
+    if (feeStructures.length === 0) {
+      throw new ApiError(400, 'No fee structures found for this class');
+    }
+
+    // First, check if student has ANY existing fees (regardless of class)
+    const anyExistingFees = await StudentFee.find({
+      student: studentId,
+      isActive: true
+    });
+
+    if (anyExistingFees.length === 0) {
+      throw new ApiError(400, 'No fee structure assigned to update. Please assign first.');
+    }
+
+    // Get existing StudentFee records for THIS specific class
+    const existingStudentFees = await StudentFee.find({
+      student: studentId,
+      class: classId,
+      isActive: true
+    });
+
+    // If student has fees but for a DIFFERENT class, we need to handle class change
+    const isChangingClass = anyExistingFees.length > 0 && existingStudentFees.length === 0;
+    
+    if (isChangingClass) {
+      // Deactivate old fees from the previous class
+      await StudentFee.updateMany(
+        {
+          student: studentId,
+          isActive: true
+        },
+        {
+          $set: { isActive: false, updatedAt: new Date(), updatedBy: currentUser._id }
+        }
+      );
+    }
+
+    // Update each StudentFee record
+    const updatedFees = [];
+    
+    for (const feeStructure of feeStructures) {
+      const baseAmount = feeStructure.amount || 0;
+      let finalAmount = baseAmount;
+      let appliedDiscount = 0;
+      let appliedDiscountType = discountType;
+      let appliedDiscountReason = discountReason;
+
+      const feeHeadId = (feeStructure.feeHead._id || feeStructure.feeHead).toString();
+
+      // Check if there's a per-fee-head discount
+      if (feeHeadDiscounts && feeHeadDiscounts[feeHeadId]) {
+        const feeHeadDiscount = feeHeadDiscounts[feeHeadId];
+        appliedDiscount = parseFloat(feeHeadDiscount.discount) || 0;
+        appliedDiscountType = feeHeadDiscount.discountType || 'amount';
+        appliedDiscountReason = feeHeadDiscount.discountReason || discountReason;
+      } else if (discount > 0) {
+        appliedDiscount = parseFloat(discount) || 0;
+        appliedDiscountType = discountType;
+        appliedDiscountReason = discountReason;
+      }
+
+      // Apply discount
+      if (appliedDiscount > 0) {
+        if (appliedDiscountType === 'percentage') {
+          finalAmount = baseAmount - (baseAmount * appliedDiscount / 100);
+        } else {
+          finalAmount = baseAmount - appliedDiscount;
+        }
+        if (finalAmount < 0) {
+          finalAmount = 0;
+        }
+      }
+
+      // Find existing StudentFee record for this fee head
+      const existingFee = existingStudentFees.find(
+        sf => (sf.feeHead._id || sf.feeHead).toString() === feeHeadId
+      );
+
+      if (existingFee && !isChangingClass) {
+        // Update existing record (same class)
+        // CRITICAL: Use $set to ONLY update specific fields, preserving vouchers/payments
+        const paidAmount = existingFee.paidAmount || 0;
+        const newRemainingAmount = Math.max(0, finalAmount - paidAmount);
+
+        // Use findByIdAndUpdate with $set to ONLY touch specific fields
+        const updatedFee = await StudentFee.findByIdAndUpdate(
+          existingFee._id,
+          {
+            $set: {
+              baseAmount: baseAmount,
+              discountAmount: appliedDiscount,
+              discountType: appliedDiscountType,
+              discountReason: appliedDiscountReason,
+              finalAmount: finalAmount,
+              remainingAmount: newRemainingAmount,
+              updatedAt: new Date(),
+              updatedBy: currentUser._id
+            }
+            // CRITICAL: DO NOT include vouchers, paidAmount, or paymentHistory
+            // These fields are COMPLETELY UNTOUCHED by this update
+          },
+          { new: true } // Return the updated document
+        );
+
+        updatedFees.push(updatedFee);
+      } else {
+        // Create new StudentFee if:
+        // - This fee head didn't exist before, OR
+        // - We're changing classes (old fees were deactivated)
+        const newFee = await StudentFee.create({
+          institution: institutionId,
+          student: studentId,
+          feeStructure: feeStructure._id,
+          class: classId,
+          feeHead: feeHeadId,
+          baseAmount: baseAmount,
+          discountAmount: appliedDiscount,
+          discountType: appliedDiscountType,
+          discountReason: appliedDiscountReason,
+          finalAmount: finalAmount,
+          paidAmount: 0,
+          remainingAmount: finalAmount,
+          status: 'pending',
+          dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 20),
+          academicYear: student.academicYear || '',
+          isActive: true,
+          createdBy: currentUser._id
+        });
+        updatedFees.push(newFee);
+      }
+    }
+
+    return {
+      totalUpdated: updatedFees.length,
+      studentFees: updatedFees
+    };
+  }
+
 
   /**
    * Get student fees (students with assigned fee structures)

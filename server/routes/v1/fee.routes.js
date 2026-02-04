@@ -20,6 +20,7 @@ router.post('/structures/bulk-save', isAdmin, feeController.bulkSaveFeeStructure
 // Student fee assignment routes
 router.get('/students/without-fee-structure', feeController.getStudentsWithoutFeeStructure);
 router.post('/assign-structure', isAdmin, feeController.assignFeeStructure);
+router.put('/update-structure', isAdmin, feeController.updateFeeStructure);
 router.get('/student-fees', feeController.getStudentFees);
 router.post('/generate-vouchers', isAdmin, feeController.generateVouchers);
 

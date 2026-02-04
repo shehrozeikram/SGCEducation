@@ -277,6 +277,8 @@ const FeeManagement = () => {
     rollNumber: '',
     class: ''
   });
+  const [feeStructureDialogMode, setFeeStructureDialogMode] = useState('assign'); // 'assign' | 'update'
+
 
 
   // Fee Deposit
@@ -2727,6 +2729,7 @@ const FeeManagement = () => {
 
   // Handle open assign fee structure dialog
   const handleOpenAssignFeeStructureDialog = async (student) => {
+    setFeeStructureDialogMode('assign');
     setSelectedStudentForAssignment(student);
     setSelectedClassFeeStructure(null);
     setAssignFeeStructureForm({
@@ -2736,6 +2739,85 @@ const FeeManagement = () => {
       discountReason: '',
       feeHeadDiscounts: {}
     });
+    await fetchAvailableClasses();
+    setAssignFeeStructureDialog(true);
+  };
+
+  // Handle open update fee structure dialog
+  const handleOpenUpdateFeeStructureDialog = async (student) => {
+    setFeeStructureDialogMode('update');
+    setSelectedStudentForAssignment(student);
+    setSelectedClassFeeStructure(null);
+    
+    try {
+      // Fetch the student's existing fee structures to pre-populate the form
+      const institutionId = getInstitutionId();
+      const response = await axios.get(`${API_URL}/fees/student-fees`, createAxiosConfig({
+        params: {
+          institution: institutionId,
+          student: student._id
+        }
+      }));
+
+      const existingFees = response.data.data || [];
+      
+      if (existingFees.length > 0) {
+        // Get the class from the first fee record (all should have same class)
+        const firstFee = existingFees[0];
+        const classId = firstFee.class?._id || firstFee.class;
+        
+        // Extract discount info (use first fee's discount as default)
+        const discount = firstFee.discountAmount || 0;
+        const discountType = firstFee.discountType || 'amount';
+        const discountReason = firstFee.discountReason || '';
+        
+        // Build fee head discounts object
+        const feeHeadDiscounts = {};
+        existingFees.forEach(fee => {
+          const feeHeadId = fee.feeHead?._id || fee.feeHead;
+          if (fee.discountAmount > 0) {
+            feeHeadDiscounts[feeHeadId] = {
+              discount: fee.discountAmount,
+              discountType: fee.discountType || 'amount',
+              discountReason: fee.discountReason || ''
+            };
+          }
+        });
+        
+        // Pre-populate the form with existing values
+        setAssignFeeStructureForm({
+          classId: classId,
+          discount: discount,
+          discountType: discountType,
+          discountReason: discountReason,
+          feeHeadDiscounts: feeHeadDiscounts
+        });
+        
+        // Fetch and set the fee structure for this class
+        await fetchFeeStructureByClass(classId);
+      } else {
+        // No existing fees found, initialize with empty form
+        setAssignFeeStructureForm({
+          classId: '',
+          discount: 0,
+          discountType: 'amount',
+          discountReason: '',
+          feeHeadDiscounts: {}
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching existing fee structure:', error);
+      notifyError('Failed to load existing fee structure');
+      // Initialize with empty form on error
+      setAssignFeeStructureForm({
+        classId: '',
+        discount: 0,
+        discountType: 'amount',
+        discountReason: '',
+        feeHeadDiscounts: {}
+      });
+    }
+    
     await fetchAvailableClasses();
     setAssignFeeStructureDialog(true);
   };
@@ -2800,27 +2882,27 @@ const FeeManagement = () => {
         feeHeadDiscounts: assignFeeStructureForm.feeHeadDiscounts || {}
       };
 
-      const response = await axios.post(`${API_URL}/fees/assign-structure`, payload, createAxiosConfig());
+      let response;
+      if (feeStructureDialogMode === 'update') {
+      response = await axios.put(`${API_URL}/fees/update-structure`, payload, createAxiosConfig());
+    } else {
+      response = await axios.post(`${API_URL}/fees/assign-structure`, payload, createAxiosConfig());
+    }
 
-      const result = response.data.data;
-      const totalAssigned = result?.totalAssigned || 0;
-      
-      if (totalAssigned > 0) {
-        notifySuccess(`Successfully assigned ${totalAssigned} fee structure(s) to the student`);
-      } else {
-        notifyError('No fee structures were assigned');
-      }
-      
-      handleCloseAssignFeeStructureDialog();
-      
-      // Instead of refreshing the list, mark this student as having an assigned fee structure
-      setStudentsWithoutFeeStructure(prevStudents =>
-        prevStudents.map(student =>
-          student._id === selectedStudentForAssignment._id
-            ? { ...student, hasAssignedFee: true }
-            : student
-        )
-      );
+    const result = response.data.data;
+    const totalProcessed = result?.totalAssigned || result?.totalUpdated || 0;
+    
+    if (totalProcessed > 0) {
+      const action = feeStructureDialogMode === 'update' ? 'updated' : 'assigned';
+      notifySuccess(`Successfully ${action} ${totalProcessed} fee structure(s) for the student`);
+    } else {
+      notifyError(`No fee structures were ${feeStructureDialogMode === 'update' ? 'updated' : 'assigned'}`);
+    }
+    
+    handleCloseAssignFeeStructureDialog();
+    
+    // Refresh the student list to get updated hasAssignedFee status from backend
+    await fetchStudentsWithoutFeeStructure();
     } catch (err) {
       console.error('Error assigning fee structure:', err);
       notifyError(err.response?.data?.message || 'Failed to assign fee structure');
@@ -3450,12 +3532,26 @@ const FeeManagement = () => {
                         <TableCell>{student.academicYear}</TableCell>
                         <TableCell align="center">
                           {student.hasAssignedFee ? (
-                            <Chip 
-                              label="Fee Assigned" 
-                              color="success" 
-                              size="small"
-                              sx={{ fontWeight: 'bold' }}
-                            />
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
+                              <Chip 
+                                label="Fee Assigned" 
+                                color="success" 
+                                size="small"
+                                sx={{ fontWeight: 'bold' }}
+                              />
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleOpenUpdateFeeStructureDialog(student)}
+                                sx={{ 
+                                  borderColor: '#667eea', 
+                                  color: '#667eea',
+                                  '&:hover': { borderColor: '#5568d3', bgcolor: 'rgba(102, 126, 234, 0.04)' }
+                                }}
+                              >
+                                Update
+                              </Button>
+                            </Box>
                           ) : (
                             <Button
                               variant="contained"
@@ -4983,7 +5079,7 @@ const FeeManagement = () => {
 
         {/* Change Status Dialog */}
         <Dialog open={changeStatusDialog} onClose={() => setChangeStatusDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Change Status</DialogTitle>
+          <DialogTitle>{feeStructureDialogMode === 'update' ? 'Update' : 'Assign'} Fee Structure</DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
@@ -5026,14 +5122,14 @@ const FeeManagement = () => {
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setChangeStatusDialog(false)}>Cancel</Button>
+            <Button onClick={() => setChangeMonthlyFeeDialog(false)}>Close</Button>
             <Button
               variant="contained"
               sx={{ bgcolor: '#667eea' }}
               onClick={handleStatusUpdate}
               disabled={!changeStatusForm.reason || !changeStatusForm.status || loading}
             >
-              Update
+              {feeStructureDialogMode === 'update' ? 'Update' : 'Assign'} Fee Structure
             </Button>
           </DialogActions>
         </Dialog>
@@ -5528,7 +5624,7 @@ const FeeManagement = () => {
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight="bold">
-                Assign Fee Structure
+                {feeStructureDialogMode === 'update' ? 'Update' : 'Assign'} Fee Structure
               </Typography>
               <IconButton onClick={handleCloseAssignFeeStructureDialog} size="small">
                 <Close />
