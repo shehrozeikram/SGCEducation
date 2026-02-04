@@ -203,7 +203,11 @@ const FeeManagement = () => {
 
   // Generate Voucher
   const [generateVoucherFilters, setGenerateVoucherFilters] = useState({
-    monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` // Format: YYYY-MM for month input
+    monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, // Format: YYYY-MM for month input
+    name: '',
+    id: '',
+    rollNumber: '',
+    class: ''
   });
   const [generateVoucherStudents, setGenerateVoucherStudents] = useState([]);
   const [selectedGenerateVoucherStudents, setSelectedGenerateVoucherStudents] = useState([]);
@@ -267,6 +271,13 @@ const FeeManagement = () => {
     discountReason: '',
     feeHeadDiscounts: {} // { feeHeadId: { discount, discountType, discountReason } }
   });
+  const [assignFeeStructureFilters, setAssignFeeStructureFilters] = useState({
+    name: '',
+    id: '',
+    rollNumber: '',
+    class: ''
+  });
+
 
   // Fee Deposit
   const [manualDepositSearch, setManualDepositSearch] = useState({
@@ -1354,6 +1365,41 @@ const FeeManagement = () => {
     } finally {
       setGenerateVoucherLoading(false);
     }
+  };
+
+  // Filter voucher generation students based on search criteria
+  const getFilteredGenerateVoucherStudents = () => {
+    return generateVoucherStudents.filter(student => {
+      // Name filter
+      if (generateVoucherFilters.name && 
+          !student.name.toLowerCase().includes(generateVoucherFilters.name.toLowerCase())) {
+        return false;
+      }
+
+      // ID filter (checks both student ID and admission number)
+      if (generateVoucherFilters.id) {
+        const searchId = generateVoucherFilters.id.toLowerCase();
+        const matchesStudentId = student.studentId?.toString().toLowerCase().includes(searchId);
+        const matchesAdmissionNumber = student.admissionNumber?.toString().toLowerCase().includes(searchId);
+        if (!matchesStudentId && !matchesAdmissionNumber) {
+          return false;
+        }
+      }
+
+      // Roll number filter
+      if (generateVoucherFilters.rollNumber && 
+          !student.rollNumber?.toString().toLowerCase().includes(generateVoucherFilters.rollNumber.toLowerCase())) {
+        return false;
+      }
+
+      // Class filter
+      if (generateVoucherFilters.class && 
+          student.class !== generateVoucherFilters.class) {
+        return false;
+      }
+
+      return true;
+    });
   };
 
   // Handle generate vouchers button click (opens dialog)
@@ -2577,6 +2623,41 @@ const FeeManagement = () => {
     }
   };
 
+  // Filter students without fee structure based on search criteria
+  const  getFilteredAssignFeeStructureStudents = () => {
+    return studentsWithoutFeeStructure.filter(student => {
+      // Name filter
+      if (assignFeeStructureFilters.name && 
+          !student.name.toLowerCase().includes(assignFeeStructureFilters.name.toLowerCase())) {
+        return false;
+      }
+
+      // ID filter (checks both enrollment number and admission number)
+      if (assignFeeStructureFilters.id) {
+        const searchId = assignFeeStructureFilters.id.toLowerCase();
+        const matchesEnrollment = student.enrollmentNumber?.toString().toLowerCase().includes(searchId);
+        const matchesAdmission = student.admissionNumber?.toString().toLowerCase().includes(searchId);
+        if (!matchesEnrollment && !matchesAdmission) {
+          return false;
+        }
+      }
+
+      // Roll number filter
+      if (assignFeeStructureFilters.rollNumber && 
+          !student.rollNumber?.toString().toLowerCase().includes(assignFeeStructureFilters.rollNumber.toLowerCase())) {
+        return false;
+      }
+
+      // Class filter
+      if (assignFeeStructureFilters.class && 
+          student.class !== assignFeeStructureFilters.class) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
   // Fetch available classes for assignment
   const fetchAvailableClasses = async () => {
     try {
@@ -3260,13 +3341,80 @@ const FeeManagement = () => {
               </Button>
             </Box>
 
+            {/* Filter Section */}
+            <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Student Name"
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    value={assignFeeStructureFilters.name}
+                    onChange={(e) => setAssignFeeStructureFilters(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Search by name..."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="ID / Admission #"
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    value={assignFeeStructureFilters.id}
+                    onChange={(e) => setAssignFeeStructureFilters(prev => ({ ...prev, id: e.target.value }))}
+                    placeholder="Search by ID..."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <TextField
+                    label="Roll Number"
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    value={assignFeeStructureFilters.rollNumber}
+                    onChange={(e) => setAssignFeeStructureFilters(prev => ({ ...prev, rollNumber: e.target.value }))}
+                    placeholder="Search by roll..."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth variant="outlined" size="small">
+                    <InputLabel>Class</InputLabel>
+                    <Select
+                      value={assignFeeStructureFilters.class}
+                      onChange={(e) => setAssignFeeStructureFilters(prev => ({ ...prev, class: e.target.value }))}
+                      label="Class"
+                    >
+                      <MenuItem value="">All Classes</MenuItem>
+                      {[...new Set(studentsWithoutFeeStructure.map(s => s.class).filter(Boolean))].sort().map((className) => (
+                        <MenuItem key={className} value={className}>{capitalizeFirstOnly(className)}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => setAssignFeeStructureFilters({ name: '', id: '', rollNumber: '', class: '' })}
+                    sx={{ borderColor: '#667eea', color: '#667eea' }}
+                  >
+                    Clear Filters
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
 
             {assignFeeStructureLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                 <CircularProgress />
               </Box>
-            ) : studentsWithoutFeeStructure.length === 0 ? (
-              <Alert severity="info">No students found without fee structure assignment.</Alert>
+            ) : getFilteredAssignFeeStructureStudents().length === 0 ? (
+              <Alert severity="info">
+                {studentsWithoutFeeStructure.length === 0 
+                  ? 'No students found without fee structure assignment.' 
+                  : 'No students match the current filter criteria.'}
+              </Alert>
             ) : (
               <TableContainer component={Paper} sx={{ overflowX: 'auto', width: '100%' }}>
                 <Table sx={{ minWidth: 650 }}>
@@ -3283,7 +3431,7 @@ const FeeManagement = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {getPaginatedData(studentsWithoutFeeStructure, 'assignFeeStructure').map((student) => (
+                    {getPaginatedData(getFilteredAssignFeeStructureStudents(), 'assignFeeStructure').map((student) => (
                       <TableRow key={student._id} hover>
                         <TableCell>{student.enrollmentNumber}</TableCell>
                         <TableCell>{student.rollNumber || 'N/A'}</TableCell>
@@ -3306,10 +3454,10 @@ const FeeManagement = () => {
                     ))}
                   </TableBody>
                 </Table>
-                {studentsWithoutFeeStructure.length > 0 && (
+                {getFilteredAssignFeeStructureStudents().length > 0 && (
                   <TablePagination
                     component="div"
-                    count={studentsWithoutFeeStructure.length}
+                    count={getFilteredAssignFeeStructureStudents().length}
                     page={pagination.assignFeeStructure.page}
                     onPageChange={(e, newPage) => handleChangePage('assignFeeStructure', e, newPage)}
                     rowsPerPage={pagination.assignFeeStructure.rowsPerPage}
@@ -3355,17 +3503,65 @@ const FeeManagement = () => {
                           InputLabelProps={{ shrink: true }}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                          <Button
-                            variant="contained"
-                            fullWidth
-                            startIcon={<Search />}
-                            sx={{ bgcolor: '#667eea' }}
-                            onClick={fetchGenerateVoucherStudents}
+                      {/* Search Filters */}
+                      <Grid item xs={12} sm={6} md={3}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Student Name"
+                          value={generateVoucherFilters.name}
+                          onChange={(e) => setGenerateVoucherFilters({ ...generateVoucherFilters, name: e.target.value })}
+                          placeholder="Search by name..."
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="ID / Admission #"
+                          value={generateVoucherFilters.id}
+                          onChange={(e) => setGenerateVoucherFilters({ ...generateVoucherFilters, id: e.target.value })}
+                          placeholder="Search by ID..."
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={2}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Roll Number"
+                          value={generateVoucherFilters.rollNumber}
+                          onChange={(e) => setGenerateVoucherFilters({ ...generateVoucherFilters, rollNumber: e.target.value })}
+                          placeholder="Search by roll..."
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={2}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Class</InputLabel>
+                          <Select
+                            value={generateVoucherFilters.class}
+                            onChange={(e) => setGenerateVoucherFilters({ ...generateVoucherFilters, class: e.target.value })}
+                            label="Class"
                           >
-                            Search Students
-                          </Button>
+                            <MenuItem value="">All Classes</MenuItem>
+                            {[...new Set(generateVoucherStudents.map(s => s.class).filter(Boolean))].sort().map((className) => (
+                              <MenuItem key={className} value={className}>{capitalizeFirstOnly(className)}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={2}>
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          onClick={() => setGenerateVoucherFilters(prev => ({ ...prev, name: '', id: '', rollNumber: '', class: '' }))}
+                          sx={{ borderColor: '#667eea', color: '#667eea' }}
+                        >
+                          Clear Filters
+                        </Button>
+                      </Grid>
+                      {/* Action Buttons */}
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                           <Button
                             variant="contained"
                             startIcon={<Receipt />}
@@ -3390,15 +3586,15 @@ const FeeManagement = () => {
                           <input
                             type="checkbox"
                             checked={
-                              generateVoucherStudents.length > 0 &&
-                              generateVoucherStudents
+                              getFilteredGenerateVoucherStudents().length > 0 &&
+                              getFilteredGenerateVoucherStudents()
                                 .filter(s => s.voucherStatus !== 'Generated')
                                 .every(s => selectedGenerateVoucherStudents.some(sel => sel._id === s._id))
                             }
                             onChange={(e) => {
                               if (e.target.checked) {
                                 // Only select students without Generated status
-                                const selectableStudents = generateVoucherStudents.filter(s => s.voucherStatus !== 'Generated');
+                                const selectableStudents = getFilteredGenerateVoucherStudents().filter(s => s.voucherStatus !== 'Generated');
                                 setSelectedGenerateVoucherStudents(selectableStudents);
                               } else {
                                 setSelectedGenerateVoucherStudents([]);
@@ -3432,7 +3628,7 @@ const FeeManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getPaginatedData(generateVoucherStudents, 'generateVoucher').map((student) => {
+                        getPaginatedData(getFilteredGenerateVoucherStudents(), 'generateVoucher').map((student) => {
                           const isGenerated = student.voucherStatus === 'Generated';
                           const isSelected = selectedGenerateVoucherStudents.some(s => s._id === student._id);
                           
@@ -3489,7 +3685,7 @@ const FeeManagement = () => {
                   {generateVoucherStudents.length > 0 && (
                     <TablePagination
                       component="div"
-                      count={generateVoucherStudents.length}
+                      count={getFilteredGenerateVoucherStudents().length}
                       page={pagination.generateVoucher.page}
                       onPageChange={(e, newPage) => handleChangePage('generateVoucher', e, newPage)}
                       rowsPerPage={pagination.generateVoucher.rowsPerPage}
