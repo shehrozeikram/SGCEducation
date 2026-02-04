@@ -248,7 +248,11 @@ const FeeManagement = () => {
   // Print Voucher
   const [printVoucherFilters, setPrintVoucherFilters] = useState({
     monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, // Format: YYYY-MM for month input
-    voucherNumber: ''
+    voucherNumber: '',
+    name: '',
+    id: '',
+    rollNumber: '',
+    class: ''
   });
   const [printVoucherStudents, setPrintVoucherStudents] = useState([]);
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
@@ -2660,6 +2664,40 @@ const FeeManagement = () => {
     });
   };
 
+  // Filter print voucher students based on search criteria
+  const getFilteredPrintVoucherStudents = () => {
+    return printVoucherStudents.filter(student => {
+      // Name filter
+      if (printVoucherFilters.name && 
+          !student.name?.toLowerCase().includes(printVoucherFilters.name.toLowerCase())) {
+        return false;
+      }
+
+      // ID filter (checks both enrollment number and admission number)
+      if (printVoucherFilters.id) {
+        const searchId = printVoucherFilters.id.toLowerCase();  
+        const matchesEnrollment = student.enrollmentNumber?.toString().toLowerCase().includes(searchId);
+        const matchesAdmission = student.admissionNumber?.toString().toLowerCase().includes(searchId);
+        if (!matchesEnrollment && !matchesAdmission) {
+          return false;
+        }
+      }
+
+      // Roll number filter
+      if (printVoucherFilters.rollNumber && 
+          !student.rollNumber?.toString().toLowerCase().includes(printVoucherFilters.rollNumber.toLowerCase())) {
+        return false;
+      }
+
+      // Class filter
+      if (printVoucherFilters.class && student.class !== printVoucherFilters.class) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
   // Fetch available classes for assignment
   const fetchAvailableClasses = async () => {
     try {
@@ -4028,26 +4066,79 @@ const FeeManagement = () => {
                       placeholder="Search by voucher #"
                     />
                   </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Student Name"
+                      value={printVoucherFilters.name}
+                      onChange={(e) => setPrintVoucherFilters({ ...printVoucherFilters, name: e.target.value })}
+                      placeholder="Search by name..."
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="ID / Admission #"
+                      value={printVoucherFilters.id}
+                      onChange={(e) => setPrintVoucherFilters({ ...printVoucherFilters, id: e.target.value })}
+                      placeholder="Search by ID..."
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Roll Number"
+                      value={printVoucherFilters.rollNumber}
+                      onChange={(e) => setPrintVoucherFilters({ ...printVoucherFilters, rollNumber: e.target.value })}
+                      placeholder="Search by roll..."
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <InputLabel>Class</InputLabel>
+                      <Select
+                        value={printVoucherFilters.class}
+                        onChange={(e) => setPrintVoucherFilters({ ...printVoucherFilters, class: e.target.value })}
+                        label="Class"
+                      >
+                        <MenuItem value="">All Classes</MenuItem>
+                        {availableClasses.map((cls) => (
+                          <MenuItem key={cls._id} value={cls.name}>
+                            {cls.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <Grid item xs={12} md={4}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        startIcon={<Search />}
-                        sx={{ bgcolor: '#667eea' }}
-                        onClick={fetchPrintVoucherStudents}
-                      >
-                        Search Students
-                      </Button>
-                      <Button
-                        variant="contained"
-                        startIcon={<Print />}
-                        sx={{ bgcolor: '#667eea' }}
-                        disabled={printVoucherStudents.length === 0}
-                      >
-                        Print Fee Voucher
-                      </Button>
-                    </Box>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={() => setPrintVoucherFilters({
+                        monthYear: printVoucherFilters.monthYear,
+                        voucherNumber: '',
+                        name: '',
+                        id: '',
+                        rollNumber: '',
+                        class: ''
+                      })}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      startIcon={<Print />}
+                      sx={{ bgcolor: '#667eea' }}
+                      disabled={printVoucherStudents.length === 0}
+                    >
+                      Print Fee Voucher
+                    </Button>
                   </Grid>
                 </Grid>
               </CardContent>
@@ -4077,16 +4168,18 @@ const FeeManagement = () => {
                         <CircularProgress />
                       </TableCell>
                     </TableRow>
-                  ) : printVoucherStudents.length === 0 ? (
+                  ) : getFilteredPrintVoucherStudents().length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} align="center">
                         <Typography variant="body2" color="textSecondary">
-                          No data found
+                          {printVoucherStudents.length === 0 
+                            ? 'No data found' 
+                            : 'No students match the current filter criteria.'}
                         </Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    getPaginatedData(printVoucherStudents, 'printVoucher').map((student) => (
+                    getPaginatedData(getFilteredPrintVoucherStudents(), 'printVoucher').map((student) => (
                       <TableRow key={student._id}>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 1 }}>

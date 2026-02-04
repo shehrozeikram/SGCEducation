@@ -560,6 +560,11 @@ class FeeService {
         const paidAmount = existingFee.paidAmount || 0;
         const newRemainingAmount = Math.max(0, finalAmount - paidAmount);
 
+        // Log vouchers BEFORE update
+        console.log(`[UPDATE FEE] Student: ${studentId}, FeeHead: ${feeHeadId}`);
+        console.log(`[UPDATE FEE] Vouchers BEFORE update:`, existingFee.vouchers);
+        console.log(`[UPDATE FEE] paidAmount: ${paidAmount}, new remainingAmount: ${newRemainingAmount}`);
+
         // Use findByIdAndUpdate with $set to ONLY touch specific fields
         const updatedFee = await StudentFee.findByIdAndUpdate(
           existingFee._id,
@@ -577,8 +582,24 @@ class FeeService {
             // CRITICAL: DO NOT include vouchers, paidAmount, or paymentHistory
             // These fields are COMPLETELY UNTOUCHED by this update
           },
-          { new: true } // Return the updated document
+          { 
+            new: true,  // Return the updated document
+            strict: false,  // Don't remove fields not in schema
+            overwrite: false  // Don't replace the entire document
+          }
         );
+
+        // Log vouchers AFTER update to verify preservation
+        console.log(`[UPDATE FEE] Vouchers AFTER update:`, updatedFee.vouchers);
+        console.log(`[UPDATE FEE] Vouchers count - Before: ${existingFee.vouchers?.length || 0}, After: ${updatedFee.vouchers?.length || 0}`);
+        
+        // CRITICAL CHECK: Verify vouchers were preserved
+        if (existingFee.vouchers && existingFee.vouchers.length > 0) {
+          if (!updatedFee.vouchers || updatedFee.vouchers.length === 0) {
+            console.error(`[UPDATE FEE ERROR] VOUCHERS WERE LOST! StudentFee ID: ${existingFee._id}`);
+            throw new ApiError(500, 'Critical error: Vouchers were lost during update. Please contact support.');
+          }
+        }
 
         updatedFees.push(updatedFee);
       } else {
