@@ -2383,11 +2383,10 @@ const FeeManagement = () => {
           const feeHeadMap = {};
           feesWithVouchers.forEach(fee => {
             const feeHeadName = fee.feeHead?.name || 'Fee';
-            if (!feeHeadMap[feeHeadName]) {
-              feeHeadMap[feeHeadName] = 0;
-            }
             // Use finalAmount (after discount) if available, otherwise baseAmount
-            feeHeadMap[feeHeadName] += fee.finalAmount || fee.baseAmount || 0;
+            // Use nullish coalescing to ensure 0 is treated as a valid value
+            const amount = (fee.finalAmount !== undefined && fee.finalAmount !== null) ? fee.finalAmount : (fee.baseAmount || 0);
+            feeHeadMap[feeHeadName] = (feeHeadMap[feeHeadName] || 0) + amount;
           });
 
           // Convert to array and sort by fee head priority if available
@@ -2402,8 +2401,8 @@ const FeeManagement = () => {
               };
             })
             .sort((a, b) => a.priority - b.priority)
-            .map(({ name, amount }) => ({ name, amount }))
-            .filter(h => h.amount > 0);
+            .map(({ name, amount }) => ({ name, amount }));
+            // Removed .filter(h => h.amount > 0) to allow 100% discounted (Rs. 0) fees to show on voucher
 
           // Get due date from first fee with voucher
           if (feesWithVouchers.length > 0) {
@@ -2809,30 +2808,38 @@ const FeeManagement = () => {
         const discountType = firstFee.discountType || 'amount';
         const discountReason = firstFee.discountReason || '';
         
-        // Build fee head discounts object
+        // 1. First fetch and set the fee structure for this class
+        // This will initialize the form with default 0 discounts
+        await fetchFeeStructureByClass(classId);
+        
+        // 2. Build the custom fee head discounts object from existing records
         const feeHeadDiscounts = {};
         existingFees.forEach(fee => {
-          const feeHeadId = fee.feeHead?._id || fee.feeHead;
-          if (fee.discountAmount > 0) {
+          const feeHeadId = (fee.feeHead?._id || fee.feeHead)?.toString();
+          if (feeHeadId) {
+            // Preload all discounts, including 0 (important for 100% discount cases)
             feeHeadDiscounts[feeHeadId] = {
-              discount: fee.discountAmount,
+              discount: fee.discountAmount || 0,
               discountType: fee.discountType || 'amount',
               discountReason: fee.discountReason || ''
             };
           }
         });
         
-        // Pre-populate the form with existing values
-        setAssignFeeStructureForm({
+        // 3. Update the form with existing values, OVERRIDING the defaults from step 1
+        setAssignFeeStructureForm(prev => ({
+          ...prev,
           classId: classId,
           discount: discount,
           discountType: discountType,
           discountReason: discountReason,
-          feeHeadDiscounts: feeHeadDiscounts
-        });
+          feeHeadDiscounts: {
+            ...prev.feeHeadDiscounts, // Keep any other heads if they exist
+            ...feeHeadDiscounts       // Override with actual preloaded discounts
+          }
+        }));
         
-        // Fetch and set the fee structure for this class
-        await fetchFeeStructureByClass(classId);
+        setAssignFeeStructureDialog(true);
       } else {
         // No existing fees found, initialize with empty form
         setAssignFeeStructureForm({
