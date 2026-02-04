@@ -482,7 +482,7 @@ class FeeService {
           },
           {
             path: 'admission',
-            select: 'applicationNumber personalInfo guardianInfo class section',
+            select: 'applicationNumber personalInfo guardianInfo class section admissionEffectiveDate admissionDate createdAt',
             populate: [
               {
                 path: 'class',

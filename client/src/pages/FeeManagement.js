@@ -1072,7 +1072,67 @@ const FeeManagement = () => {
       });
 
       // Convert map to array
-      const transformedStudents = Array.from(uniqueStudentsMap.values());
+      let transformedStudents = Array.from(uniqueStudentsMap.values());
+      
+      // Filter students by admission effective date
+      // Only show students whose admission is on or before the selected month/year
+      if (generateVoucherFilters.monthYear) {
+        const { month: selectedMonth, year: selectedYear } = parseMonthYear(generateVoucherFilters.monthYear);
+        
+        // Create cutoff date: last day of the selected month/year
+        const cutoffDate = new Date(selectedYear, selectedMonth, 0); // Day 0 = last day of previous month, so selectedMonth gives us last day of that month
+        
+        transformedStudents = transformedStudents.filter(student => {
+          const studentFeeRecord = studentFees.find(sf => {
+            const sfStudentId = sf.student?._id || sf.student;
+            return sfStudentId && sfStudentId.toString() === student.studentId.toString();
+          });
+          
+          const admission = studentFeeRecord?.student?.admission;
+          
+          // Debug logging to see what data we have
+          if (!admission && console && console.warn) {
+            console.warn(`Student ${student.name} (${student.studentId}) has no admission data in student fees`, studentFeeRecord);
+          }
+          
+          // If no admission object at all, we can't filter by date
+          // In this case, include the student (shows warning above)
+          if (!admission) {
+            return true;
+          }
+          
+          // Determine which date to use for comparison
+          // Priority: admissionEffectiveDate > admissionDate > createdAt
+          let studentAdmissionDate = null;
+          
+          if (admission.admissionEffectiveDate) {
+            studentAdmissionDate = new Date(admission.admissionEffectiveDate);
+          } else if (admission.admissionDate) {
+            studentAdmissionDate = new Date(admission.admissionDate);
+          } else if (admission.createdAt) {
+            studentAdmissionDate = new Date(admission.createdAt);
+          }
+          
+          // If admission exists but no valid date found, include with warning
+          if (!studentAdmissionDate || isNaN(studentAdmissionDate.getTime())) {
+            if (console && console.warn) {
+              console.warn(`Student ${student.name} has admission but no valid date fields`, admission);
+            }
+            return true;
+          }
+          
+          // Compare admission date with cutoff date
+          const shouldInclude = studentAdmissionDate <= cutoffDate;
+          
+          // Debug log for date comparison
+          if (console && console.log) {
+            console.log(`Student ${student.name}: admission=${studentAdmissionDate.toLocaleDateString()}, cutoff=${cutoffDate.toLocaleDateString()}, included=${shouldInclude}`);
+          }
+          
+          return shouldInclude;
+        });
+      }
+      
       setGenerateVoucherStudents(transformedStudents);
       
       // Remove students with Generated status from selected list
