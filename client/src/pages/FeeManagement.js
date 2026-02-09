@@ -3203,10 +3203,10 @@ const FeeManagement = () => {
               )}
             </Box>
 
-            {/* Search Bar */}
             <Box sx={{ mb: 2 }}>
               <TextField
                 fullWidth
+                size="small"
                 placeholder="Search by name, GL Account, or frequency type..."
                 value={feeHeadSearchTerm}
                 onChange={(e) => {
@@ -3693,6 +3693,7 @@ const FeeManagement = () => {
                       <Grid item xs={12} md={6}>
                         <TextField
                           fullWidth
+                          size="small"
                           label="Month/Year"
                           type="month"
                           value={generateVoucherFilters.monthYear}
@@ -3912,6 +3913,7 @@ const FeeManagement = () => {
                       <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
+                          size="small"
                           label="Month/Year"
                           type="month"
                           value={miscFeeFilters.monthYear}
@@ -4092,6 +4094,7 @@ const FeeManagement = () => {
                   <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
+                      size="small"
                       label="Month/Year"
                       type="month"
                       value={printVoucherFilters.monthYear}
@@ -4104,6 +4107,7 @@ const FeeManagement = () => {
                   <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
+                      size="small"
                       label="Voucher Number"
                       value={printVoucherFilters.voucherNumber}
                       onChange={(e) => {
