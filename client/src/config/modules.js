@@ -29,10 +29,38 @@ import {
  */
 export const modules = [
   { name: 'Inquiry', icon: ContactMail, color: '#667eea', route: null },
-  { name: 'Admissions', icon: PersonAdd, color: '#f093fb', route: '/admissions' },
+  { 
+    name: 'Admissions', 
+    icon: PersonAdd, 
+    color: '#f093fb', 
+    route: '/admissions',
+    children: [
+      { name: 'Admissions List', route: '/admissions' },
+      { name: 'Reports', route: '/admissions/reports' },
+      { name: 'Admissions Register', route: '/admissions/register' },
+      { name: 'Admissions Analytics', route: '/admissions/analytics' },
+      { name: 'Search Student', route: '/admissions/students/search' },
+      { name: 'Import Students', route: '/admissions/students/import' },
+    ]
+  },
   { name: 'Student Promotion', icon: SwapHoriz, color: '#10b981', route: '/student-promotion' },
   { name: 'Attendance', icon: EventAvailable, color: '#4facfe', route: null },
-  { name: 'Fee Management', icon: Payment, color: '#43e97b', route: '/fee-management' },
+  { 
+    name: 'Fee Management', 
+    icon: Payment, 
+    color: '#43e97b', 
+    route: '/fee-management',
+    children: [
+      { name: 'Fee Heads', route: '/fee-management?tab=fee-heads' },
+      { name: 'Fee Structure', route: '/fee-management?tab=fee-structure' },
+      { name: 'Assign Fee', route: '/fee-management?tab=assign-fee-structure' },
+      { name: 'Voucher Generation', route: '/fee-management?tab=voucher-generation' },
+      { name: 'Print Voucher', route: '/fee-management?tab=print-voucher' },
+      { name: 'Fee Deposit', route: '/fee-management?tab=fee-deposit' },
+      { name: 'Receipts', route: '/fee-management?tab=receipt' },
+      { name: 'Suspense', route: '/fee-management?tab=suspense' },
+    ]
+  },
   { name: 'Results', icon: Assessment, color: '#feca57', route: '/results' },
   { name: 'SMS & Notification', icon: Notifications, color: '#fa709a', route: '/notifications' },
   { name: 'Complaints', icon: Report, color: '#ee5a6f', route: null },

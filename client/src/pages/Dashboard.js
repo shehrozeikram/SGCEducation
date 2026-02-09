@@ -1,79 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
-  Paper,
-  AppBar,
-  Toolbar,
   Button,
-  IconButton,
-  Menu,
-  MenuItem,
   Grid,
-  Card,
-  CardContent,
+  Paper,
   LinearProgress,
-  Chip,
-  Divider,
   Alert,
   CircularProgress,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  TablePagination,
   Tabs,
   Tab,
   Stack,
+  Card,
+  CardContent,
+  Chip,
 } from '@mui/material';
+import { getAllModules } from '../config/modules';
 import {
-  AccountCircle,
-  School,
-  ExitToApp,
-  Settings,
   AccountBalance,
   TrendingUp,
   People,
   Domain,
   Assessment,
-  CheckCircle,
-  Cancel,
   Business,
   Description,
   Event,
   Message,
   Speed,
-  ContactMail,
   PersonAdd,
   EventAvailable,
   Payment,
   Notifications,
   Report,
-  MenuBook,
-  LocalLibrary,
-  Inventory,
-  SupervisorAccount,
-  DirectionsBus,
-  Brush,
-  Hotel,
-  PendingActions,
-  ExpandMore,
-  ExpandLess,
-  Dashboard as DashboardIcon,
-  Menu as MenuIcon,
-  ChevronLeft as ChevronLeftIcon,
-  SwapHoriz,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
-import { getAllModules } from '../config/modules';
 import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 import DashboardCharts from '../components/dashboard/DashboardCharts';
-import InstitutionSwitcher from '../components/InstitutionSwitcher';
 
 const Dashboard = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -84,9 +48,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [selectedInstitution, setSelectedInstitution] = useState(null);
   const [breakdownTab, setBreakdownTab] = useState(0);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showLogo, setShowLogo] = useState(true); // For logo fallback
-  const sidebarWidth = sidebarCollapsed ? 80 : 280;
   
   // Generate cache-busting parameter once on mount to ensure fresh logo
   const [logoCacheBuster] = useState(() => `?t=${Date.now()}`);
@@ -328,145 +290,12 @@ const Dashboard = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 4, overflow: 'visible' }}>
-      {/* Sidebar + Content Layout */}
-      <Box sx={{ display: 'flex', width: '100%', mt: '64px' }}>
-        {/* Sidebar */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            width: sidebarWidth,
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-            boxSizing: 'border-box',
-            '& .MuiDrawer-paper': {
-              width: sidebarWidth,
-              boxSizing: 'border-box',
-              position: 'fixed',
-              top: 64,
-              left: 0,
-              height: 'calc(100vh - 64px)',
-              borderRight: '1px solid #e0e0e0',
-              overflowX: 'hidden',
-              bgcolor: 'white',
-              zIndex: (theme) => theme.zIndex.drawer,
-              transition: (theme) => theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
-              }),
-            },
-          }}
-        >
-          <List sx={{ pt: 0 }}>
-            {/* Dashboard */}
-            <ListItem disablePadding sx={{ px: 1, mb: 0.5 }}>
-              <ListItemButton 
-                selected 
-                onClick={() => navigate('/dashboard')}
-                sx={{
-                  minHeight: 48,
-                  px: 2.5,
-                  borderRadius: 2,
-                  justifyContent: sidebarCollapsed ? 'center' : 'initial',
-                  '&.Mui-selected': {
-                    bgcolor: '#667eea15',
-                    color: '#667eea',
-                    '& .MuiListItemIcon-root': { color: '#667eea' },
-                    '&:hover': { bgcolor: '#667eea25' }
-                  }
-                }}
-              >
-                <ListItemIcon sx={{ 
-                  minWidth: 0, 
-                  mr: sidebarCollapsed ? 'auto' : 3, 
-                  justifyContent: 'center' 
-                }}>
-                  <DashboardIcon />
-                </ListItemIcon>
-                <ListItemText 
-                  primary="Dashboard"
-                  primaryTypographyProps={{
-                    fontWeight: 700,
-                    fontSize: '0.9rem'
-                  }}
-                  sx={{ opacity: sidebarCollapsed ? 0 : 1, transition: 'opacity 0.2s' }}
-                />
-              </ListItemButton>
-            </ListItem>
-
-            <Divider sx={{ my: 1 }} />
-
-            {/* Modules */}
-            {!sidebarCollapsed && (
-              <Box sx={{ px: 2, py: 1 }}>
-                <Typography variant="overline" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
-                  Our Modules
-                </Typography>
-              </Box>
-            )}
-
-            {modules.map((module, index) => (
-              <ListItem key={index} disablePadding sx={{ px: 1, mb: 0.2 }}>
-                <ListItemButton
-                  onClick={() => handleModuleClick(module)}
-                  sx={{
-                    minHeight: 48,
-                    px: 2.5,
-                    borderRadius: 2,
-                    justifyContent: sidebarCollapsed ? 'center' : 'initial',
-                    '&:hover': {
-                      bgcolor: `${module.color}10`,
-                      '& .MuiListItemIcon-root': { transform: 'scale(1.1)' }
-                    },
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <ListItemIcon sx={{ 
-                    minWidth: 0, 
-                    mr: sidebarCollapsed ? 'auto' : 3, 
-                    justifyContent: 'center',
-                    transition: 'transform 0.2s ease'
-                  }}>
-                    {React.cloneElement(module.icon, {
-                      sx: { color: module.color, fontSize: 20 }
-                    })}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={module.name}
-                    primaryTypographyProps={{
-                      fontSize: '0.85rem',
-                      fontWeight: 500,
-                      color: 'text.primary'
-                    }}
-                    sx={{ opacity: sidebarCollapsed ? 0 : 1, transition: 'opacity 0.2s' }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </Drawer>
-
-        {/* Main Content Area */}
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            mt: '64px', // Account for fixed navbar
-            px: { xs: 2, sm: 3, md: 4 },
-            py: { xs: 2, sm: 3 },
-            boxSizing: 'border-box',
-            width: '100%',
-            transition: (theme) => theme.transitions.create(['margin', 'width'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-          }}
-        >
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
           {dashboardData && (
             <>
@@ -807,8 +636,6 @@ const Dashboard = () => {
             </>
           )}
         </Box>
-      </Box>
-    </Box>
   );
 };
 

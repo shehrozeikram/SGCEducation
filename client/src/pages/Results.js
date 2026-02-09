@@ -359,7 +359,7 @@ const Results = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', overflowX: 'hidden', mt: '64px' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', overflowX: 'hidden' }}>
       <Box sx={{ mt: 3, mb: 3, flex: 1, px: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         <Paper sx={{ p: 3, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           {/* Header */}

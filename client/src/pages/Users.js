@@ -173,7 +173,7 @@ const Users = () => {
   };
 
   return (
-    <Box sx={{ mt: '64px' }}>
+    <Box>
       {/* Main Content */}
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <PageHeader

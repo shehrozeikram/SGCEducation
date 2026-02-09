@@ -302,7 +302,7 @@ const UserForm = () => {
   };
 
   return (
-    <Box sx={{ mt: '64px' }}>
+    <Box>
       <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
       {/* Header Section */}
       <Box sx={{ mb: 3 }}>

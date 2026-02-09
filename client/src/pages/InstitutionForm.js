@@ -367,7 +367,7 @@ const InstitutionForm = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', mt: '64px' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       
       <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
         {/* Header Section */}

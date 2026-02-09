@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { ThemeProvider, createTheme } from '@mui/material';
 import { NotificationProvider } from './components/notifications/NotificationProvider';
 import TopBar from './components/layout/TopBar';
+import Sidebar from './components/layout/Sidebar';
+import { Box } from '@mui/material';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -44,10 +46,19 @@ const theme = createTheme({
   },
 });
 
-// Protected Route Component with automatic TopBar
+// Protected Route Component with automatic TopBar and Sidebar
 const ProtectedRoute = ({ children, title }) => {
   const token = localStorage.getItem('token');
   const location = useLocation();
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(
+    localStorage.getItem('sidebarCollapsed') === 'true'
+  );
+
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('sidebarCollapsed', newState.toString());
+  };
   
   // Get page title from route or prop
   const getPageTitle = () => {
@@ -103,12 +114,28 @@ const ProtectedRoute = ({ children, title }) => {
   if (!token) {
     return <Navigate to="/login" />;
   }
+
+  const sidebarWidth = sidebarCollapsed ? 80 : 280;
   
   return (
-    <>
+    <Box sx={{ display: 'flex' }}>
       <TopBar title={getPageTitle()} />
-      {children}
-    </>
+      <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          mt: '64px',
+          width: { sm: `calc(100% - ${sidebarWidth}px)` },
+          transition: (theme) => theme.transitions.create(['margin', 'width'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
   );
 };
 
