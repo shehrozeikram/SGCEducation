@@ -3166,7 +3166,13 @@ const FeeManagement = () => {
 
           {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs value={activeTab} onChange={handleTabChange}>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+            >
               <Tab label="Fee Heads" />
               <Tab label="Fee Structure" />
               <Tab label="Assign Fee Structure" />
@@ -3665,7 +3671,13 @@ const FeeManagement = () => {
 
             {/* Sub-tabs for Voucher Generation */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs value={miscFeeSubTab} onChange={handleMiscFeeSubTabChange}>
+              <Tabs 
+                value={miscFeeSubTab} 
+                onChange={handleMiscFeeSubTabChange}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+              >
                 <Tab label="Generate Voucher" />
                 <Tab label="Student Operations" />
               </Tabs>
@@ -5157,6 +5169,9 @@ const FeeManagement = () => {
               value={suspenseSubTab} 
               onChange={handleSuspenseSubTabChange} 
               sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
             >
               <Tab label="Unidentified Payments" />
               <Tab label="Reconciled History" />
