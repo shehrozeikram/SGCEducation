@@ -5228,33 +5228,38 @@ const FeeManagement = () => {
                                     <TableCell>
                                       {tid.startsWith('no-tid-') ? 'N/A' : tid}
                                     </TableCell>
-                                    <TableCell>
                                       {(() => {
                                         const hasRefunded = group.some(r => r.status === 'refunded');
                                         const allRefunded = group.every(r => r.status === 'refunded');
                                         let statusLabel = firstReceipt.status || 'completed';
                                         let statusColor = 'default';
+                                        let cellBg = 'inherit';
 
                                         if (isGroup && hasRefunded && !allRefunded) {
                                           statusLabel = 'Partial Refund';
                                           statusColor = 'warning';
+                                          cellBg = '#fffdf0'; // Light Yellow
+                                        } else if (statusLabel === 'refunded') {
+                                          statusColor = 'error';
+                                          cellBg = '#fff5f5'; // Light Red
                                         } else if (statusLabel === 'completed') {
                                           statusColor = 'success';
                                         } else if (statusLabel === 'pending') {
                                           statusColor = 'warning';
-                                        } else if (statusLabel === 'failed' || statusLabel === 'refunded') {
+                                        } else if (statusLabel === 'failed') {
                                           statusColor = 'error';
                                         }
 
                                         return (
-                                          <Chip
-                                            label={statusLabel}
-                                            size="small"
-                                            color={statusColor}
-                                          />
+                                          <TableCell>
+                                            <Chip
+                                              label={statusLabel}
+                                              size="small"
+                                              color={statusColor}
+                                            />
+                                          </TableCell>
                                         );
                                       })()}
-                                    </TableCell>
                                     <TableCell>{firstReceipt.collectedBy?.name || 'N/A'}</TableCell>
                                     <TableCell>
                                       {!isGroup && firstReceipt.status !== 'refunded' && (
@@ -5315,7 +5320,7 @@ const FeeManagement = () => {
                                           color={
                                             receipt.status === 'completed' ? 'success' :
                                             receipt.status === 'pending' ? 'warning' :
-                                            receipt.status === 'failed' ? 'error' : 'default'
+                                            receipt.status === 'failed' || receipt.status === 'refunded' ? 'error' : 'default'
                                           }
                                           sx={{ opacity: 0.8 }}
                                         />
