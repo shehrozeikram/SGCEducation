@@ -1454,10 +1454,13 @@ class FeeService {
    * Reverses any payments made for this voucher
    */
   async deleteVoucher(voucherData, currentUser) {
-    const { studentId, month, year } = voucherData;
+    const { studentId, studentIds, month, year } = voucherData;
 
-    if (!studentId) {
-      throw new ApiError(400, 'Student ID is required');
+    // Support both single studentId (for backward compatibility) and multiple studentIds
+    const idsToProcess = studentIds && Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
+
+    if (idsToProcess.length === 0) {
+      throw new ApiError(400, 'Student ID(s) are required');
     }
 
     if (!month || month < 1 || month > 12) {
@@ -1468,167 +1471,171 @@ class FeeService {
       throw new ApiError(400, 'Valid year is required');
     }
 
-    // Find the student
-    let student = await Student.findById(studentId);
-    
-    // If not found by student ID, try to find by admission ID
-    if (!student) {
-      const Admission = require('../models/Admission');
-      const admission = await Admission.findById(studentId).populate('studentId');
-      if (admission && admission.studentId) {
-        student = admission.studentId;
+    let totalDeletedVouchers = 0;
+    let totalReversedPayments = 0;
+    let totalReversedAmount = 0;
+
+    const Admission = require('../models/Admission');
+    const FeePayment = require('../models/FeePayment');
+
+    for (const currentId of idsToProcess) {
+      // Find the student
+      let student = await Student.findById(currentId);
+      
+      // If not found by student ID, try to find by admission ID
+      if (!student) {
+        const admission = await Admission.findById(currentId).populate('studentId');
+        if (admission && admission.studentId) {
+          student = admission.studentId;
+        }
       }
-    }
 
-    if (!student) {
-      throw new ApiError(404, 'Student not found');
-    }
+      if (!student) {
+        continue; // Skip if student not found
+      }
 
-    const actualStudentId = student._id;
+      const actualStudentId = student._id;
 
-    // Get all StudentFee records for this student that have vouchers for the specified month/year
-    const studentFeeRecords = await StudentFee.find({
-      student: actualStudentId,
-      isActive: true
-    });
+      // Get all StudentFee records for this student that have vouchers (active and historical)
+      const studentFeeRecords = await StudentFee.find({
+        student: actualStudentId,
+        $or: [
+          { isActive: true },
+          { vouchers: { $exists: true, $not: { $size: 0 } } }
+        ]
+      });
 
-    if (studentFeeRecords.length === 0) {
-      throw new ApiError(404, 'No fee records found for this student');
-    }
+      if (studentFeeRecords.length === 0) {
+        continue;
+      }
 
-    // Filter to find fees with vouchers for the specified month/year
-    const feesWithVoucher = studentFeeRecords.filter(sf => {
-      if (!sf.vouchers || !Array.isArray(sf.vouchers)) return false;
-      return sf.vouchers.some(v => 
-        v && 
-        Number(v.month) === Number(month) && 
-        Number(v.year) === Number(year)
-      );
-    });
-
-    if (feesWithVoucher.length === 0) {
-      throw new ApiError(404, 'No voucher found for the specified month/year');
-    }
-
-    // Get the voucher generation date (use the earliest one if multiple)
-    let voucherGeneratedDate = null;
-    for (const fee of feesWithVoucher) {
-      if (fee.vouchers && Array.isArray(fee.vouchers)) {
-        const voucher = fee.vouchers.find(v => 
+      // Filter to find fees with vouchers for the specified month/year
+      const feesWithVoucher = studentFeeRecords.filter(sf => {
+        if (!sf.vouchers || !Array.isArray(sf.vouchers)) return false;
+        return sf.vouchers.some(v => 
           v && 
           Number(v.month) === Number(month) && 
           Number(v.year) === Number(year)
         );
-        if (voucher && voucher.generatedAt) {
-          const generatedDate = new Date(voucher.generatedAt);
-          if (!voucherGeneratedDate || generatedDate < voucherGeneratedDate) {
-            voucherGeneratedDate = generatedDate;
+      });
+
+      if (feesWithVoucher.length === 0) {
+        continue;
+      }
+
+      // Get the voucher generation date (use the earliest one if multiple)
+      let voucherGeneratedDate = null;
+      for (const fee of feesWithVoucher) {
+        if (fee.vouchers && Array.isArray(fee.vouchers)) {
+          const voucher = fee.vouchers.find(v => 
+            v && 
+            Number(v.month) === Number(month) && 
+            Number(v.year) === Number(year)
+          );
+          if (voucher && voucher.generatedAt) {
+            const generatedDate = new Date(voucher.generatedAt);
+            if (!voucherGeneratedDate || generatedDate < voucherGeneratedDate) {
+              voucherGeneratedDate = generatedDate;
+            }
           }
         }
       }
-    }
 
-    const FeePayment = require('../models/FeePayment');
-    let totalReversedAmount = 0;
-    let reversedPaymentsCount = 0;
+      // Process each fee with voucher to reverse payments
+      for (const fee of feesWithVoucher) {
+        // Find all payments for this StudentFee that were made after voucher generation
+        const paymentQuery = {
+          studentFee: fee._id,
+          status: 'completed' // Only reverse completed payments
+        };
 
-    // Process each fee with voucher to reverse payments
-    for (const fee of feesWithVoucher) {
-      // Find all payments for this StudentFee that were made after voucher generation
-      const paymentQuery = {
-        studentFee: fee._id,
-        status: 'completed' // Only reverse completed payments
-      };
-
-      if (voucherGeneratedDate) {
-        paymentQuery.paymentDate = { $gte: voucherGeneratedDate };
-      }
-
-      const paymentsToReverse = await FeePayment.find(paymentQuery).sort({ paymentDate: 1 });
-
-      if (paymentsToReverse.length > 0) {
-        // Calculate total amount to reverse
-        const totalPaymentAmount = paymentsToReverse.reduce((sum, payment) => {
-          return sum + parseFloat(payment.amount || 0);
-        }, 0);
-
-        // Reverse payments by marking them as refunded
-        for (const payment of paymentsToReverse) {
-          payment.status = 'refunded';
-          payment.refundAmount = payment.amount;
-          payment.refundDate = new Date();
-          payment.refundReason = `Voucher deleted for ${month}/${year}`;
-          await payment.save();
-          reversedPaymentsCount++;
-        }
-
-        // Update StudentFee: reduce paidAmount and recalculate remainingAmount
-        const currentPaidAmount = parseFloat(fee.paidAmount || 0);
-        const newPaidAmount = Math.max(0, currentPaidAmount - totalPaymentAmount);
-        fee.paidAmount = newPaidAmount;
-        fee.remainingAmount = Math.max(0, fee.finalAmount - newPaidAmount);
-
-        // Update status
-        if (fee.remainingAmount <= 0.01) {
-          fee.status = 'paid';
-        } else if (newPaidAmount > 0) {
-          fee.status = 'partial';
-          // Check if overdue
-          if (fee.dueDate && new Date() > fee.dueDate) {
-            fee.status = 'overdue';
-          }
-        } else {
-          fee.status = 'pending';
-          // Check if overdue
-          if (fee.dueDate && new Date() > fee.dueDate) {
-            fee.status = 'overdue';
-          }
-        }
-
-        // Update lastPaymentDate to the most recent payment before voucher generation
         if (voucherGeneratedDate) {
-          const paymentsBeforeVoucher = await FeePayment.find({
-            studentFee: fee._id,
-            status: 'completed',
-            paymentDate: { $lt: voucherGeneratedDate }
-          }).sort({ paymentDate: -1 }).limit(1);
+          paymentQuery.paymentDate = { $gte: voucherGeneratedDate };
+        }
 
-          if (paymentsBeforeVoucher.length > 0) {
-            fee.lastPaymentDate = paymentsBeforeVoucher[0].paymentDate;
+        const paymentsToReverse = await FeePayment.find(paymentQuery).sort({ paymentDate: 1 });
+
+        if (paymentsToReverse.length > 0) {
+          // Calculate total amount to reverse
+          const totalPaymentAmountForFee = paymentsToReverse.reduce((sum, payment) => {
+            return sum + parseFloat(payment.amount || 0);
+          }, 0);
+
+          // Reverse payments by marking them as refunded
+          for (const payment of paymentsToReverse) {
+            payment.status = 'refunded';
+            payment.refundAmount = payment.amount;
+            payment.refundDate = new Date();
+            payment.refundReason = `Voucher deleted for ${month}/${year}`;
+            await payment.save();
+            totalReversedPayments++;
+          }
+
+          // Update StudentFee: reduce paidAmount and recalculate remainingAmount
+          const currentPaidAmount = parseFloat(fee.paidAmount || 0);
+          const newPaidAmount = Math.max(0, currentPaidAmount - totalPaymentAmountForFee);
+          fee.paidAmount = newPaidAmount;
+          fee.remainingAmount = Math.max(0, fee.finalAmount - newPaidAmount);
+
+          // Update status
+          if (fee.remainingAmount <= 0.01) {
+            fee.status = 'paid';
+          } else if (newPaidAmount > 0) {
+            fee.status = 'partial';
+            if (fee.dueDate && new Date() > fee.dueDate) {
+              fee.status = 'overdue';
+            }
           } else {
-            fee.lastPaymentDate = null;
+            fee.status = 'pending';
+            if (fee.dueDate && new Date() > fee.dueDate) {
+              fee.status = 'overdue';
+            }
+          }
+
+          // Update lastPaymentDate to the most recent payment before voucher generation
+          if (voucherGeneratedDate) {
+            const paymentsBeforeVoucher = await FeePayment.find({
+              studentFee: fee._id,
+              status: 'completed',
+              paymentDate: { $lt: voucherGeneratedDate }
+            }).sort({ paymentDate: -1 }).limit(1);
+
+            if (paymentsBeforeVoucher.length > 0) {
+              fee.lastPaymentDate = paymentsBeforeVoucher[0].paymentDate;
+            } else {
+              fee.lastPaymentDate = null;
+            }
+          }
+
+          await fee.save();
+          totalReversedAmount += totalPaymentAmountForFee;
+        }
+      }
+
+      // Delete vouchers from all StudentFee records
+      for (const fee of feesWithVoucher) {
+        if (fee.vouchers && Array.isArray(fee.vouchers)) {
+          const originalLength = fee.vouchers.length;
+          fee.vouchers = fee.vouchers.filter(v => 
+            !(v && Number(v.month) === Number(month) && Number(v.year) === Number(year))
+          );
+          
+          if (fee.vouchers.length < originalLength) {
+            fee.markModified('vouchers');
+            await fee.save();
+            totalDeletedVouchers++;
           }
         }
-
-        await fee.save();
-        totalReversedAmount += totalPaymentAmount;
       }
-    }
-
-    // Delete vouchers from all StudentFee records
-    let deletedCount = 0;
-    for (const fee of feesWithVoucher) {
-      if (fee.vouchers && Array.isArray(fee.vouchers)) {
-        const originalLength = fee.vouchers.length;
-        fee.vouchers = fee.vouchers.filter(v => 
-          !(v && Number(v.month) === Number(month) && Number(v.year) === Number(year))
-        );
-        
-        if (fee.vouchers.length < originalLength) {
-          await fee.save();
-          deletedCount++;
-        }
-      }
-    }
-
-    if (deletedCount === 0) {
-      throw new ApiError(400, 'Failed to delete voucher');
     }
 
     return {
-      message: `Voucher deleted successfully${reversedPaymentsCount > 0 ? `. ${reversedPaymentsCount} payment(s) reversed totaling Rs. ${totalReversedAmount.toFixed(2)}` : ''}`,
-      deletedCount,
-      reversedPaymentsCount,
+      success: true,
+      message: totalDeletedVouchers > 0 
+        ? `Successfully deleted ${totalDeletedVouchers} voucher(s) for ${idsToProcess.length} student(s)${totalReversedPayments > 0 ? `. Reversed ${totalReversedPayments} payments totaled Rs. ${totalReversedAmount}` : ''}`
+        : `No matching vouchers found to delete for the selected student(s).`,
+      totalDeletedVouchers,
+      totalReversedPayments,
       totalReversedAmount
     };
   }

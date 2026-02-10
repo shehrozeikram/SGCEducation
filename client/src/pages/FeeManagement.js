@@ -263,6 +263,11 @@ const FeeManagement = () => {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [selectedVoucherIds, setSelectedVoucherIds] = useState([]);
 
+  // Receipt PDF
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [selectedReceiptData, setSelectedReceiptData] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+
   // Suspense Filters
   const [suspenseFilters, setSuspenseFilters] = useState({
     date: '',
@@ -2168,6 +2173,40 @@ const FeeManagement = () => {
       setReceipts([]);
     } finally {
       setReceiptsLoading(false);
+    }
+  };
+
+  // Handle Print Receipt
+  const handlePrintReceipt = async (receiptOrGroup) => {
+    try {
+      setReceiptLoading(true);
+      const institutionId = getInstitutionId();
+      
+      let institutionData = null;
+      if (institutionId) {
+        try {
+          const instResponse = await axios.get(`${API_URL}/institutions/${institutionId}`, createAxiosConfig());
+          institutionData = instResponse.data.data;
+        } catch (err) {
+          console.error('Error fetching institution data for receipt:', err);
+        }
+      }
+
+      // Prepare data for the receipt
+      const receipts = Array.isArray(receiptOrGroup) ? receiptOrGroup : [receiptOrGroup];
+      
+      setSelectedReceiptData({
+        institution: institutionData,
+        receipts: receipts,
+        printDate: new Date().toLocaleDateString('en-GB')
+      });
+      
+      setReceiptDialogOpen(true);
+    } catch (err) {
+      console.error('Error preparing receipt:', err);
+      notifyError('Failed to prepare receipt for printing');
+    } finally {
+      setReceiptLoading(false);
     }
   };
 
@@ -5262,24 +5301,32 @@ const FeeManagement = () => {
                                       })()}
                                     <TableCell>{firstReceipt.collectedBy?.name || 'N/A'}</TableCell>
                                     <TableCell>
-                                      {!isGroup && firstReceipt.status !== 'refunded' && (
+                                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                                         <IconButton
                                           size="small"
-                                          color="error"
+                                          color="primary"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDeleteReceipt(firstReceipt._id, firstReceipt.receiptNumber);
+                                            handlePrintReceipt(group);
                                           }}
-                                          title="Delete Receipt"
+                                          title="Download Receipt"
                                         >
-                                          <Delete fontSize="small" />
+                                          <Print fontSize="small" />
                                         </IconButton>
-                                      )}
-                                      {isGroup && (
-                                        <Typography variant="caption" color="textSecondary">
-                                          Expand to delete
-                                        </Typography>
-                                      )}
+                                        {!isGroup && firstReceipt.status !== 'refunded' && (
+                                          <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteReceipt(firstReceipt._id, firstReceipt.receiptNumber);
+                                            }}
+                                            title="Delete Receipt"
+                                          >
+                                            <Delete fontSize="small" />
+                                          </IconButton>
+                                        )}
+                                      </Box>
                                     </TableCell>
                                   </TableRow>
 
@@ -5327,19 +5374,32 @@ const FeeManagement = () => {
                                       </TableCell>
                                       <TableCell>{receipt.collectedBy?.name || 'N/A'}</TableCell>
                                       <TableCell>
-                                        {receipt.status !== 'refunded' && (
+                                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                                           <IconButton
                                             size="small"
-                                            color="error"
+                                            color="primary"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleDeleteReceipt(receipt._id, receipt.receiptNumber);
+                                              handlePrintReceipt(receipt);
                                             }}
-                                            title="Delete Receipt"
+                                            title="Download Receipt"
                                           >
-                                            <Delete fontSize="small" />
+                                            <Print fontSize="small" />
                                           </IconButton>
-                                        )}
+                                          {receipt.status !== 'refunded' && (
+                                            <IconButton
+                                              size="small"
+                                              color="error"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteReceipt(receipt._id, receipt.receiptNumber);
+                                              }}
+                                              title="Delete Receipt"
+                                            >
+                                              <Delete fontSize="small" />
+                                            </IconButton>
+                                          )}
+                                        </Box>
                                       </TableCell>
                                     </TableRow>
                                   ))}
@@ -6078,6 +6138,162 @@ const FeeManagement = () => {
               }}
             >
               Print
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Receipt Print Dialog */}
+        <Dialog
+          open={receiptDialogOpen}
+          onClose={() => setReceiptDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight="bold">
+                Fee Receipt
+              </Typography>
+              <IconButton onClick={() => setReceiptDialogOpen(false)} size="small">
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {receiptLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : selectedReceiptData ? (
+              <Box id="receipt-print-area">
+                <style>
+                  {`
+                    @media print {
+                      body * { visibility: hidden; }
+                      #receipt-print-area, #receipt-print-area * { visibility: visible; }
+                      #receipt-print-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                      }
+                      @page {
+                        size: portrait;
+                        margin: 15mm;
+                      }
+                    }
+                  `}
+                </style>
+
+                {/* Receipt Content */}
+                <Box sx={{ p: 3, border: '1px solid #ddd', borderRadius: 2, bgcolor: '#fff' }}>
+                  {/* Header */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, borderBottom: '2px solid #667eea', pb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {selectedReceiptData.institution?.logo && (
+                        <Box
+                          component="img"
+                          src={selectedReceiptData.institution.logo.startsWith('http') 
+                            ? selectedReceiptData.institution.logo 
+                            : `${API_URL.replace('/api/v1', '')}${selectedReceiptData.institution.logo}`}
+                          sx={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                      )}
+                      <Box>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#333' }}>
+                          {selectedReceiptData.institution?.name || 'SGC Education System'}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {selectedReceiptData.institution?.address?.city || ''}, {selectedReceiptData.institution?.address?.state || ''}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          Phone: {selectedReceiptData.institution?.phone || ''}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="h6" sx={{ color: '#667eea', fontWeight: 'bold' }}>OFFICIAL RECEIPT</Typography>
+                      <Typography variant="body2">Date: {new Date().toLocaleDateString('en-GB')}</Typography>
+                      <Typography variant="body2"><b>Print Date:</b> {selectedReceiptData.printDate}</Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Student & Payment Info */}
+                  <Grid container spacing={3} sx={{ mb: 4 }}>
+                    <Grid item xs={6}>
+                      <Typography variant="subtitle2" sx={{ color: '#667eea', fontWeight: 'bold', mb: 1 }}>STUDENT INFORMATION</Typography>
+                      <Typography variant="body2"><b>Name:</b> {capitalizeFirstOnly(selectedReceiptData.receipts[0]?.studentName || 'N/A')}</Typography>
+                      <Typography variant="body2"><b>Student ID:</b> {selectedReceiptData.receipts[0]?.studentId || 'N/A'}</Typography>
+                      <Typography variant="body2"><b>Roll #:</b> {selectedReceiptData.receipts[0]?.rollNumber || 'N/A'}</Typography>
+                      <Typography variant="body2"><b>Class:</b> {selectedReceiptData.receipts[0]?.class || 'N/A'} - {selectedReceiptData.receipts[0]?.section || 'N/A'}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                      <Typography variant="subtitle2" sx={{ color: '#667eea', fontWeight: 'bold', mb: 1 }}>PAYMENT DETAILS</Typography>
+                      <Typography variant="body2"><b>Receipt #:</b> {selectedReceiptData.receipts.length > 1 ? `TRANS-${selectedReceiptData.receipts[0]?.transactionId}` : selectedReceiptData.receipts[0]?.receiptNumber}</Typography>
+                      <Typography variant="body2"><b>Payment Date:</b> {selectedReceiptData.receipts[0]?.paymentDate ? new Date(selectedReceiptData.receipts[0].paymentDate).toLocaleDateString('en-GB') : 'N/A'}</Typography>
+                      <Typography variant="body2"><b>Bank:</b> {selectedReceiptData.receipts[0]?.bankName || 'N/A'}</Typography>
+                      <Typography variant="body2"><b>Transaction ID:</b> {selectedReceiptData.receipts[0]?.transactionId || 'N/A'}</Typography>
+                    </Grid>
+                  </Grid>
+
+                  {/* Fee Breakdown Table */}
+                  <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee', mb: 4 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#f8faff' }}>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Fee Head</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Voucher #</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedReceiptData.receipts.map((r, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>{r.feeHead?.name || 'Fee Payment'}</TableCell>
+                            <TableCell>{r.voucherNumber || 'N/A'}</TableCell>
+                            <TableCell>{r.remarks || '-'}</TableCell>
+                            <TableCell align="right">Rs. {(r.amount || 0).toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold', bgcolor: '#f8faff' }}>TOTAL PAID</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold', bgcolor: '#f8faff', color: '#667eea' }}>
+                            Rs. {selectedReceiptData.receipts.reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* Footer */}
+                  <Box sx={{ mt: 8, display: 'flex', justifyContent: 'space-between' }}>
+                    <Box sx={{ textAlign: 'center', width: 200 }}>
+                      <Box sx={{ borderBottom: '1px solid #333', mb: 1 }} />
+                      <Typography variant="caption">Student/Parent Signature</Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center', width: 200 }}>
+                      <Box sx={{ borderBottom: '1px solid #333', mb: 1 }} />
+                      <Typography variant="caption">Authorized Signature</Typography>
+                    </Box>
+                  </Box>
+
+                  <Typography variant="caption" sx={{ mt: 4, display: 'block', textAlign: 'center', color: 'text.secondary', fontStyle: 'italic' }}>
+                    This is a computer generated receipt and does not require a physical stamp.
+                  </Typography>
+                </Box>
+              </Box>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReceiptDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="contained" 
+              startIcon={<Print />} 
+              sx={{ bgcolor: '#667eea' }}
+              onClick={() => window.print()}
+            >
+              Print / Save PDF
             </Button>
           </DialogActions>
         </Dialog>
