@@ -5229,15 +5229,31 @@ const FeeManagement = () => {
                                       {tid.startsWith('no-tid-') ? 'N/A' : tid}
                                     </TableCell>
                                     <TableCell>
-                                      <Chip
-                                        label={firstReceipt.status || 'completed'}
-                                        size="small"
-                                        color={
-                                          firstReceipt.status === 'completed' ? 'success' :
-                                          firstReceipt.status === 'pending' ? 'warning' :
-                                          firstReceipt.status === 'failed' ? 'error' : 'default'
+                                      {(() => {
+                                        const hasRefunded = group.some(r => r.status === 'refunded');
+                                        const allRefunded = group.every(r => r.status === 'refunded');
+                                        let statusLabel = firstReceipt.status || 'completed';
+                                        let statusColor = 'default';
+
+                                        if (isGroup && hasRefunded && !allRefunded) {
+                                          statusLabel = 'Partial Refund';
+                                          statusColor = 'warning';
+                                        } else if (statusLabel === 'completed') {
+                                          statusColor = 'success';
+                                        } else if (statusLabel === 'pending') {
+                                          statusColor = 'warning';
+                                        } else if (statusLabel === 'failed' || statusLabel === 'refunded') {
+                                          statusColor = 'error';
                                         }
-                                      />
+
+                                        return (
+                                          <Chip
+                                            label={statusLabel}
+                                            size="small"
+                                            color={statusColor}
+                                          />
+                                        );
+                                      })()}
                                     </TableCell>
                                     <TableCell>{firstReceipt.collectedBy?.name || 'N/A'}</TableCell>
                                     <TableCell>
