@@ -36,11 +36,13 @@ export const modules = [
     route: '/admissions',
     children: [
       { name: 'Admissions List', route: '/admissions' },
-      { name: 'Reports', route: '/admissions/reports' },
+      { name: 'New Admission', route: '/admissions/new' },
       { name: 'Admissions Register', route: '/admissions/register' },
+      { name: 'Import Students', route: '/admissions/students/import' },
+      { name: 'Reports', route: '/admissions/reports' },
       { name: 'Admissions Analytics', route: '/admissions/analytics' },
       { name: 'Search Student', route: '/admissions/students/search' },
-      { name: 'Import Students', route: '/admissions/students/import' },
+      { name: 'Search (All)', route: '/admissions/students/search-all' },
     ]
   },
   { name: 'Student Promotion', icon: SwapHoriz, color: '#10b981', route: '/student-promotion' },
@@ -69,7 +71,16 @@ export const modules = [
   { name: 'Library', icon: LocalLibrary, color: '#f093fb', route: null },
   { name: 'Assets Management', icon: Inventory, color: '#4facfe', route: null },
   { name: 'Finance Management', icon: AccountBalance, color: '#43e97b', route: null },
-  { name: 'User & Privilege', icon: SupervisorAccount, color: '#feca57', route: '/users' },
+  { 
+    name: 'User & Privilege', 
+    icon: SupervisorAccount, 
+    color: '#feca57', 
+    route: '/users',
+    children: [
+      { name: 'User List', route: '/users' },
+      { name: 'Create User', route: '/users/new' },
+    ]
+  },
   { name: 'Configuration', icon: Settings, color: '#fa709a', route: '/settings' },
   { name: 'Transport', icon: DirectionsBus, color: '#ee5a6f', route: null },
   { name: 'Event', icon: Event, color: '#764ba2', route: '/calendar' },
