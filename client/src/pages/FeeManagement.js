@@ -4966,44 +4966,44 @@ const FeeManagement = () => {
             </Card>
  
             {/* Summary Cards */}
-            <Grid container spacing={3} sx={{ my: 3 }}>
-              <Grid item xs={12} sm={6}>
+            <Grid container spacing={2} sx={{ my: 2 }}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ 
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
                   color: 'white',
                   borderRadius: 2,
-                  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)'
+                  boxShadow: '0 2px 10px 0 rgba(0,0,0,0.1)'
                 }}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 3 }}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, '&:last-child': { pb: 2 } }}>
                     <Box>
-                      <Typography variant="subtitle2" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      <Typography variant="caption" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 'bold' }}>
                         Total Receipts
                       </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5 }}>
                         {formatCurrency(receipts.filter(r => r.status !== 'refunded').reduce((sum, r) => sum + parseFloat(r.amount || 0), 0))}
                       </Typography>
                     </Box>
-                    <Receipt sx={{ fontSize: 48, opacity: 0.8 }} />
+                    <Receipt sx={{ fontSize: 32, opacity: 0.8 }} />
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ 
                   background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 
                   color: 'white',
                   borderRadius: 2,
-                  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)'
+                  boxShadow: '0 2px 10px 0 rgba(0,0,0,0.1)'
                 }}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 3 }}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, '&:last-child': { pb: 2 } }}>
                     <Box>
-                      <Typography variant="subtitle2" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      <Typography variant="caption" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 'bold' }}>
                         Total Suspense
                       </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5 }}>
                         {formatCurrency(suspenseEntries.filter(e => e.status === 'unidentified').reduce((sum, e) => sum + parseFloat(e.amount || 0), 0))}
                       </Typography>
                     </Box>
-                    <AccountBalanceWallet sx={{ fontSize: 48, opacity: 0.8 }} />
+                    <AccountBalanceWallet sx={{ fontSize: 32, opacity: 0.8 }} />
                   </CardContent>
                 </Card>
               </Grid>
