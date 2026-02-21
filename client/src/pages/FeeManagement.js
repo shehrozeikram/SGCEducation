@@ -7,6 +7,7 @@ import {
   Grid,
   Card,
   CardContent,
+  CardActions,
   Table,
   TableBody,
   TableCell,
@@ -71,6 +72,7 @@ import {
   matchesVoucherMonthYear
 } from '../utils/feeUtils';
 import { getApiBaseUrl } from '../config/api';
+import ReportsTab from '../components/fee-management/ReportsTab';
 
 const API_URL = getApiBaseUrl();
 
@@ -82,7 +84,7 @@ const FeeManagement = () => {
   const [loading, setLoading] = useState(false);
 
   // Tab name mappings
-  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'voucher-generation', 'print-voucher', 'fee-deposit', 'receipt', 'suspense'];
+  const tabNames = ['fee-heads', 'fee-structure', 'assign-fee-structure', 'voucher-generation', 'print-voucher', 'fee-deposit', 'receipt', 'suspense', 'reports'];
   const miscSubTabNames = ['generate-voucher', 'student-operations'];
   const suspenseSubTabNames = ['unidentified', 'reconciled'];
 
@@ -3388,6 +3390,7 @@ const FeeManagement = () => {
               <Tab label="Fee Deposit" />
               <Tab label="Receipt" />
               <Tab label="Suspense" />
+              <Tab label="Reports" />
             </Tabs>
           </Box>
 
@@ -4790,7 +4793,7 @@ const FeeManagement = () => {
                               error={!manualDepositForm.bankAccount || manualDepositForm.bankAccount.trim() === ''}
                             >
                               <MenuItem value="">Select Bank Account</MenuItem>
-                              <MenuItem value="allied">Allied Bank - 0010000070780246</MenuItem>
+                              <MenuItem value="allied">Allied Bank - 0010000076780246</MenuItem>
                               <MenuItem value="bankislami">Bank Islami - 310000223490001</MenuItem>
                             </Select>
                             {(!manualDepositForm.bankAccount || manualDepositForm.bankAccount.trim() === '') && (
@@ -5648,6 +5651,10 @@ const FeeManagement = () => {
               );
             })()}
           </Box>
+        )}
+
+        {activeTab === 8 && (
+          <ReportsTab />
         )}
 
         {/* Change Status Dialog */}
