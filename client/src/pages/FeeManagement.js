@@ -916,19 +916,32 @@ const FeeManagement = () => {
              if (remaining <= 0.01 || (f.status && f.status.toLowerCase() === 'paid')) return sum;
              
              // Check if fee is from a previous month (critical for arrears)
-             let isPrevious = false;
-             if (f.dueDate) {
-                const feeDate = new Date(f.dueDate);
-                if (!isNaN(feeDate.getTime())) {
-                   isPrevious = feeDate < startDate;
-                }
-             }
+             // A fee is an arrear if it belongs to a voucher from a previous month/year
+             // OR if it has NO voucher but the due date/createdAt is before the current month
+             const belongsToPreviousMonth = f.vouchers && f.vouchers.some(v => 
+                (Number(v.year) < Number(year)) || (Number(v.year) === Number(year) && Number(v.month) < Number(month))
+             );
+    
+             const isCurrentlyVouchered = f.vouchers && f.vouchers.some(v => 
+                Number(v.year) === Number(year) && Number(v.month) === Number(month)
+             );
+    
+             let isPrevious = belongsToPreviousMonth;
              
-             // If still not determined, check createdAt
-             if (!isPrevious && f.createdAt) {
-                const createdDate = new Date(f.createdAt);
-                if (!isNaN(createdDate.getTime())) {
-                   isPrevious = createdDate < startDate;
+             if (!isPrevious && !isCurrentlyVouchered) {
+                if (f.dueDate) {
+                   const feeDate = new Date(f.dueDate);
+                   if (!isNaN(feeDate.getTime())) {
+                      isPrevious = feeDate < startDate;
+                   }
+                }
+                
+                // If still not determined, check createdAt
+                if (!isPrevious && f.createdAt) {
+                   const createdDate = new Date(f.createdAt);
+                   if (!isNaN(createdDate.getTime())) {
+                      isPrevious = createdDate < startDate;
+                   }
                 }
              }
 
@@ -975,12 +988,14 @@ const FeeManagement = () => {
           if (totalRemainingForVoucher <= 0.01) {
             // Fully paid - remaining amount is 0
             voucherStatus = 'Paid';
-          } else if (totalPaidForVoucher > 0) {
-            // Partially paid - some payment made but still has remaining
-            voucherStatus = 'Partial';
           } else {
-            // No payment made for this voucher
-            voucherStatus = 'Unpaid';
+            if (totalPaidForVoucher > 0) {
+              // Partially paid - some payment made but still has remaining
+              voucherStatus = 'Partial';
+            } else {
+              // No payment made for this voucher
+              voucherStatus = 'Unpaid';
+            }
           }
         } else {
           // If no fees found, default to 'Generated' (voucher exists but no fee data)
@@ -1712,12 +1727,14 @@ const FeeManagement = () => {
                   if (totalRemainingForVoucher <= 0.01) {
                     // Fully paid - remaining amount is 0
                     voucherStatus = 'Paid';
-                  } else if (totalPaidForVoucher > 0) {
-                    // Partially paid - some payment made but still has remaining
-                    voucherStatus = 'Partial';
                   } else {
-                    // No payment made for this voucher
-                    voucherStatus = 'Unpaid';
+                    if (totalPaidForVoucher > 0) {
+                      // Partially paid - some payment made but still has remaining
+                      voucherStatus = 'Partial';
+                    } else {
+                      // No payment made for this voucher
+                      voucherStatus = 'Unpaid';
+                    }
                   }
                 }
                 
@@ -1756,19 +1773,32 @@ const FeeManagement = () => {
                   if (remaining <= 0.01 || (f.status && f.status.toLowerCase() === 'paid')) return sum;
                   
                   // Check if fee is from a previous month (critical for arrears)
-                  let isPrevious = false;
-                  if (f.dueDate) {
-                    const feeDate = new Date(f.dueDate);
-                    if (!isNaN(feeDate.getTime())) {
-                      isPrevious = feeDate < startDate;
-                    }
-                  }
+                  // A fee is an arrear if it has a voucher from a previous month/year
+                  // OR if it has NO voucher but the due date/createdAt is before the current month
+                  const belongsToPreviousMonth = f.vouchers && f.vouchers.some(v => 
+                    (Number(v.year) < Number(voucherInfo.year)) || (Number(v.year) === Number(voucherInfo.year) && Number(v.month) < Number(voucherInfo.month))
+                  );
+
+                  const isCurrentlyVouchered = f.vouchers && f.vouchers.some(v => 
+                    Number(v.year) === Number(voucherInfo.year) && Number(v.month) === Number(voucherInfo.month)
+                  );
+
+                  let isPrevious = belongsToPreviousMonth;
                   
-                  // If still not determined, check createdAt
-                  if (!isPrevious && f.createdAt) {
-                    const createdDate = new Date(f.createdAt);
-                    if (!isNaN(createdDate.getTime())) {
-                      isPrevious = createdDate < startDate;
+                  if (!isPrevious && !isCurrentlyVouchered) {
+                    if (f.dueDate) {
+                      const feeDate = new Date(f.dueDate);
+                      if (!isNaN(feeDate.getTime())) {
+                        isPrevious = feeDate < startDate;
+                      }
+                    }
+                    
+                    // If still not determined, check createdAt
+                    if (!isPrevious && f.createdAt) {
+                      const createdDate = new Date(f.createdAt);
+                      if (!isNaN(createdDate.getTime())) {
+                        isPrevious = createdDate < startDate;
+                      }
                     }
                   }
 
@@ -2543,14 +2573,28 @@ const FeeManagement = () => {
               const remainingAmount = f.remainingAmount || (parseFloat(f.finalAmount || 0) - (parseFloat(f.paidAmount || 0)));
               if (remainingAmount <= 0 || (f.status && f.status.toLowerCase() === 'paid')) return false;
               
-              let isPrevious = false;
-              if (f.dueDate) {
-                const feeDate = new Date(f.dueDate);
-                if (!isNaN(feeDate.getTime())) isPrevious = feeDate < startDate;
-              }
-              if (!isPrevious && f.createdAt) {
-                const createdDate = new Date(f.createdAt);
-                if (!isNaN(createdDate.getTime())) isPrevious = createdDate < startDate;
+              // Check if fee is from a previous month (critical for arrears)
+              // A fee is an arrear if it has a voucher from a previous month/year
+              // OR if it has NO voucher but the due date/createdAt is before the current month
+              const belongsToPreviousMonth = f.vouchers && f.vouchers.some(v => 
+                (Number(v.year) < Number(year)) || (Number(v.year) === Number(year) && Number(v.month) < Number(month))
+              );
+
+              const isCurrentlyVouchered = f.vouchers && f.vouchers.some(v => 
+                Number(v.year) === Number(year) && Number(v.month) === Number(month)
+              );
+
+              let isPrevious = belongsToPreviousMonth;
+              
+              if (!isPrevious && !isCurrentlyVouchered) {
+                if (f.dueDate) {
+                   const feeDate = new Date(f.dueDate);
+                   if (!isNaN(feeDate.getTime())) isPrevious = feeDate < startDate;
+                }
+                if (!isPrevious && f.createdAt) {
+                  const createdDate = new Date(f.createdAt);
+                  if (!isNaN(createdDate.getTime())) isPrevious = createdDate < startDate;
+                }
               }
               
               return isPrevious;
