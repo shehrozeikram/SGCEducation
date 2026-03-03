@@ -1467,21 +1467,25 @@ class FeeService {
     const payments = await FeePayment.find(query)
       .populate({
         path: 'student',
-        select: 'enrollmentNumber rollNumber name',
-        populate: {
-          path: 'admission',
-          select: 'personalInfo rollNumber class section applicationNumber',
-          populate: [
-            {
-              path: 'class',
-              select: 'name'
-            },
-            {
-              path: 'section',
-              select: 'name'
-            }
-          ]
-        }
+        populate: [
+          {
+            path: 'user',
+            select: 'name email'
+          },
+          {
+            path: 'admission',
+            populate: [
+              {
+                path: 'class',
+                select: 'name code'
+              },
+              {
+                path: 'section',
+                select: 'name code'
+              }
+            ]
+          }
+        ]
       })
       .populate('collectedBy', 'name')
       .populate({
@@ -1491,8 +1495,7 @@ class FeeService {
       .sort({ paymentDate: -1, createdAt: -1 })
       .lean();
 
-    // Add voucher number to each payment based on payment date
-    // We need to check all StudentFee records for the student, not just the one linked to payment
+    // Add voucher number and flatten student name/father name
     const studentIds = [...new Set(payments.map(p => {
       const studentId = p.student?._id || p.student;
       return studentId ? studentId.toString() : null;
@@ -1506,7 +1509,7 @@ class FeeService {
     // Group student fees by student ID
     const studentFeesByStudent = new Map();
     for (const studentFee of allStudentFees) {
-      const studentId = studentFee.student?.toString() || studentFee.student?.toString();
+      const studentId = studentFee.student?.toString();
       if (!studentId) continue;
       
       if (!studentFeesByStudent.has(studentId)) {
@@ -1553,10 +1556,45 @@ class FeeService {
           }
         }
       }
+
+      // Flatten student name and father name for the frontend
+      const student = payment.student;
+      let possibleFatherName = '';
+      let studentName = '';
+      
+      if (student) {
+        // Ensure name exists (from user or admission)
+        if (!student.name) {
+          student.name = student.user?.name || student.admission?.personalInfo?.name || '';
+        }
+        studentName = student.name;
+        
+        // Ensure father name exists (searching multiple possible paths)
+        if (!student.guardianInfo) {
+          student.guardianInfo = {};
+        }
+
+        possibleFatherName = 
+          student.guardianInfo?.fatherName || 
+          student.admission?.guardianInfo?.fatherName || 
+          student.admission?.personalInfo?.fatherName ||
+          student.guardianInfo?.father ||
+          '';
+
+        student.guardianInfo.fatherName = possibleFatherName;
+        // Also set on student object directly as a flat field for easier frontend access
+        student.fatherName = possibleFatherName;
+      }
+      
+      // Build return object with flattened fields at the root
+      const cashierName = payment.collectedBy?.name || payment.cashierName || 'N/A';
       
       return {
         ...payment,
-        voucherNumber: voucherNumber
+        voucherNumber,
+        studentName,
+        fatherName: possibleFatherName,
+        cashierName
       };
     });
 

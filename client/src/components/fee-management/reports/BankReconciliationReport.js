@@ -122,10 +122,9 @@ const BankReconciliationReport = ({ onBack }) => {
       'Std.ID': item.student?.enrollmentNumber || 'N/A',
       'Roll NO': item.student?.rollNumber || 'N/A',
       'Adm #': item.student?.admission?.applicationNumber || 'N/A',
-      'Name': item.student?.name || 'N/A',
+      'Name': item.studentName || item.student?.name || item.student?.user?.name || item.student?.admission?.personalInfo?.name || 'N/A',
       'Class': item.student?.admission?.class?.name || 'N/S',
       'Section': item.student?.admission?.section?.name || 'N/S',
-      'Father Name': item.student?.guardianInfo?.fatherName || item.student?.admission?.guardianInfo?.fatherName || 'N/A',
       'B.Dep.Date': new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       'Fine': 0,
       'P. Fine': 0,
@@ -295,59 +294,72 @@ const BankReconciliationReport = ({ onBack }) => {
           </Box>
 
           <Divider sx={{ borderBottomWidth: 2, borderColor: 'black', mb: 0.5 }} />
-          <Box sx={{ px: 1, py: 0.5, borderBottom: '1px solid black', mb: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              Cashier: {user?.firstName} {user?.lastName}
-            </Typography>
-          </Box>
+          
+          {Object.entries(data.reduce((acc, current) => {
+            const cashier = current.cashierName || current.collectedBy?.name || 'Unknown';
+            if (!acc[cashier]) acc[cashier] = [];
+            acc[cashier].push(current);
+            return acc;
+          }, {})).map(([cashier, payments], groupIndex) => (
+            <Box key={cashier} sx={{ mb: 3 }}>
+              <Box sx={{ px: 1, py: 0.5, borderBottom: '1px solid black', mb: 0.5, bgcolor: '#f5f5f5' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                  Cashier: {cashier}
+                </Typography>
+              </Box>
 
-          <TableContainer component={Paper} elevation={0} sx={{ border: 'none' }}>
-            <Table size="small" sx={{ 
-              '& th': { fontWeight: 'bold', borderBottom: '1px solid black', px: 0.5, py: 0.5, fontSize: '0.75rem' },
-              '& td': { borderBottom: 'none', px: 0.5, py: 0.3, fontSize: '0.75rem' }
-            }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Voucher #</TableCell>
-                  <TableCell>Sr #</TableCell>
-                  <TableCell>Dep. Date</TableCell>
-                  <TableCell>Std.ID</TableCell>
-                  <TableCell>Roll NO</TableCell>
-                  <TableCell>Adm #</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Class</TableCell>
-                  <TableCell>Section</TableCell>
-                  <TableCell>Father Name</TableCell>
-                  <TableCell>B.Dep.Date</TableCell>
-                  <TableCell align="right">Fine</TableCell>
-                  <TableCell align="right">P. Fine</TableCell>
-                  <TableCell align="right">A. Fine</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.map((row, index) => (
-                  <TableRow key={row._id}>
-                    <TableCell>{row.voucherNumber || '0'}</TableCell>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>{formatDate(row.paymentDate)}</TableCell>
-                    <TableCell>{row.student?.enrollmentNumber || '-'}</TableCell>
-                    <TableCell>{row.student?.rollNumber || '-'}</TableCell>
-                    <TableCell>{row.student?.admission?.applicationNumber || '-'}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.student?.name}</TableCell>
-                    <TableCell>{row.student?.admission?.class?.name || '-'}</TableCell>
-                    <TableCell>{row.student?.admission?.section?.name || '-'}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.student?.guardianInfo?.fatherName || row.student?.admission?.guardianInfo?.fatherName || '-'}</TableCell>
-                    <TableCell>{formatDate(row.paymentDate)}</TableCell>
-                    <TableCell align="right">0</TableCell>
-                    <TableCell align="right">0</TableCell>
-                    <TableCell align="right">0</TableCell>
-                    <TableCell align="right">{row.amount.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+              <TableContainer component={Paper} elevation={0} sx={{ border: 'none' }}>
+                <Table size="small" sx={{ 
+                  '& th': { fontWeight: 'bold', borderBottom: '1px solid black', px: 0.5, py: 0.5, fontSize: '0.75rem' },
+                  '& td': { borderBottom: 'none', px: 0.5, py: 0.3, fontSize: '0.75rem' }
+                }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Voucher #</TableCell>
+                      <TableCell>Sr #</TableCell>
+                      <TableCell>Dep. Date</TableCell>
+                      <TableCell>Std.ID</TableCell>
+                      <TableCell>Roll NO</TableCell>
+                      <TableCell>Adm #</TableCell>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Class</TableCell>
+                      <TableCell>Section</TableCell>
+                      <TableCell>B.Dep.Date</TableCell>
+                      <TableCell align="right">Fine</TableCell>
+                      <TableCell align="right">P. Fine</TableCell>
+                      <TableCell align="right">A. Fine</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {payments.map((row, index) => (
+                      <TableRow key={row._id}>
+                        <TableCell>{row.voucherNumber || '0'}</TableCell>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{formatDate(row.paymentDate)}</TableCell>
+                        <TableCell>{row.student?.enrollmentNumber || '-'}</TableCell>
+                        <TableCell>{row.student?.rollNumber || '-'}</TableCell>
+                        <TableCell>{row.student?.admission?.applicationNumber || '-'}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.studentName || row.student?.name || row.student?.user?.name || row.student?.admission?.personalInfo?.name || '-'}</TableCell>
+                        <TableCell>{row.student?.admission?.class?.name || '-'}</TableCell>
+                        <TableCell>{row.student?.admission?.section?.name || '-'}</TableCell>
+                        <TableCell>{formatDate(row.paymentDate)}</TableCell>
+                        <TableCell align="right">0</TableCell>
+                        <TableCell align="right">0</TableCell>
+                        <TableCell align="right">0</TableCell>
+                        <TableCell align="right">{row.amount.toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Box sx={{ px: 1, py: 0.5, display: 'flex', justifyContent: 'flex-end', borderTop: '0.5px dashed gray' }}>
+                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                   Subtotal for {cashier}: {payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                 </Typography>
+              </Box>
+            </Box>
+          ))}
 
           <Box sx={{ borderTop: '1px solid black', mt: 1, pt: 1, px: 1, display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>

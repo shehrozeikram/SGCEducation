@@ -6,6 +6,7 @@ const FeePayment = require('../models/FeePayment');
 const StudentFee = require('../models/StudentFee');
 const AcademicCalendar = require('../models/AcademicCalendar');
 const Admission = require('../models/Admission');
+const Group = require('../models/Group');
 const { asyncHandler } = require('../middleware/error.middleware');
 const { ApiError } = require('../middleware/error.middleware');
 const { buildInstitutionQuery } = require('../middleware/institution.middleware');
@@ -209,48 +210,49 @@ const getDashboardStats = asyncHandler(async (req, res) => {
  * @access  Private (Super Admin and Admin)
  */
 const getAnalytics = asyncHandler(async (req, res) => {
-  const { days = 30 } = req.query;
+  const { days = 30, institution } = req.query;
   const daysNum = parseInt(days);
 
+  // Normalize startDate to the beginning of the day (00:00:00)
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - daysNum);
+  startDate.setHours(0, 0, 0, 0);
 
-  // Build match filters based on user role and institution
-  let institutionMatch = { createdAt: { $gte: startDate } };
-  let userMatch = { createdAt: { $gte: startDate } };
+  const institutionId = institution || (req.user.role === 'admin' ? getInstitutionId(req.user) : null);
 
-  // For super admin viewing specific institution
-  if (req.user.role === 'super_admin' && req.query.institution) {
-    const institutionId = extractInstitutionId(req.query.institution);
-    const objectId = new mongoose.Types.ObjectId(institutionId);
-    institutionMatch._id = objectId;
-    userMatch.institution = objectId;
+  // Base match conditions for growth charts
+  const userMatch = { isActive: true, createdAt: { $gte: startDate } };
+  const groupMatch = { isActive: true, createdAt: { $gte: startDate } };
+  const institutionGrowthMatch = { isActive: true, createdAt: { $gte: startDate } };
+
+  if (institutionId) {
+    const oid = new mongoose.Types.ObjectId(institutionId);
+    institutionGrowthMatch._id = oid;
+    userMatch.institution = oid;
+    groupMatch.institution = oid;
   }
-  // For regular admin (scoped to their institution)
   else if (req.user.role === 'admin') {
-    const institutionId = getInstitutionId(req.user);
-    if (!institutionId) {
-      throw new ApiError(403, 'Access denied. Your account is not associated with any institution.');
-    }
-    const objectId = new mongoose.Types.ObjectId(institutionId);
-    institutionMatch._id = objectId;
-    userMatch.institution = objectId;
+    const id = getInstitutionId(req.user);
+    if (!id) throw new ApiError(403, 'Access denied. Your account is not associated with any institution.');
+    const oid = new mongoose.Types.ObjectId(id);
+    institutionGrowthMatch._id = oid;
+    userMatch.institution = oid;
+    groupMatch.institution = oid;
   }
-  // For super admin viewing all (global view)
   else if (req.user.role === 'super_admin') {
-    // No additional filter
+    // No specific institution filter
   }
   else {
     throw new ApiError(403, 'Access denied. Admin access required.');
   }
 
   // Get daily growth trends
-  const [institutionTrends, userTrends] = await Promise.all([
+  const [institutionTrends, userTrends, departmentTrends] = await Promise.all([
     Institution.aggregate([
-      { $match: institutionMatch },
+      { $match: institutionGrowthMatch },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:00' } },
           count: { $sum: 1 }
         }
       },
@@ -262,7 +264,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
       {
         $group: {
           _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:00' } },
             role: '$role'
           },
           count: { $sum: 1 }
@@ -271,6 +273,16 @@ const getAnalytics = asyncHandler(async (req, res) => {
       { $sort: { '_id.date': 1 } }
     ]),
 
+    Group.aggregate([
+      { $match: groupMatch },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:00' } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ])
   ]);
 
   // Get activity trends if available
@@ -280,7 +292,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
       { $match: { createdAt: { $gte: startDate } } },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:00' } },
           count: { $sum: 1 }
         }
       },
@@ -296,6 +308,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
     data: {
       institutionTrends,
       userTrends,
+      departmentTrends, // Fulfills frontend's department growth chart (using Groups)
       activityTrends,
       period: {
         days: daysNum,

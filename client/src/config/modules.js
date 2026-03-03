@@ -62,6 +62,7 @@ export const modules = [
       { name: 'Fee Deposit', route: '/fee-management?tab=fee-deposit' },
       { name: 'Receipts', route: '/fee-management?tab=receipt' },
       { name: 'Suspense', route: '/fee-management?tab=suspense' },
+      { name: 'Reports', route: '/fee-management?tab=reports' },
     ]
   },
   { name: 'Results', icon: Assessment, color: '#feca57', route: '/results' },
