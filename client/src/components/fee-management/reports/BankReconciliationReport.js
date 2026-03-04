@@ -90,17 +90,30 @@ const BankReconciliationReport = ({ onBack }) => {
         // Find by partial match of the name or ID
         const bankKey = selectedBank.id === 'allied' ? 'Allied' : 'Islami';
         filteredData = filteredData.filter(p => 
-          p.bankName?.toLowerCase().includes(bankKey.toLowerCase()) ||
-          p.remarks?.toLowerCase().includes(bankKey.toLowerCase())
+          (p.bankName?.toLowerCase().includes(bankKey.toLowerCase()) ||
+          p.remarks?.toLowerCase().includes(bankKey.toLowerCase())) &&
+          p.status === 'completed'
         );
       } else {
         // Show only bank-related payments for this report if no bank selected
         filteredData = filteredData.filter(p => 
-          ['bank_transfer', 'online', 'cheque'].includes(p.paymentMethod) || p.bankName
+          (['bank_transfer', 'online', 'cheque'].includes(p.paymentMethod) || p.bankName) &&
+          p.status === 'completed'
         );
       }
+      
+      // Aggregate by Voucher Number
+      const voucherGroups = filteredData.reduce((acc, current) => {
+        const vNum = current.voucherNumber || '0';
+        if (!acc[vNum]) {
+          acc[vNum] = { ...current };
+        } else {
+          acc[vNum].amount += current.amount;
+        }
+        return acc;
+      }, {});
 
-      setData(filteredData);
+      setData(Object.values(voucherGroups));
     } catch (err) {
       notifyError(err.response?.data?.message || 'Failed to fetch report data');
     } finally {
@@ -118,17 +131,14 @@ const BankReconciliationReport = ({ onBack }) => {
     const exportData = data.map((item, index) => ({
       'Voucher #': item.voucherNumber || '0',
       'Sr #': index + 1,
-      'Dep. Date': new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       'Std.ID': item.student?.enrollmentNumber || 'N/A',
       'Roll NO': item.student?.rollNumber || 'N/A',
       'Adm #': item.student?.admission?.applicationNumber || 'N/A',
       'Name': item.studentName || item.student?.name || item.student?.user?.name || item.student?.admission?.personalInfo?.name || 'N/A',
       'Class': item.student?.admission?.class?.name || 'N/S',
       'Section': item.student?.admission?.section?.name || 'N/S',
-      'B.Dep.Date': new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      'Bank.Dep.Date': new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       'Fine': 0,
-      'P. Fine': 0,
-      'A. Fine': 0,
       'Amount': item.amount
     }));
 
@@ -317,17 +327,14 @@ const BankReconciliationReport = ({ onBack }) => {
                     <TableRow>
                       <TableCell>Voucher #</TableCell>
                       <TableCell>Sr #</TableCell>
-                      <TableCell>Dep. Date</TableCell>
                       <TableCell>Std.ID</TableCell>
                       <TableCell>Roll NO</TableCell>
                       <TableCell>Adm #</TableCell>
                       <TableCell>Name</TableCell>
                       <TableCell>Class</TableCell>
                       <TableCell>Section</TableCell>
-                      <TableCell>B.Dep.Date</TableCell>
+                      <TableCell>Bank.Dep.Date</TableCell>
                       <TableCell align="right">Fine</TableCell>
-                      <TableCell align="right">P. Fine</TableCell>
-                      <TableCell align="right">A. Fine</TableCell>
                       <TableCell align="right">Amount</TableCell>
                     </TableRow>
                   </TableHead>
@@ -336,7 +343,6 @@ const BankReconciliationReport = ({ onBack }) => {
                       <TableRow key={row._id}>
                         <TableCell>{row.voucherNumber || '0'}</TableCell>
                         <TableCell>{index + 1}</TableCell>
-                        <TableCell>{formatDate(row.paymentDate)}</TableCell>
                         <TableCell>{row.student?.enrollmentNumber || '-'}</TableCell>
                         <TableCell>{row.student?.rollNumber || '-'}</TableCell>
                         <TableCell>{row.student?.admission?.applicationNumber || '-'}</TableCell>
@@ -344,8 +350,6 @@ const BankReconciliationReport = ({ onBack }) => {
                         <TableCell>{row.student?.admission?.class?.name || '-'}</TableCell>
                         <TableCell>{row.student?.admission?.section?.name || '-'}</TableCell>
                         <TableCell>{formatDate(row.paymentDate)}</TableCell>
-                        <TableCell align="right">0</TableCell>
-                        <TableCell align="right">0</TableCell>
                         <TableCell align="right">0</TableCell>
                         <TableCell align="right">{row.amount.toLocaleString()}</TableCell>
                       </TableRow>
