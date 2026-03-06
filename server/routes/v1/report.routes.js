@@ -3,6 +3,9 @@ const router = express.Router();
 const reportController = require('../../controllers/report.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 
+console.log('--- Loading Report Routes ---');
+router.post('/generate', reportController.generateInstantReport);
+
 router.use(authenticate);
 
 router.get('/', reportController.getReports);

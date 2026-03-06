@@ -25,6 +25,7 @@ const studentPromotionRoutes = require('./studentPromotion.routes');
 const organizationRoutes = require('./organization.routes');
 const resultRoutes = require('./result.routes');
 const backupRoutes = require('./backup.routes');
+const reportController = require('../../controllers/report.controller');
 
 /**
  * API v1 Routes
@@ -45,6 +46,7 @@ router.use('/admissions', admissionRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/activity-logs', activityLogRoutes);
 router.use('/notifications', notificationRoutes);
+router.post('/reports/generate', reportController.generateInstantReport);
 router.use('/reports', reportRoutes);
 router.use('/settings', systemSettingRoutes);
 router.use('/calendar', academicCalendarRoutes);
@@ -63,5 +65,7 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+router.get('/test-route', (req, res) => res.json({ message: 'API v1 test route is working' }));
 
 module.exports = router;

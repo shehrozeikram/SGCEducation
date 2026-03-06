@@ -31,6 +31,16 @@ const generateReport = asyncHandler(async (req, res) => {
   });
 });
 
+const generateInstantReport = asyncHandler(async (req, res) => {
+  const { type, filters } = req.body;
+  const data = await reportService.generateReportData(type, filters, req.user);
+
+  res.json({
+    success: true,
+    data: data
+  });
+});
+
 const deleteReport = asyncHandler(async (req, res) => {
   const result = await reportService.deleteReport(req.params.id, req.user);
 
@@ -44,5 +54,6 @@ module.exports = {
   getReports,
   createReport,
   generateReport,
+  generateInstantReport,
   deleteReport
 };

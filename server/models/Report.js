@@ -12,7 +12,7 @@ const reportSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['institution', 'user', 'financial', 'activity', 'custom'],
+    enum: ['institution', 'user', 'financial', 'activity', 'custom', 'remaining-balance'],
     required: true
   },
   format: {
