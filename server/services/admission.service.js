@@ -169,7 +169,7 @@ class AdmissionService {
       const existingAdmission = await Admission.findOne({
         'contactInfo.email': admissionData.contactInfo.email,
         institution,
-        status: { $in: ['pending', 'under_review', 'approved'] }
+        status: { $in: ['pending', 'struck_off', 'approved'] }
       });
 
       if (existingAdmission) {
@@ -298,7 +298,6 @@ class AdmissionService {
     admission.reviewedBy = currentUser.id;
     admission.reviewedAt = Date.now();
     admission.reviewRemarks = remarks;
-
     // Add to status history
     admission.statusHistory.push({
       status,
@@ -308,6 +307,14 @@ class AdmissionService {
     });
 
     await admission.save();
+
+    // If status is struck_off and student exists, update student status as well
+    if (status === 'struck_off' && admission.studentId) {
+      await Student.findByIdAndUpdate(admission.studentId, {
+        status: 'struck_off',
+        remarks: remarks || 'Struck off from admission register'
+      });
+    }
 
     return await Admission.findById(admission._id)
       .populate('institution', 'name type code')
@@ -592,14 +599,14 @@ class AdmissionService {
     const [
       totalApplications,
       pendingApplications,
-      underReviewApplications,
+      struckOffApplications,
       approvedApplications,
       rejectedApplications,
       enrolledApplications
     ] = await Promise.all([
       Admission.countDocuments({ ...query, isActive: true }),
       Admission.countDocuments({ ...query, status: 'pending', isActive: true }),
-      Admission.countDocuments({ ...query, status: 'under_review', isActive: true }),
+      Admission.countDocuments({ ...query, status: 'struck_off', isActive: true }),
       Admission.countDocuments({ ...query, status: 'approved', isActive: true }),
       Admission.countDocuments({ ...query, status: 'rejected', isActive: true }),
       Admission.countDocuments({ ...query, status: 'enrolled', isActive: true })
@@ -608,7 +615,7 @@ class AdmissionService {
     return {
       totalApplications,
       pendingApplications,
-      underReviewApplications,
+      struckOffApplications,
       approvedApplications,
       rejectedApplications,
       enrolledApplications
@@ -760,7 +767,7 @@ class AdmissionService {
     // Generate dates and fill trends
     const filledApplicationTrends = [];
     const filledStatusTrends = [];
-    const trackedStatuses = ['pending', 'approved', 'enrolled', 'rejected', 'under_review'];
+    const trackedStatuses = ['pending', 'approved', 'enrolled', 'rejected', 'struck_off'];
     const endDate = new Date(); // Define endDate as today
 
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -2293,6 +2300,14 @@ class AdmissionService {
         });
 
         await admission.save();
+        
+        // If status is struck_off and student exists, update student status as well
+        if (status === 'struck_off' && admission.studentId) {
+          await Student.findByIdAndUpdate(admission.studentId, {
+            status: 'struck_off',
+            remarks: remarks || 'Struck off from admissions bulk register'
+          });
+        }
         
         // If enrolling (status changed to 'enrolled'), create Student record
         if (status === 'enrolled' && oldStatus !== 'enrolled') {

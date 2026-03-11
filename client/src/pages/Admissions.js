@@ -108,6 +108,7 @@ import InstitutionSwitcher from '../components/InstitutionSwitcher';
 import AdmissionByDateReport from '../components/reports/AdmissionByDateReport';
 import AdmissionByMonthReport from '../components/reports/AdmissionByMonthReport';
 import { useTablePagination } from '../hooks/useTablePagination';
+import { notifyError, notifySuccess, notifyInfo } from '../utils/notify';
 
 
 const Admissions = () => {
@@ -601,15 +602,18 @@ const Admissions = () => {
         await rejectAdmission(selectedAdmission._id, actionDialog.remarks);
       } else if (type === 'enroll') {
         await approveAndEnroll(selectedAdmission._id);
-      } else if (type === 'review') {
-        await updateAdmissionStatus(selectedAdmission._id, 'under_review', actionDialog.remarks);
+      } else if (type === 'struck_off') {
+        await updateAdmissionStatus(selectedAdmission._id, 'struck_off', actionDialog.remarks);
       }
 
       setActionDialog({ open: false, type: '', remarks: '' });
       setSelectedAdmission(null);
       fetchData();
+      notifySuccess(`Admission ${type}ed successfully`);
     } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${type} admission`);
+      const msg = err.response?.data?.message || `Failed to ${type} admission`;
+      setError(msg);
+      notifyError(msg);
     }
   };
 
@@ -623,12 +627,13 @@ const Admissions = () => {
       setError('');
       await deleteAdmission(admissionId);
       setError(''); // Clear any previous errors
-      // Show success message (you can add a success state if needed)
-      alert('Admission deleted successfully');
+      notifySuccess('Admission deleted successfully');
       fetchData(); // Refresh the list
     } catch (err) {
       console.error('Error deleting admission:', err);
-      setError(err.response?.data?.message || 'Failed to delete admission');
+      const msg = err.response?.data?.message || 'Failed to delete admission';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setLoading(false);
     }
@@ -637,7 +642,7 @@ const Admissions = () => {
   // Bulk soft delete handler
   const handleBulkSoftDelete = async () => {
     if (selectedAdmissions.length === 0) {
-      alert('Please select admissions to delete');
+      notifyError('Please select admissions to delete');
       return;
     }
 
@@ -649,12 +654,14 @@ const Admissions = () => {
       setLoading(true);
       setError('');
       const result = await bulkSoftDeleteAdmissions(selectedAdmissions);
-      alert(result.message || 'Admissions deleted successfully');
+      notifySuccess(result.message || 'Admissions deleted successfully');
       setSelectedAdmissions([]);
       fetchData(); // Refresh the list
     } catch (err) {
       console.error('Error deleting admissions:', err);
-      setError(err.response?.data?.message || 'Failed to delete admissions');
+      const msg = err.response?.data?.message || 'Failed to delete admissions';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setLoading(false);
     }
@@ -663,7 +670,7 @@ const Admissions = () => {
   // Bulk restore handler
   const handleBulkRestore = async () => {
     if (selectedAdmissions.length === 0) {
-      alert('Please select admissions to restore');
+      notifyError('Please select admissions to restore');
       return;
     }
 
@@ -675,12 +682,14 @@ const Admissions = () => {
       setLoading(true);
       setError('');
       const result = await restoreAdmissions(selectedAdmissions);
-      alert(result.message || 'Admissions restored successfully');
+      notifySuccess(result.message || 'Admissions restored successfully');
       setSelectedAdmissions([]);
       fetchData(); // Refresh the list
     } catch (err) {
       console.error('Error restoring admissions:', err);
-      setError(err.response?.data?.message || 'Failed to restore admissions');
+      const msg = err.response?.data?.message || 'Failed to restore admissions';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setLoading(false);
     }
@@ -689,7 +698,7 @@ const Admissions = () => {
   // Bulk permanent delete handler
   const handleBulkPermanentDelete = async () => {
     if (selectedAdmissions.length === 0) {
-      alert('Please select admissions to permanently delete');
+      notifyError('Please select admissions to permanently delete');
       return;
     }
 
@@ -706,12 +715,14 @@ const Admissions = () => {
       setLoading(true);
       setError('');
       const result = await bulkPermanentlyDeleteAdmissions(selectedAdmissions);
-      alert(result.message || 'Admissions permanently deleted');
+      notifySuccess(result.message || 'Admissions permanently deleted');
       setSelectedAdmissions([]);
       fetchData(); // Refresh the list
     } catch (err) {
       console.error('Error permanently deleting admissions:', err);
-      setError(err.response?.data?.message || 'Failed to permanently delete admissions');
+      const msg = err.response?.data?.message || 'Failed to permanently delete admissions';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setLoading(false);
     }
@@ -746,7 +757,7 @@ const Admissions = () => {
   const getStatusColor = (status) => {
     const colors = {
       pending: 'warning',
-      under_review: 'info',
+      struck_off: 'error',
       approved: 'success',
       rejected: 'error',
       enrolled: 'primary',
@@ -790,7 +801,7 @@ const Admissions = () => {
 
   const handleExport = () => {
     // TODO: Implement export functionality
-    alert('Export functionality coming soon!');
+    notifyInfo('Export functionality coming soon!');
   };
 
   // Bulk Status Update State & Handlers
@@ -818,21 +829,15 @@ const Admissions = () => {
       // Wait a moment for DB propagation
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Refresh data
-      // We need to re-fetch the current view's data
-      // Ideally we call the function that populates the current table (fetchData or fetchAdmissionData)
-      // Since we are in the 'register' or 'list' view, we can trigger a refresh via:
-      window.location.reload(); // Simplest way to ensure full consistency for now
-      
-      // Or cleaner:
-      // setBulkStatusDialogOpen(false);
-      // setSelectedAdmissions([]);
-      // window.dispatchEvent(new Event('admissionUpdated')); 
+      notifySuccess('Statuses updated successfully');
+      setBulkStatusDialogOpen(false);
+      setSelectedAdmissions([]);
+      fetchData();
       
     } catch (err) {
       console.error('Bulk status update error:', err);
-      // Show error but don't crash
-      alert(err.response?.data?.message || 'Failed to update statuses');
+      const msg = err.response?.data?.message || 'Failed to update statuses';
+      notifyError(msg);
       setLoading(false);
     }
   };
@@ -892,11 +897,11 @@ const Admissions = () => {
   };
 
   const handleExportReportPDF = () => {
-    alert('PDF export coming soon!');
+    notifyInfo('PDF export coming soon!');
   };
 
   const handleExportReportExcel = () => {
-    alert('Excel export coming soon!');
+    notifyInfo('Excel export coming soon!');
   };
 
   const filteredAdmissions = admissions.filter((admission) => {
@@ -1181,7 +1186,7 @@ const Admissions = () => {
             >
               <MenuItem value="">All Status</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="under_review">Under Review</MenuItem>
+              <MenuItem value="struck_off">Struck Off</MenuItem>
               <MenuItem value="approved">Approved</MenuItem>
               <MenuItem value="rejected">Rejected</MenuItem>
               <MenuItem value="enrolled">Enrolled</MenuItem>
@@ -1265,13 +1270,13 @@ const Admissions = () => {
                         <IconButton
                           size="small"
                           color="info"
-                          onClick={() => openActionDialog(admission, 'review')}
-                          title="Mark Under Review"
+                          onClick={() => openActionDialog(admission, 'struck_off')}
+                          title="Mark Struck Off"
                         >
-                          <PendingActions fontSize="small" />
+                          <Cancel fontSize="small" />
                         </IconButton>
                       )}
-                      {isAdmin && (admission.status === 'pending' || admission.status === 'under_review') && (
+                      {isAdmin && (admission.status === 'pending' || admission.status === 'struck_off') && (
                         <>
                           <IconButton
                             size="small"
@@ -2293,7 +2298,7 @@ const Admissions = () => {
                     >
                       <MenuItem value="">All Status</MenuItem>
                       <MenuItem value="pending">Pending</MenuItem>
-                      <MenuItem value="under_review">Under Review</MenuItem>
+                      <MenuItem value="struck_off">Struck Off</MenuItem>
                       <MenuItem value="approved">Approved</MenuItem>
                       <MenuItem value="rejected">Rejected</MenuItem>
                       <MenuItem value="enrolled">Enrolled</MenuItem>
@@ -2819,7 +2824,7 @@ const Admissions = () => {
           {actionDialog.type === 'approve' && 'Approve Admission'}
           {actionDialog.type === 'reject' && 'Reject Admission'}
           {actionDialog.type === 'enroll' && 'Enroll Student'}
-          {actionDialog.type === 'review' && 'Mark Under Review'}
+          {actionDialog.type === 'struck_off' && 'Mark Struck Off'}
         </DialogTitle>
         <DialogContent>
           <TextField
@@ -2854,7 +2859,7 @@ const Admissions = () => {
                 label="New Status"
               >
                 <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="under_review">Under Review</MenuItem>
+                <MenuItem value="struck_off">Struck Off</MenuItem>
                 <MenuItem value="approved">Approved</MenuItem>
                 <MenuItem value="rejected">Rejected</MenuItem>
                 <MenuItem value="enrolled">Enrolled</MenuItem>

@@ -17,6 +17,7 @@ import { CloudUpload, CheckCircle, Error as ErrorIcon, ArrowBack } from '@mui/ic
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { useNavigate } from 'react-router-dom';
+import { notifyError, notifySuccess } from '../utils/notify';
 
 const ImportStudents = () => {
   const navigate = useNavigate();
@@ -77,11 +78,14 @@ const ImportStudents = () => {
 
       setResult(response.data.data);
       setFile(null);
+      notifySuccess(`Import completed: ${response.data.data.successCount} students imported.`);
       // Reset file input
       document.getElementById('file-upload').value = '';
     } catch (err) {
       console.error('Import error:', err);
-      setError(err.response?.data?.message || 'Failed to import students');
+      const msg = err.response?.data?.message || 'Failed to import students';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setLoading(false);
     }

@@ -223,13 +223,13 @@ const admissionSchema = new mongoose.Schema({
   // Application Status
   status: {
     type: String,
-    enum: ['pending', 'under_review', 'approved', 'rejected', 'enrolled', 'cancelled'],
+    enum: ['pending', 'struck_off', 'approved', 'rejected', 'enrolled', 'cancelled'],
     default: 'pending'
   },
   statusHistory: [{
     status: {
       type: String,
-      enum: ['pending', 'under_review', 'approved', 'rejected', 'enrolled', 'cancelled']
+      enum: ['pending', 'struck_off', 'approved', 'rejected', 'enrolled', 'cancelled']
     },
     remarks: String,
     changedBy: {

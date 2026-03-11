@@ -17,7 +17,7 @@ const INSTITUTION_TYPES = {
 
 const ADMISSION_STATUS = {
   PENDING: 'pending',
-  UNDER_REVIEW: 'under_review',
+  STRUCK_OFF: 'struck_off',
   APPROVED: 'approved',
   REJECTED: 'rejected',
   ENROLLED: 'enrolled',
@@ -30,7 +30,8 @@ const STUDENT_STATUS = {
   TRANSFERRED: 'transferred',
   GRADUATED: 'graduated',
   EXPELLED: 'expelled',
-  ON_LEAVE: 'on_leave'
+  ON_LEAVE: 'on_leave',
+  STRUCK_OFF: 'struck_off'
 };
 
 const HTTP_STATUS = {

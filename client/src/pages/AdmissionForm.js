@@ -46,11 +46,12 @@ import {
   Info,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  createAdmission, 
-  updateAdmission, 
-  getAdmissionById, 
-  updateAdmissionStatus, 
+import { notifyError, notifySuccess } from '../utils/notify';
+import {
+  createAdmission,
+  updateAdmission,
+  getAdmissionById,
+  updateAdmissionStatus,
   approveAndEnroll,
   getNextRollNumber
 } from '../services/admissionService';
@@ -129,7 +130,7 @@ const createInitialFormData = (userCtx) => ({
   },
 
   // Backend required fields (hidden)
-  institution: userCtx.institution 
+  institution: userCtx.institution
     ? (typeof userCtx.institution === 'object' ? userCtx.institution._id : userCtx.institution)
     : '',
   academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
@@ -144,11 +145,11 @@ const AdmissionForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   // Address tab state
   const [addressTab, setAddressTab] = useState(0);
 
-  
+
   // Dropdown data
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
@@ -157,7 +158,7 @@ const AdmissionForm = () => {
   const [countries, setCountries] = useState(['Pakistan', 'Bangladesh', 'Other']);
   const [cities, setCities] = useState(['Sialkot', 'Lahore', 'Karachi', 'Islamabad', 'Other']);
   const [mobileOperators, setMobileOperators] = useState(['Jazz', 'Telenor', 'Ufone', 'Zong', 'Warid']);
-  
+
   // Dialog states for adding new items
   const [classDialogOpen, setClassDialogOpen] = useState(false);
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
@@ -182,12 +183,12 @@ const AdmissionForm = () => {
         }
       }
     }
-    
+
     // For other roles or as fallback, use user.institution
     if (user.institution) {
       return typeof user.institution === 'object' ? user.institution._id : user.institution;
     }
-    
+
     return null;
   };
 
@@ -213,7 +214,7 @@ const AdmissionForm = () => {
       fetchGroups(institutionId);
       fetchNextAvailableRollNumber(institutionId);
     }
-    
+
     // Update institution when selectedInstitution changes
     const handleStorageChange = () => {
       const institutionId = getInstitutionId();
@@ -225,10 +226,10 @@ const AdmissionForm = () => {
         fetchGroups(institutionId);
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('institutionChanged', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('institutionChanged', handleStorageChange);
@@ -259,7 +260,7 @@ const AdmissionForm = () => {
       });
       setGroups(response.data.data || []);
     } catch (err) {
-      console.error('Error fetching groups:', err);
+      notifyError('Error fetching groups: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -277,10 +278,10 @@ const AdmissionForm = () => {
     if (!value) return '';
     // Remove all non-digits
     const digits = value.toString().replace(/\D/g, '');
-    
+
     // Limit to 13 digits
     const limited = digits.slice(0, 13);
-    
+
     // Format with dashes
     if (limited.length <= 5) {
       return limited;
@@ -316,19 +317,18 @@ const AdmissionForm = () => {
     try {
       const token = localStorage.getItem('token');
       const params = {};
-      
+
       if (institutionId) {
         params.institution = institutionId;
       }
-      
+
       const response = await axios.get(getApiUrl('classes'), {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
       setClasses(response.data.data || []);
     } catch (err) {
-      console.error('Error fetching classes:', err);
-      setError('Failed to load classes. Please refresh the page.');
+      notifyError('Failed to load classes. Please refresh the page.');
     }
   };
 
@@ -348,19 +348,18 @@ const AdmissionForm = () => {
     try {
       const token = localStorage.getItem('token');
       const params = {};
-      
+
       if (institutionId) {
         params.institution = institutionId;
       }
-      
+
       const response = await axios.get(getApiUrl('sections'), {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
       setSections(response.data.data || []);
     } catch (err) {
-      console.error('Error fetching sections:', err);
-      setError('Failed to load sections. Please refresh the page.');
+      notifyError('Failed to load sections. Please refresh the page.');
     }
   };
 
@@ -370,18 +369,18 @@ const AdmissionForm = () => {
       setLoading(true);
       const response = await getAdmissionById(id);
       const admission = response.data;
-      
+
       // Get institution from admission (prioritize admission's institution)
       const admissionInstitutionId = admission.institution?._id || admission.institution;
       const institutionId = admissionInstitutionId || getInstitutionId();
-      
+
       // Fetch dropdowns with the admission's institution
       await Promise.all([
         fetchClassesWithInstitution(institutionId),
         fetchSectionsWithInstitution(institutionId),
         fetchGroups(institutionId)
       ]);
-      
+
       // Map backend data to form structure
       // If studentId exists (enrolled), prefer data from Student model, otherwise use Admission model
       const student = admission.studentId;
@@ -394,7 +393,7 @@ const AdmissionForm = () => {
         const matchingSection = sections.find(s => s.name === student.section);
         if (matchingSection) preloadedSection = matchingSection._id;
       }
-      
+
       setFormData(prev => ({
         ...prev,
         class: admission.class?._id || admission.class || '',
@@ -463,7 +462,7 @@ const AdmissionForm = () => {
         },
       }));
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch admission data');
+      notifyError(err.response?.data?.message || 'Failed to fetch admission data');
     } finally {
       setLoading(false);
     }
@@ -517,7 +516,6 @@ const AdmissionForm = () => {
       }));
     }
   };
-
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -689,10 +687,12 @@ const AdmissionForm = () => {
         const response = await updateAdmission(id, admissionData);
         admissionId = id;
         setSuccess('Admission updated successfully');
+        notifySuccess('Admission updated successfully');
       } else {
         const response = await createAdmission(admissionData);
         admissionId = response.data._id;
         setSuccess('Admission application submitted successfully');
+        notifySuccess('Admission application submitted successfully');
       }
 
       // If "Mark as Enrolled" is checked, enroll the student
@@ -708,11 +708,14 @@ const AdmissionForm = () => {
           if (currentAdmission.data.status !== 'enrolled') {
             await approveAndEnroll(admissionId);
             setSuccess('Admission created and student enrolled successfully');
+            notifySuccess('Admission created and student enrolled successfully');
           }
         } catch (enrollError) {
           // If enrollment fails, still show success for admission creation
           console.error('Enrollment error:', enrollError);
-          setError(enrollError.response?.data?.message || 'Admission created but enrollment failed. Please enroll manually.');
+          const msg = enrollError.response?.data?.message || 'Admission created but enrollment failed. Please enroll manually.';
+          setError(msg);
+          notifyError(msg);
         }
       }
 
@@ -747,6 +750,7 @@ const AdmissionForm = () => {
       }
       
       setError(errorMessage);
+      notifyError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -1020,7 +1024,7 @@ const AdmissionForm = () => {
                         }}
                       >
                         <MenuItem value="pending">Pending</MenuItem>
-                        <MenuItem value="under_review">Under Review</MenuItem>
+                        <MenuItem value="struck_off">Struck Off</MenuItem>
                         <MenuItem value="approved">Approved</MenuItem>
                         <MenuItem value="rejected">Rejected</MenuItem>
                         <MenuItem value="enrolled">Enrolled</MenuItem>

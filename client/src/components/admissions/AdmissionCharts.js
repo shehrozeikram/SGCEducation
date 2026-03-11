@@ -32,7 +32,7 @@ import { getAdmissionAnalytics } from '../../services/admissionService';
 
 const COLORS = {
   pending: '#ff9800',
-  under_review: '#2196f3',
+  struck_off: '#e91e63', // Pinkish red for Struck Off
   approved: '#4caf50',
   rejected: '#f44336',
   enrolled: '#667eea',
@@ -292,11 +292,11 @@ const AdmissionCharts = ({ filters = {} }) => {
                   />
                   <Line
                     type="monotone"
-                    dataKey="under_review"
-                    stroke={COLORS.under_review}
+                    dataKey="struck_off"
+                    stroke={COLORS.struck_off}
                     strokeWidth={2}
-                    name="Under Review"
-                    dot={{ fill: COLORS.under_review }}
+                    name="Struck Off"
+                    dot={{ fill: COLORS.struck_off }}
                   />
                   <Line
                     type="monotone"

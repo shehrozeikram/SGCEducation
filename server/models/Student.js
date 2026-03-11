@@ -223,7 +223,7 @@ const studentSchema = new mongoose.Schema({
   // Status & Tracking
   status: {
     type: String,
-    enum: ['active', 'inactive', 'transferred', 'graduated', 'expelled', 'on_leave'],
+    enum: ['active', 'inactive', 'transferred', 'graduated', 'expelled', 'on_leave', 'struck_off'],
     default: 'active'
   },
   currentSemester: {
