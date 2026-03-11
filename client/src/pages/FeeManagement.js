@@ -2186,7 +2186,7 @@ const FeeManagement = () => {
       fetchSuspenseEntries({ 
         startDate: receiptSearch.startDate, 
         endDate: receiptSearch.endDate 
-      });
+      }, 'unidentified');
     }
     try {
       setReceiptsLoading(true);
@@ -2380,13 +2380,13 @@ const FeeManagement = () => {
   };
 
   // Fetch suspense entries
-  const fetchSuspenseEntries = async (dateFilters = null) => {
+  const fetchSuspenseEntries = async (dateFilters = null, statusOverride = null) => {
     try {
       setSuspenseLoading(true);
       const institutionId = getInstitutionId();
       if (!institutionId) return;
 
-      const status = suspenseSubTab === 0 ? 'unidentified' : 'reconciled';
+      const status = statusOverride || (suspenseSubTab === 0 ? 'unidentified' : 'reconciled');
       
       // Build params
       const params = { institution: institutionId, status };
@@ -3442,10 +3442,10 @@ const FeeManagement = () => {
       fetchSuspenseEntries({ 
         startDate: receiptSearch.startDate, 
         endDate: receiptSearch.endDate 
-      });
+      }, 'unidentified');
       setPagination(prev => ({ ...prev, receipt: { page: 0, rowsPerPage: prev.receipt.rowsPerPage } }));
     }
-  }, [activeTab, miscFeeSubTab, miscFeeFilters, generateVoucherFilters, printVoucherFilters, feeHeadSearchTerm]);
+  }, [activeTab, miscFeeSubTab, miscFeeFilters, generateVoucherFilters, printVoucherFilters, feeHeadSearchTerm, receiptSearch.startDate, receiptSearch.endDate]);
 
   // Status color helper
   const getStatusColor = (status) => {
