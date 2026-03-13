@@ -1,4 +1,4 @@
-﻿const Admission = require('../models/Admission');
+const Admission = require('../models/Admission');
 const Student = require('../models/Student');
 const User = require('../models/User');
 const Institution = require('../models/Institution');
@@ -307,18 +307,50 @@ class AdmissionService {
     });
 
     await admission.save();
-
-    // If status is struck_off and student exists, update student status as well
+  
+    // Handle status-specific actions
     if (status === 'struck_off' && admission.studentId) {
       await Student.findByIdAndUpdate(admission.studentId, {
         status: 'struck_off',
         remarks: remarks || 'Struck off from admission register'
       });
+    } else if (status === 'cancelled') {
+        // Automatically delete vouchers and fees if cancelled
+        await this._cleanupFeesForCancelledAdmission(admission._id, admission.studentId);
     }
-
+  
     return await Admission.findById(admission._id)
       .populate('institution', 'name type code')
       .populate('reviewedBy', 'name email');
+  }
+
+  /**
+   * Helper: Cleanup fee vouchers and student fees for cancelled admission
+   * @private
+   */
+  async _cleanupFeesForCancelledAdmission(admissionId, studentId) {
+    try {
+      console.log(`Cleaning up fees for cancelled admission: ${admissionId}`);
+      
+      // 1. Delete Fee Vouchers linked to this admission OR student
+      const voucherQuery = { $or: [{ admission: admissionId }] };
+      if (studentId) voucherQuery.$or.push({ student: studentId });
+      
+      const deletedVouchers = await FeeVoucher.deleteMany(voucherQuery);
+      console.log(`Deleted ${deletedVouchers.deletedCount} vouchers`);
+
+      // 2. Delete Student Fees linked to this student
+      if (studentId) {
+        const deletedFees = await StudentFee.deleteMany({ student: studentId });
+        console.log(`Deleted ${deletedFees.deletedCount} student fee assignments`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error during fee cleanup:', error);
+      // Don't throw - we don't want to block status update if cleanup fails
+      return false;
+    }
   }
 
   /**
@@ -483,6 +515,14 @@ class AdmissionService {
     admission.isActive = false;
     admission.status = 'cancelled';
     await admission.save();
+
+    // Automatically delete vouchers and fees if cancelled
+    await this._cleanupFeesForCancelledAdmission(admission._id, admission.studentId);
+
+    // Also inactivate student if exists
+    if (admission.studentId) {
+      await Student.findByIdAndUpdate(admission.studentId, { isActive: false });
+    }
 
     return { message: 'Admission cancelled successfully' };
   }
@@ -2147,11 +2187,13 @@ class AdmissionService {
           continue;
         }
 
-        // Soft delete admission
         admission.isActive = false;
         admission.status = 'cancelled';
         await admission.save();
         results.deletedAdmissions++;
+
+        // Automatically delete vouchers and fees if cancelled
+        await this._cleanupFeesForCancelledAdmission(admission._id, admission.studentId);
 
         // Soft delete linked student if exists
         if (admission.studentId) {
@@ -2301,12 +2343,15 @@ class AdmissionService {
 
         await admission.save();
         
-        // If status is struck_off and student exists, update student status as well
+        // Handle status-specific actions
         if (status === 'struck_off' && admission.studentId) {
           await Student.findByIdAndUpdate(admission.studentId, {
             status: 'struck_off',
             remarks: remarks || 'Struck off from admissions bulk register'
           });
+        } else if (status === 'cancelled') {
+            // Automatically delete vouchers and fees if cancelled
+            await this._cleanupFeesForCancelledAdmission(admission._id, admission.studentId);
         }
         
         // If enrolling (status changed to 'enrolled'), create Student record
