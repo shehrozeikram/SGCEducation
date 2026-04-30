@@ -14,7 +14,7 @@ The system has a **User Management** page where you can create users with differ
 
 2. **Navigate to Users Page:**
    - Go to **Users** in the sidebar menu
-   - Or visit: `https://boly.ddns.net/users`
+   - Or visit: `https://sgcschool.ddns.net/users`
 
 3. **Click "Add User" Button:**
    - You'll see an "Add User" or "+" button
@@ -44,7 +44,7 @@ You can also create users directly via API:
 TOKEN="your-jwt-token-here"
 
 # Create a Super Admin user
-curl -X POST https://boly.ddns.net/api/v1/users \
+curl -X POST https://sgcschool.ddns.net/api/v1/users \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,7 +55,7 @@ curl -X POST https://boly.ddns.net/api/v1/users \
   }'
 
 # Create an Admin user (requires institution)
-curl -X POST https://boly.ddns.net/api/v1/users \
+curl -X POST https://sgcschool.ddns.net/api/v1/users \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -135,7 +135,7 @@ Institution: [Select an institution from dropdown]
 
 ## Access the User Management Page
 
-**URL:** `https://boly.ddns.net/users`
+**URL:** `https://sgcschool.ddns.net/users`
 
 Or navigate through the sidebar menu after logging in.
 

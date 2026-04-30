@@ -26,9 +26,9 @@ connectDB().then(() => {
 
 ## How to Log In
 
-### On Production Server (https://boly.ddns.net)
+### On Production Server (https://sgcschool.ddns.net)
 
-1. **Open your browser** and go to: `https://boly.ddns.net`
+1. **Open your browser** and go to: `https://sgcschool.ddns.net`
 2. **You should see the login page**
 3. **Enter credentials:**
    - Email: `haris@sgceducation.com`
