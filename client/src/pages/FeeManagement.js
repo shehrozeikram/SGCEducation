@@ -3490,6 +3490,7 @@ const FeeManagement = () => {
     }
     if (activeTab === 4) {
       fetchPrintVoucherStudents();
+      fetchAvailableClasses();
       setPagination(prev => ({ ...prev, printVoucher: { page: 0, rowsPerPage: prev.printVoucher.rowsPerPage } }));
     }
     if (activeTab === 6) {
