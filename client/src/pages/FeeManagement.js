@@ -1126,6 +1126,7 @@ const FeeManagement = () => {
             name: studentName,
             fatherName: admission?.guardianInfo?.fatherName || 'N/A',
             class: studentFee.class?.name || admission?.class?.name || 'N/A',
+            classId: studentFee.class?._id || admission?.class?._id || null,
             section: admission?.section?.name || 'N/A',
             status: student?.status || admission?.status || 'active',
             voucherStatus: voucherStatus
@@ -1214,7 +1215,7 @@ const FeeManagement = () => {
   };
 
   // Fetch fee head amounts for selected students
-  const fetchFeeHeadAmounts = async () => {
+  const fetchFeeHeadAmounts = async (currentFeeHeads = feeHeads) => {
     if (selectedGenerateVoucherStudents.length === 0) return;
 
     try {
@@ -1315,6 +1316,40 @@ const FeeManagement = () => {
         }
       });
 
+      // Fallback: If a fee head has no StudentFee record (e.g. newly added), 
+      // look up the default amount from the FeeStructure matrix using the first student's class
+      const firstStudent = selectedGenerateVoucherStudents[0];
+      
+      let matrixData = feeStructureMatrixData;
+      if (!matrixData || Object.keys(matrixData).length === 0) {
+        try {
+          const params = { institution: institutionId };
+          const matrixResponse = await axios.get(`${API_URL}/fees/structures/matrix`, createAxiosConfig({ params }));
+          const matrix = matrixResponse.data.data || {};
+          matrixData = {};
+          if (matrix.data) {
+            Object.keys(matrix.data).forEach(classId => {
+              matrixData[classId] = { fees: { ...matrix.data[classId].fees } };
+            });
+          }
+          setFeeStructureMatrixData(matrixData);
+        } catch (e) {
+          console.error("Failed to fetch matrix for fallback", e);
+        }
+      }
+
+      if (firstStudent && firstStudent.classId && matrixData[firstStudent.classId]) {
+        const classFees = matrixData[firstStudent.classId].fees || {};
+        
+        // currentFeeHeads is available here since it's passed as an argument
+        currentFeeHeads.forEach(fh => {
+          const fhId = fh._id.toString();
+          if (amountsMap[fhId] === undefined && classFees[fhId] !== undefined) {
+            amountsMap[fhId] = classFees[fhId];
+          }
+        });
+      }
+
       setFeeHeadAmounts(amountsMap);
     } catch (err) {
       console.error('Error fetching fee head amounts:', err);
@@ -1350,7 +1385,7 @@ const FeeManagement = () => {
     }
     
     // Fetch fee head amounts for selected students
-    await fetchFeeHeadAmounts();
+    await fetchFeeHeadAmounts(headsToUse);
     
     // Select "Tuition Fee" and "Arrears" by default
     const defaultFeeHeadNames = ['Tuition Fee', 'Arrears'];

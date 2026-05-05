@@ -889,13 +889,56 @@ class FeeService {
       try {
         // Group fees by FeeHead to ensure we process each head logic correctly
         const feesByHead = new Map();
+        let studentClassId = null;
+        let studentAcademicYear = '';
         for (const fee of studentFees) {
+          if (!studentClassId && fee.class) {
+             studentClassId = fee.class._id || fee.class;
+          }
+          if (!studentAcademicYear && fee.academicYear) {
+             studentAcademicYear = fee.academicYear;
+          }
           const headId = fee.feeHead?._id.toString();
           if (!headId) continue;
           if (!feesByHead.has(headId)) {
             feesByHead.set(headId, []);
           }
           feesByHead.get(headId).push(fee);
+        }
+
+        // Auto-assign any selected fee heads that are missing
+        if (feeHeadIds && feeHeadIds.length > 0 && studentClassId) {
+          for (const reqHeadId of feeHeadIds) {
+            if (!feesByHead.has(reqHeadId)) {
+              // Try to find FeeStructure for this class and head
+              const feeStructure = await FeeStructure.findOne({ class: studentClassId, feeHead: reqHeadId });
+              if (feeStructure) {
+                console.log(`[generateVouchers] Auto-creating StudentFee for missing head ${reqHeadId} for student ${studentIdStr}`);
+                const newFee = await StudentFee.create({
+                  institution: institutionId,
+                  student: studentIdStr,
+                  feeStructure: feeStructure._id,
+                  class: studentClassId,
+                  feeHead: reqHeadId,
+                  baseAmount: feeStructure.amount,
+                  discountAmount: 0,
+                  discountType: 'amount',
+                  discountReason: '',
+                  finalAmount: feeStructure.amount,
+                  paidAmount: 0,
+                  remainingAmount: feeStructure.amount,
+                  status: 'pending',
+                  dueDate: dueDateObj,
+                  academicYear: studentAcademicYear,
+                  isActive: true,
+                  createdBy: currentUser._id,
+                  vouchers: []
+                });
+                await newFee.populate('feeHead', 'name priority frequencyType');
+                feesByHead.set(reqHeadId, [newFee]);
+              }
+            }
+          }
         }
 
         // Check if ANY fee has a voucher for this month/year (Global Check for Student)
