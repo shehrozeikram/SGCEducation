@@ -54,6 +54,7 @@ import {
   Restore,
   Receipt,
   AccountBalanceWallet,
+  Update,
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -308,6 +309,16 @@ const FeeManagement = () => {
     class: ''
   });
   const [feeStructureDialogMode, setFeeStructureDialogMode] = useState('assign'); // 'assign' | 'update'
+  const [selectedAssignFeeStructureStudents, setSelectedAssignFeeStructureStudents] = useState([]);
+  const [bulkFeeUpdateDialogOpen, setBulkFeeUpdateDialogOpen] = useState(false);
+  const [bulkFeeUpdateForm, setBulkFeeUpdateForm] = useState({
+    type: 'amount',
+    value: '',
+    operation: 'increase',
+    selectedFeeHeads: []
+  });
+  const [bulkUpdatingFees, setBulkUpdatingFees] = useState(false);
+
 
 
 
@@ -1491,6 +1502,91 @@ const FeeManagement = () => {
       setGenerateVoucherLoading(false);
     }
   };
+
+  // Handle bulk fee update
+  const handleBulkFeeUpdate = async () => {
+    if (selectedAssignFeeStructureStudents.length === 0) {
+      notifyError('Please select at least one student');
+      return;
+    }
+
+    if (bulkFeeUpdateForm.selectedFeeHeads.length === 0) {
+      notifyError('Please select at least one fee head');
+      return;
+    }
+
+    if (!bulkFeeUpdateForm.value || isNaN(parseFloat(bulkFeeUpdateForm.value))) {
+      notifyError('Please provide a valid numeric value');
+      return;
+    }
+
+    try {
+      setBulkUpdatingFees(true);
+      const studentIds = selectedAssignFeeStructureStudents.map(s => s._id);
+      
+      const response = await axios.post(
+        `${API_URL}/fees/bulk-update`,
+        {
+          studentIds: studentIds,
+          feeHeadIds: bulkFeeUpdateForm.selectedFeeHeads,
+          type: bulkFeeUpdateForm.type,
+          value: bulkFeeUpdateForm.value,
+          operation: bulkFeeUpdateForm.operation,
+          institution: getInstitutionId()
+        },
+        createAxiosConfig()
+      );
+
+      if (response.data.success) {
+        notifySuccess(`Successfully updated fees for ${response.data.data.updatedCount} fee records`);
+        setBulkFeeUpdateDialogOpen(false);
+        setSelectedAssignFeeStructureStudents([]);
+        setBulkFeeUpdateForm({
+          type: 'amount',
+          value: '',
+          operation: 'increase',
+          selectedFeeHeads: []
+        });
+        // Refresh the list
+        fetchStudentsWithoutFeeStructure();
+      }
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Failed to update fees in bulk');
+    } finally {
+      setBulkUpdatingFees(false);
+    }
+  };
+
+  // Handle select assign fee structure student
+  const handleSelectAssignFeeStructureStudent = (student) => {
+    setSelectedAssignFeeStructureStudents(prev => {
+      const isSelected = prev.some(s => s._id === student._id);
+      if (isSelected) {
+        return prev.filter(s => s._id !== student._id);
+      } else {
+        return [...prev, student];
+      }
+    });
+  };
+
+  // Handle select all assign fee structure students on current page
+  const handleSelectAllAssignFeeStructureStudents = (studentsOnPage) => {
+    const allSelected = studentsOnPage.length > 0 && studentsOnPage.every(s => 
+      selectedAssignFeeStructureStudents.some(sel => sel._id === s._id)
+    );
+
+    if (allSelected) {
+      // Unselect only these students
+      const pageIds = new Set(studentsOnPage.map(s => s._id));
+      setSelectedAssignFeeStructureStudents(prev => prev.filter(s => !pageIds.has(s._id)));
+    } else {
+      // Select all these students (avoid duplicates)
+      const currentSelectedIds = new Set(selectedAssignFeeStructureStudents.map(s => s._id));
+      const toAdd = studentsOnPage.filter(s => !currentSelectedIds.has(s._id));
+      setSelectedAssignFeeStructureStudents(prev => [...prev, ...toAdd]);
+    }
+  };
+
 
   // Filter voucher generation students based on search criteria
   const getFilteredGenerateVoucherStudents = () => {
@@ -3021,20 +3117,24 @@ const FeeManagement = () => {
       setSelectedClassFeeStructure(feeStructure);
 
       // Initialize fee head discounts
-      const feeHeadDiscounts = {};
-      if (feeStructure && feeStructure.feeStructures) {
-        feeStructure.feeStructures.forEach(fs => {
-          feeHeadDiscounts[fs.feeHead._id] = {
-            discount: 0,
-            discountType: 'amount',
-            discountReason: ''
-          };
-        });
-      }
-      setAssignFeeStructureForm(prev => ({
-        ...prev,
-        feeHeadDiscounts
-      }));
+      setAssignFeeStructureForm(prev => {
+        const updatedFeeHeadDiscounts = { ...prev.feeHeadDiscounts };
+        if (response.data.data && response.data.data.feeStructures) {
+          response.data.data.feeStructures.forEach(fs => {
+            if (!updatedFeeHeadDiscounts[fs.feeHead._id]) {
+              updatedFeeHeadDiscounts[fs.feeHead._id] = {
+                discount: 0,
+                discountType: 'amount',
+                discountReason: ''
+              };
+            }
+          });
+        }
+        return {
+          ...prev,
+          feeHeadDiscounts: updatedFeeHeadDiscounts
+        };
+      });
     } catch (err) {
       console.error('Error fetching fee structure:', err);
       notifyError(err.response?.data?.message || 'Failed to fetch fee structure');
@@ -3103,12 +3203,18 @@ const FeeManagement = () => {
         
         // 2. Build the custom fee head discounts object from existing records
         const feeHeadDiscounts = {};
-        existingFees.forEach(fee => {
+        // Sort by createdAt ascending so that newer records (which come later in the loop) override older ones
+        // Also prioritize active records
+        const sortedFees = [...existingFees].sort((a, b) => {
+          if (a.isActive !== b.isActive) return a.isActive ? 1 : -1;
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        sortedFees.forEach(fee => {
           const feeHeadId = (fee.feeHead?._id || fee.feeHead)?.toString();
           if (feeHeadId) {
-            // Preload all discounts, including 0 (important for 100% discount cases)
             feeHeadDiscounts[feeHeadId] = {
-              discount: fee.discountAmount || 0,
+              discount: fee.discountAmount !== undefined ? fee.discountAmount : 0,
               discountType: fee.discountType || 'amount',
               discountReason: fee.discountReason || ''
             };
@@ -3477,6 +3583,7 @@ const FeeManagement = () => {
     }
     if (activeTab === 2) {
       fetchStudentsWithoutFeeStructure();
+      fetchFeeHeads();
       setPagination(prev => ({ ...prev, assignFeeStructure: { page: 0, rowsPerPage: prev.assignFeeStructure.rowsPerPage } }));
     }
     if (activeTab === 3) {
@@ -3924,14 +4031,29 @@ const FeeManagement = () => {
               <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea' }}>
                 ASSIGN FEE STRUCTURE
               </Typography>
-              <Button
-                variant="outlined"
-                onClick={fetchStudentsWithoutFeeStructure}
-                disabled={assignFeeStructureLoading}
-                sx={{ borderColor: '#667eea', color: '#667eea' }}
-              >
-                Refresh
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                {selectedAssignFeeStructureStudents.length > 0 && (
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      fetchFeeHeads();
+                      setBulkFeeUpdateDialogOpen(true);
+                    }}
+                    sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#e68900' } }}
+                    startIcon={<Update />}
+                  >
+                    Bulk Update Fees ({selectedAssignFeeStructureStudents.length})
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  onClick={fetchStudentsWithoutFeeStructure}
+                  disabled={assignFeeStructureLoading}
+                  sx={{ borderColor: '#667eea', color: '#667eea' }}
+                >
+                  Refresh
+                </Button>
+              </Box>
             </Box>
 
             {/* Filter Section */}
@@ -4013,6 +4135,20 @@ const FeeManagement = () => {
                 <Table sx={{ minWidth: 650 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#667eea' }}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          indeterminate={
+                            selectedAssignFeeStructureStudents.length > 0 &&
+                            selectedAssignFeeStructureStudents.length < getFilteredAssignFeeStructureStudents().length
+                          }
+                          checked={
+                            getFilteredAssignFeeStructureStudents().length > 0 &&
+                            getFilteredAssignFeeStructureStudents().length === selectedAssignFeeStructureStudents.length
+                          }
+                          onChange={() => handleSelectAllAssignFeeStructureStudents(getFilteredAssignFeeStructureStudents())}
+                          sx={{ color: 'white', '&.Mui-checked': { color: 'white' }, '&.MuiCheckbox-indeterminate': { color: 'white' } }}
+                        />
+                      </TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Enrollment #</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Roll #</TableCell>
                       <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Admission #</TableCell>
@@ -4024,15 +4160,23 @@ const FeeManagement = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {getPaginatedData(getFilteredAssignFeeStructureStudents(), 'assignFeeStructure').map((student) => (
-                      <TableRow key={student._id} hover>
-                        <TableCell>{student.enrollmentNumber}</TableCell>
-                        <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                        <TableCell>{student.admissionNumber}</TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.name)}</TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.class)}</TableCell>
-                        <TableCell>{capitalizeFirstOnly(student.section)}</TableCell>
-                        <TableCell>{student.academicYear}</TableCell>
+                    {getPaginatedData(getFilteredAssignFeeStructureStudents(), 'assignFeeStructure').map((student) => {
+                      const isSelected = selectedAssignFeeStructureStudents.some(s => s._id === student._id);
+                      return (
+                        <TableRow key={student._id} hover selected={isSelected}>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={() => handleSelectAssignFeeStructureStudent(student)}
+                            />
+                          </TableCell>
+                          <TableCell>{student.enrollmentNumber}</TableCell>
+                          <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                          <TableCell>{student.admissionNumber}</TableCell>
+                          <TableCell>{capitalizeFirstOnly(student.name)}</TableCell>
+                          <TableCell>{capitalizeFirstOnly(student.class)}</TableCell>
+                          <TableCell>{capitalizeFirstOnly(student.section)}</TableCell>
+                          <TableCell>{student.academicYear}</TableCell>
                         <TableCell align="center">
                           {student.hasAssignedFee ? (
                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -4069,8 +4213,9 @@ const FeeManagement = () => {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
+                    );
+                  })}
+                </TableBody>
                 </Table>
                 {getFilteredAssignFeeStructureStudents().length > 0 && (
                   <TablePagination
@@ -7133,7 +7278,7 @@ const FeeManagement = () => {
                                   <TextField
                                     size="small"
                                     type="number"
-                                    value={feeHeadDiscount.discount || 0}
+                                    value={feeHeadDiscount.discount !== undefined ? feeHeadDiscount.discount : 0}
                                     onChange={(e) => handleFeeHeadDiscountChange(fs.feeHead._id, 'discount', e.target.value)}
                                     InputProps={{
                                       inputProps: { min: 0, step: 0.01 },
@@ -7208,10 +7353,132 @@ const FeeManagement = () => {
               disabled={assignFeeStructureLoading || !assignFeeStructureForm.classId}
               sx={{ bgcolor: '#667eea', '&:hover': { bgcolor: '#5568d3' } }}
             >
-              {assignFeeStructureLoading ? <CircularProgress size={24} /> : 'Assign Fee Structure'}
+              {assignFeeStructureLoading ? <CircularProgress size={24} /> : (feeStructureDialogMode === 'update' ? 'Update Fee Structure' : 'Assign Fee Structure')}
             </Button>
           </DialogActions>
         </Dialog>
+        
+        {/* Bulk Fee Update Dialog */}
+        <Dialog
+          open={bulkFeeUpdateDialogOpen}
+          onClose={() => setBulkFeeUpdateDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight="bold">
+                Bulk Update Fees
+              </Typography>
+              <IconButton onClick={() => setBulkFeeUpdateDialogOpen(false)} size="small">
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#fffde7', borderRadius: 1, borderLeft: '4px solid #fbc02d' }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                Selected Students: {selectedAssignFeeStructureStudents.length}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                The update will apply to the base amount of the selected fee heads for all selected students.
+              </Typography>
+            </Box>
+
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth variant="outlined" size="small">
+                  <InputLabel>Update Type</InputLabel>
+                  <Select
+                    value={bulkFeeUpdateForm.type}
+                    onChange={(e) => setBulkFeeUpdateForm(prev => ({ ...prev, type: e.target.value }))}
+                    label="Update Type"
+                  >
+                    <MenuItem value="amount">Fixed Amount (Rs.)</MenuItem>
+                    <MenuItem value="percentage">Percentage (%)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="outlined" size="small">
+                  <InputLabel>Operation</InputLabel>
+                  <Select
+                    value={bulkFeeUpdateForm.operation}
+                    onChange={(e) => setBulkFeeUpdateForm(prev => ({ ...prev, operation: e.target.value }))}
+                    label="Operation"
+                  >
+                    <MenuItem value="increase">Increase (+)</MenuItem>
+                    <MenuItem value="decrease">Decrease (-)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label={bulkFeeUpdateForm.type === 'amount' ? 'Amount (Rs.)' : 'Percentage (%)'}
+                  type="number"
+                  size="small"
+                  value={bulkFeeUpdateForm.value}
+                  onChange={(e) => setBulkFeeUpdateForm(prev => ({ ...prev, value: e.target.value }))}
+                  InputProps={{
+                    inputProps: { min: 0 }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                  Apply to Fee Heads:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, p: 1, border: '1px solid #ddd', borderRadius: 1, maxHeight: 200, overflowY: 'auto' }}>
+                  {feeHeads.map((fh) => (
+                    <FormControlLabel
+                      key={fh._id}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={bulkFeeUpdateForm.selectedFeeHeads.includes(fh._id)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setBulkFeeUpdateForm(prev => ({
+                              ...prev,
+                              selectedFeeHeads: checked 
+                                ? [...prev.selectedFeeHeads, fh._id]
+                                : prev.selectedFeeHeads.filter(id => id !== fh._id)
+                            }));
+                          }}
+                        />
+                      }
+                      label={<Typography variant="body2">{fh.name}</Typography>}
+                    />
+                  ))}
+                </Box>
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <Button size="small" onClick={() => setBulkFeeUpdateForm(prev => ({ ...prev, selectedFeeHeads: feeHeads.map(fh => fh._id) }))}>
+                    Select All
+                  </Button>
+                  <Button size="small" onClick={() => setBulkFeeUpdateForm(prev => ({ ...prev, selectedFeeHeads: [] }))}>
+                    Clear All
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBulkFeeUpdateDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleBulkFeeUpdate}
+              disabled={bulkUpdatingFees || bulkFeeUpdateForm.selectedFeeHeads.length === 0 || !bulkFeeUpdateForm.value}
+              sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#e68900' } }}
+            >
+              {bulkUpdatingFees ? <CircularProgress size={24} /> : 'Update Fees Now'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
 
         {/* Fee Head Selection Dialog for Generate Voucher */}
         <Dialog

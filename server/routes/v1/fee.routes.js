@@ -17,6 +17,7 @@ router.use(authenticate);
 router.get('/structures/matrix', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getFeeStructureMatrix);
 router.get('/structures/class/:classId', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getFeeStructureByClass);
 router.post('/structures/bulk-save', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.bulkSaveFeeStructure);
+router.post('/bulk-update', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.bulkUpdateStudentFees);
 
 // Student fee assignment routes
 router.get('/students/without-fee-structure', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getStudentsWithoutFeeStructure);

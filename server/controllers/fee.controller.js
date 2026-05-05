@@ -138,6 +138,22 @@ const generateVouchers = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   POST /api/v1/fees/bulk-update
+ * @desc    Bulk update student fees by amount or percentage
+ * @access  Private (Admin)
+ */
+const bulkUpdateStudentFees = asyncHandler(async (req, res) => {
+  const result = await feeService.bulkUpdateStudentFees(req.body, req.user);
+
+  res.json({
+    success: true,
+    message: 'Fees updated successfully for selected students',
+    data: result
+  });
+});
+
+
+/**
  * @route   POST /api/v1/fees/record-payment
  * @desc    Record a fee payment (supports partial payments)
  * @access  Private (Admin)
@@ -306,5 +322,6 @@ module.exports = {
   recordSuspenseEntry,
   reconcileSuspenseEntry,
   deleteSuspenseEntry,
-  reversePayment
+  reversePayment,
+  bulkUpdateStudentFees
 };

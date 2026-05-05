@@ -2094,6 +2094,79 @@ class FeeService {
       studentFee
     };
   }
+
+  /**
+   * Bulk update student fees by amount or percentage
+   * @param {Object} data - Update parameters
+   * @param {Object} currentUser - Current user object
+   */
+  async bulkUpdateStudentFees(data, currentUser) {
+    const { studentIds, feeHeadIds, type, value, operation } = data;
+
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      throw new ApiError(400, 'Please select at least one student');
+    }
+
+    if (!feeHeadIds || !Array.isArray(feeHeadIds) || feeHeadIds.length === 0) {
+      throw new ApiError(400, 'Please select at least one fee head');
+    }
+
+    if (value === undefined || isNaN(parseFloat(value))) {
+      throw new ApiError(400, 'Please provide a valid numeric value');
+    }
+
+    const numericValue = parseFloat(value);
+    const institutionId = data.institution || getInstitutionId(currentUser);
+    
+    if (!institutionId) {
+      throw new ApiError(400, 'Institution ID is required');
+    }
+
+
+    // Find all active StudentFee records for the selected students and fee heads
+    const studentFees = await StudentFee.find({
+      student: { $in: studentIds },
+      feeHead: { $in: feeHeadIds },
+      isActive: true,
+      institution: institutionId
+    });
+
+    if (studentFees.length === 0) {
+      throw new ApiError(404, 'No active fee records found for the selected students and fee heads');
+    }
+
+    let updatedCount = 0;
+
+    for (const studentFee of studentFees) {
+      const currentBase = studentFee.baseAmount || 0;
+      let newBase = currentBase;
+
+      if (type === 'percentage') {
+        const delta = (currentBase * numericValue / 100);
+        newBase = operation === 'increase' ? currentBase + delta : currentBase - delta;
+      } else {
+        newBase = operation === 'increase' ? currentBase + numericValue : currentBase - numericValue;
+      }
+
+      // Ensure new base is not negative
+      if (newBase < 0) newBase = 0;
+
+      // Update the baseAmount
+      studentFee.baseAmount = newBase;
+      // studentFee.updatedBy = currentUser._id; // Field not in schema, skipping to avoid confusion
+      studentFee.updatedAt = new Date();
+
+      // The pre('save') hook in StudentFee.js will handle finalAmount, remainingAmount, etc.
+      await studentFee.save();
+      updatedCount++;
+    }
+
+    return {
+      updatedCount,
+      totalSelected: studentIds.length
+    };
+  }
 }
+
 
 module.exports = new FeeService();
