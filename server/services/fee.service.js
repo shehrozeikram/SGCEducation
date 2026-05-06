@@ -2152,26 +2152,44 @@ class FeeService {
     let updatedCount = 0;
 
     for (const studentFee of studentFees) {
-      const currentBase = studentFee.baseAmount || 0;
-      let newBase = currentBase;
+      const hasVouchers = studentFee.vouchers && studentFee.vouchers.length > 0;
 
-      if (type === 'percentage') {
-        const delta = (currentBase * numericValue / 100);
-        newBase = operation === 'increase' ? currentBase + delta : currentBase - delta;
+      if (!hasVouchers) {
+        // Update the existing record if no vouchers exist
+        studentFee.discountAmount = numericValue;
+        studentFee.discountType = type;
+        studentFee.discountOperation = operation;
+        studentFee.updatedAt = new Date();
+        await studentFee.save();
       } else {
-        newBase = operation === 'increase' ? currentBase + numericValue : currentBase - numericValue;
+        // Record has vouchers, so it's history. 
+        // 1. Deactivate the old record
+        studentFee.isActive = false;
+        studentFee.updatedAt = new Date();
+        await studentFee.save();
+
+        // 2. Create a NEW record for the same fee head with the new structure
+        await StudentFee.create({
+          institution: studentFee.institution,
+          student: studentFee.student,
+          feeStructure: studentFee.feeStructure,
+          class: studentFee.class,
+          feeHead: studentFee.feeHead,
+          baseAmount: studentFee.baseAmount,
+          discountAmount: numericValue,
+          discountType: type,
+          discountOperation: operation,
+          discountReason: studentFee.discountReason || 'Bulk Update',
+          finalAmount: 0, // Will be calculated by pre-save hook
+          paidAmount: 0,
+          remainingAmount: 0, // Will be calculated by pre-save hook
+          status: 'pending',
+          dueDate: studentFee.dueDate || new Date(new Date().getFullYear(), new Date().getMonth(), 20),
+          academicYear: studentFee.academicYear,
+          isActive: true,
+          createdBy: currentUser._id
+        });
       }
-
-      // Ensure new base is not negative
-      if (newBase < 0) newBase = 0;
-
-      // Update the baseAmount
-      studentFee.baseAmount = newBase;
-      // studentFee.updatedBy = currentUser._id; // Field not in schema, skipping to avoid confusion
-      studentFee.updatedAt = new Date();
-
-      // The pre('save') hook in StudentFee.js will handle finalAmount, remainingAmount, etc.
-      await studentFee.save();
       updatedCount++;
     }
 
