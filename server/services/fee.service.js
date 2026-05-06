@@ -7,6 +7,7 @@ const StudentFee = require('../models/StudentFee');
 const Admission = require('../models/Admission');
 const FeePayment = require('../models/FeePayment');
 const SuspenseEntry = require('../models/SuspenseEntry');
+const User = require('../models/User');
 const { ApiError } = require('../middleware/error.middleware');
 const { getInstitutionId, extractInstitutionId } = require('../utils/userUtils');
 const { generateReceiptNumber } = require('../utils/receiptUtils');
@@ -639,7 +640,7 @@ class FeeService {
           feeStructure: feeStructure._id,
           class: classId,
           feeHead: feeHeadId,
-          baseAmount: baseAmount,
+          baseAmount: appliedBaseAmount,
           discountAmount: appliedDiscount,
           discountType: appliedDiscountType,
           discountReason: appliedDiscountReason,
