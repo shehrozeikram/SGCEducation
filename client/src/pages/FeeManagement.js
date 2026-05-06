@@ -3123,8 +3123,10 @@ const FeeManagement = () => {
           response.data.data.feeStructures.forEach(fs => {
             if (!updatedFeeHeadDiscounts[fs.feeHead._id]) {
               updatedFeeHeadDiscounts[fs.feeHead._id] = {
+                baseAmount: fs.amount,
                 discount: 0,
                 discountType: 'amount',
+                discountOperation: 'decrease',
                 discountReason: ''
               };
             }
@@ -3214,8 +3216,10 @@ const FeeManagement = () => {
           const feeHeadId = (fee.feeHead?._id || fee.feeHead)?.toString();
           if (feeHeadId) {
             feeHeadDiscounts[feeHeadId] = {
+              baseAmount: fee.baseAmount,
               discount: fee.discountAmount !== undefined ? fee.discountAmount : 0,
               discountType: fee.discountType || 'amount',
+              discountOperation: fee.discountOperation || 'decrease',
               discountReason: fee.discountReason || ''
             };
           }
@@ -3291,14 +3295,15 @@ const FeeManagement = () => {
   };
 
   // Calculate final amount for a fee head
-  const calculateFinalAmount = (baseAmount, discount, discountType) => {
+  const calculateFinalAmount = (baseAmount, discount, discountType, operation = 'decrease') => {
     if (!discount || discount <= 0) return baseAmount;
     
     let finalAmount = baseAmount;
     if (discountType === 'percentage') {
-      finalAmount = baseAmount - (baseAmount * discount / 100);
+      const adjustment = (baseAmount * discount / 100);
+      finalAmount = operation === 'increase' ? baseAmount + adjustment : baseAmount - adjustment;
     } else {
-      finalAmount = baseAmount - discount;
+      finalAmount = operation === 'increase' ? baseAmount + parseFloat(discount) : baseAmount - parseFloat(discount);
     }
     return Math.max(0, finalAmount);
   };
@@ -7256,7 +7261,8 @@ const FeeManagement = () => {
                           <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                             <TableCell sx={{ fontWeight: 'bold' }}>Fee Head</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>Base Amount</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Discount</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Operation</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Discount/Increment</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>Type</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>Final Amount</TableCell>
                           </TableRow>
@@ -7266,14 +7272,27 @@ const FeeManagement = () => {
                             const feeHeadDiscount = assignFeeStructureForm.feeHeadDiscounts[fs.feeHead._id] || {
                               discount: 0,
                               discountType: 'amount',
+                              discountOperation: 'decrease',
                               discountReason: ''
                             };
-                            const finalAmount = calculateFinalAmount(fs.amount, parseFloat(feeHeadDiscount.discount) || 0, feeHeadDiscount.discountType);
+                            const currentBaseAmount = feeHeadDiscount.baseAmount !== undefined ? feeHeadDiscount.baseAmount : fs.amount;
+                            const finalAmount = calculateFinalAmount(currentBaseAmount, parseFloat(feeHeadDiscount.discount) || 0, feeHeadDiscount.discountType, feeHeadDiscount.discountOperation);
                             
                             return (
                               <TableRow key={fs._id}>
                                 <TableCell>{fs.feeHead.name}</TableCell>
-                                <TableCell align="right">Rs. {fs.amount.toLocaleString()}</TableCell>
+                                <TableCell align="right">Rs. {currentBaseAmount.toLocaleString()}</TableCell>
+                                <TableCell align="right">
+                                  <FormControl size="small" sx={{ minWidth: 80 }}>
+                                    <Select
+                                      value={feeHeadDiscount.discountOperation || 'decrease'}
+                                      onChange={(e) => handleFeeHeadDiscountChange(fs.feeHead._id, 'discountOperation', e.target.value)}
+                                    >
+                                      <MenuItem value="decrease">Decrease (-)</MenuItem>
+                                      <MenuItem value="increase">Increase (+)</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </TableCell>
                                 <TableCell align="right">
                                   <TextField
                                     size="small"
@@ -7297,7 +7316,7 @@ const FeeManagement = () => {
                                     </Select>
                                   </FormControl>
                                 </TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 'bold', color: finalAmount < fs.amount ? 'success.main' : 'inherit' }}>
+                                <TableCell align="right" sx={{ fontWeight: 'bold', color: finalAmount < currentBaseAmount ? 'success.main' : (finalAmount > currentBaseAmount ? 'error.main' : 'inherit') }}>
                                   Rs. {finalAmount.toLocaleString()}
                                 </TableCell>
                               </TableRow>
@@ -7324,7 +7343,7 @@ const FeeManagement = () => {
                             <TextField
                               fullWidth
                               size="small"
-                              label={`Reason for ${fs.feeHead.name} discount`}
+                              label={`Reason for ${fs.feeHead.name} ${feeHeadDiscount.discountOperation === 'increase' ? 'increment' : 'discount'}`}
                               value={feeHeadDiscount.discountReason || ''}
                               onChange={(e) => handleFeeHeadDiscountChange(fs.feeHead._id, 'discountReason', e.target.value)}
                               placeholder="Enter discount reason (optional)"

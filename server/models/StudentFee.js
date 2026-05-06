@@ -41,6 +41,11 @@ const studentFeeSchema = new mongoose.Schema({
     enum: ['amount', 'percentage'],
     default: 'amount'
   },
+  discountOperation: {
+    type: String,
+    enum: ['increase', 'decrease'],
+    default: 'decrease'
+  },
   discountReason: {
     type: String,
     trim: true
@@ -126,11 +131,14 @@ studentFeeSchema.pre('save', function() {
 
 // Calculate final amount before save
 studentFeeSchema.pre('save', function() {
-  if (this.isModified('baseAmount') || this.isModified('discountAmount') || this.isModified('discountType')) {
+  if (this.isModified('baseAmount') || this.isModified('discountAmount') || this.isModified('discountType') || this.isModified('discountOperation')) {
+    const operation = this.discountOperation || 'decrease';
+    
     if (this.discountType === 'percentage') {
-      this.finalAmount = this.baseAmount - (this.baseAmount * this.discountAmount / 100);
+      const adjustment = (this.baseAmount * this.discountAmount / 100);
+      this.finalAmount = operation === 'increase' ? this.baseAmount + adjustment : this.baseAmount - adjustment;
     } else {
-      this.finalAmount = this.baseAmount - this.discountAmount;
+      this.finalAmount = operation === 'increase' ? this.baseAmount + this.discountAmount : this.baseAmount - this.discountAmount;
     }
     // Ensure final amount is not negative
     if (this.finalAmount < 0) {

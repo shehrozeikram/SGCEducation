@@ -363,10 +363,10 @@ class FeeService {
     // Create StudentFee records for each fee structure
     const studentFees = [];
     for (const feeStructure of feeStructures) {
-      const baseAmount = feeStructure.amount || 0;
-      let finalAmount = baseAmount;
+      let appliedBaseAmount = feeStructure.amount || 0;
       let appliedDiscount = 0;
       let appliedDiscountType = discountType;
+      let appliedDiscountOperation = 'decrease';
       let appliedDiscountReason = discountReason;
 
       const feeHeadId = (feeStructure.feeHead._id || feeStructure.feeHead).toString();
@@ -374,27 +374,33 @@ class FeeService {
       // Check if there's a per-fee-head discount
       if (feeHeadDiscounts && feeHeadDiscounts[feeHeadId]) {
         const feeHeadDiscount = feeHeadDiscounts[feeHeadId];
+        appliedBaseAmount = feeHeadDiscount.baseAmount !== undefined ? parseFloat(feeHeadDiscount.baseAmount) : (feeStructure.amount || 0);
         appliedDiscount = parseFloat(feeHeadDiscount.discount) || 0;
         appliedDiscountType = feeHeadDiscount.discountType || 'amount';
+        appliedDiscountOperation = feeHeadDiscount.discountOperation || 'decrease';
         appliedDiscountReason = feeHeadDiscount.discountReason || discountReason;
       } else if (discount > 0) {
         // Fall back to global discount for backward compatibility
         appliedDiscount = parseFloat(discount) || 0;
         appliedDiscountType = discountType;
+        appliedDiscountOperation = 'decrease'; // Default for legacy global discount
         appliedDiscountReason = discountReason;
       }
 
-      // Apply discount
+      // Apply discount/increment
+      let finalAmount = appliedBaseAmount;
       if (appliedDiscount > 0) {
         if (appliedDiscountType === 'percentage') {
-          finalAmount = baseAmount - (baseAmount * appliedDiscount / 100);
+          const adjustment = (appliedBaseAmount * appliedDiscount / 100);
+          finalAmount = appliedDiscountOperation === 'increase' ? appliedBaseAmount + adjustment : appliedBaseAmount - adjustment;
         } else {
-          finalAmount = baseAmount - appliedDiscount;
+          finalAmount = appliedDiscountOperation === 'increase' ? appliedBaseAmount + appliedDiscount : appliedBaseAmount - appliedDiscount;
         }
         if (finalAmount < 0) {
           finalAmount = 0;
         }
       }
+
 
       // Set default due date (20th of current month, or next month if past 20th)
       const now = new Date();
@@ -409,9 +415,10 @@ class FeeService {
         feeStructure: feeStructure._id,
         class: classId,
         feeHead: feeHeadId,
-        baseAmount: baseAmount,
+        baseAmount: appliedBaseAmount,
         discountAmount: appliedDiscount,
         discountType: appliedDiscountType,
+        discountOperation: appliedDiscountOperation,
         discountReason: appliedDiscountReason,
         finalAmount: finalAmount,
         paidAmount: 0,
@@ -519,10 +526,10 @@ class FeeService {
     const updatedFees = [];
     
     for (const feeStructure of feeStructures) {
-      const baseAmount = feeStructure.amount || 0;
-      let finalAmount = baseAmount;
+      let appliedBaseAmount = feeStructure.amount || 0;
       let appliedDiscount = 0;
       let appliedDiscountType = discountType;
+      let appliedDiscountOperation = 'decrease';
       let appliedDiscountReason = discountReason;
 
       const feeHeadId = (feeStructure.feeHead._id || feeStructure.feeHead).toString();
@@ -532,19 +539,23 @@ class FeeService {
         const feeHeadDiscount = feeHeadDiscounts[feeHeadId];
         appliedDiscount = parseFloat(feeHeadDiscount.discount) || 0;
         appliedDiscountType = feeHeadDiscount.discountType || 'amount';
+        appliedDiscountOperation = feeHeadDiscount.discountOperation || 'decrease';
         appliedDiscountReason = feeHeadDiscount.discountReason || discountReason;
       } else if (discount > 0) {
         appliedDiscount = parseFloat(discount) || 0;
         appliedDiscountType = discountType;
+        appliedDiscountOperation = 'decrease'; // Default for legacy global discount
         appliedDiscountReason = discountReason;
       }
 
-      // Apply discount
+      // Apply discount/increment
+      let finalAmount = appliedBaseAmount;
       if (appliedDiscount > 0) {
         if (appliedDiscountType === 'percentage') {
-          finalAmount = baseAmount - (baseAmount * appliedDiscount / 100);
+          const adjustment = (appliedBaseAmount * appliedDiscount / 100);
+          finalAmount = appliedDiscountOperation === 'increase' ? appliedBaseAmount + adjustment : appliedBaseAmount - adjustment;
         } else {
-          finalAmount = baseAmount - appliedDiscount;
+          finalAmount = appliedDiscountOperation === 'increase' ? appliedBaseAmount + appliedDiscount : appliedBaseAmount - appliedDiscount;
         }
         if (finalAmount < 0) {
           finalAmount = 0;
@@ -570,9 +581,10 @@ class FeeService {
             existingFee._id,
             {
               $set: {
-                baseAmount: baseAmount,
+                baseAmount: appliedBaseAmount,
                 discountAmount: appliedDiscount,
                 discountType: appliedDiscountType,
+                discountOperation: appliedDiscountOperation,
                 discountReason: appliedDiscountReason,
                 finalAmount: finalAmount,
                 remainingAmount: newRemainingAmount,
@@ -601,9 +613,10 @@ class FeeService {
             feeStructure: feeStructure._id,
             class: classId,
             feeHead: feeHeadId,
-            baseAmount: baseAmount,
+            baseAmount: appliedBaseAmount,
             discountAmount: appliedDiscount,
             discountType: appliedDiscountType,
+            discountOperation: appliedDiscountOperation,
             discountReason: appliedDiscountReason,
             finalAmount: finalAmount,
             paidAmount: 0,
