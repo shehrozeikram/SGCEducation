@@ -949,16 +949,6 @@ const FeeManagement = () => {
               (Number(v.year) < Number(year)) || 
               (Number(v.year) === Number(year) && Number(v.month) < Number(month))
             );
-          } else {
-            // No vouchers - check dueDate or createdAt
-            // Monthly fees without vouchers are templates, not past debts
-            const isMonthly = f.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
-            if (!isMonthly) {
-              const feeDate = f.dueDate || f.createdAt;
-              if (feeDate && new Date(feeDate) < startDate) {
-                isPrevious = true;
-              }
-            }
           }
 
           if (isPrevious) {
@@ -1308,14 +1298,6 @@ const FeeManagement = () => {
                   (Number(v.year) < Number(targetYear)) || 
                   (Number(v.year) === Number(targetYear) && Number(v.month) < Number(targetMonth))
                 );
-              } else {
-                const isMonthly = f.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
-                if (!isMonthly) {
-                  const feeDate = f.dueDate || f.createdAt;
-                  if (feeDate && new Date(feeDate) < startDate) {
-                    isPrevious = true;
-                  }
-                }
               }
 
               if (isPrevious) {
@@ -1945,16 +1927,6 @@ const FeeManagement = () => {
                       (Number(v.year) < Number(voucherInfo.year)) || 
                       (Number(v.year) === Number(voucherInfo.year) && Number(v.month) < Number(voucherInfo.month))
                     );
-                  } else {
-                    // No vouchers - check dueDate or createdAt
-                    // Monthly fees without vouchers are templates, not past debts
-                    const isMonthly = f.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
-                    if (!isMonthly) {
-                      const feeDate = f.dueDate || f.createdAt;
-                      if (feeDate && new Date(feeDate) < startDate) {
-                        isPrevious = true;
-                      }
-                    }
                   }
 
                   if (isPrevious) {
@@ -2837,15 +2809,6 @@ const FeeManagement = () => {
                 const vYear = typeof v.year === 'string' ? parseInt(v.year, 10) : Number(v.year);
                 return (vYear < Number(year)) || (vYear === Number(year) && vMonth < Number(month));
               });
-            } else {
-              // No vouchers - check dueDate or createdAt
-              const isMonthly = f.feeHead?.frequencyType === 'Monthly Fee/Annual Fee';
-              if (!isMonthly) {
-                const feeDate = f.dueDate || f.createdAt;
-                if (feeDate && new Date(feeDate) < startDate) {
-                  isPrevious = true;
-                }
-              }
             }
 
             if (isPrevious) {
