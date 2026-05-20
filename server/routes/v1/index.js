@@ -16,7 +16,6 @@ const admissionRoutes = require('./admission.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const activityLogRoutes = require('./activityLog.routes');
 const notificationRoutes = require('./notification.routes');
-const reportRoutes = require('./report.routes');
 const systemSettingRoutes = require('./systemSetting.routes');
 const academicCalendarRoutes = require('./academicCalendar.routes');
 const messageRoutes = require('./message.routes');
@@ -26,7 +25,6 @@ const organizationRoutes = require('./organization.routes');
 const resultRoutes = require('./result.routes');
 const backupRoutes = require('./backup.routes');
 const roleRoutes = require('./role.routes');
-const reportController = require('../../controllers/report.controller');
 
 /**
  * API v1 Routes
@@ -47,8 +45,6 @@ router.use('/admissions', admissionRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/activity-logs', activityLogRoutes);
 router.use('/notifications', notificationRoutes);
-router.post('/reports/generate', reportController.generateInstantReport);
-router.use('/reports', reportRoutes);
 router.use('/settings', systemSettingRoutes);
 router.use('/calendar', academicCalendarRoutes);
 router.use('/messages', messageRoutes);

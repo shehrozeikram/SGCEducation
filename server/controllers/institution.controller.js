@@ -11,10 +11,10 @@ const { asyncHandler } = require('../middleware/error.middleware');
  * @access  Private (Super Admin sees all, others see own)
  */
 const getInstitutions = asyncHandler(async (req, res) => {
-  const { type, isActive, search } = req.query;
+  const { type, isActive, search, organization } = req.query;
 
   const institutions = await institutionService.getAllInstitutions(
-    { type, isActive, search },
+    { type, isActive, search, organization },
     req.user
   );
 

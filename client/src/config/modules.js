@@ -95,7 +95,6 @@ export const modules = [
   { name: 'Student Consultancy', icon: School, color: '#f093fb', route: null },
   { name: 'Franchise Management', icon: Business, color: '#4facfe', route: null },
   { name: 'Hostel Management', icon: Hotel, color: '#43e97b', route: null },
-  { name: 'Electronic Paper Generation', icon: Description, color: '#feca57', route: '/reports', permission: PERMISSIONS.REPORTS.VIEW },
   { name: 'Organization Management', icon: Business, color: '#f093fb', route: '/organizations', permission: PERMISSIONS.SYSTEM.MANAGE, superAdminOnly: true },
   { name: 'Campus Management', icon: Business, color: '#667eea', route: '/institutions', permission: PERMISSIONS.INSTITUTIONS.VIEW, superAdminOnly: true },
   { name: 'Backup', icon: CloudDownload, color: '#667eea', route: '/backup-management', permission: PERMISSIONS.SYSTEM.MANAGE, superAdminOnly: true },

@@ -414,7 +414,7 @@ const Dashboard = () => {
                         { label: 'Register Student', icon: <PersonAdd />, color: '#667eea', path: '/admissions/new' },
                         { label: 'Collect Fee', icon: <Payment />, color: '#10b981', path: '/fee-management?tab=fee-deposit' },
                         { label: 'Add Event', icon: <Event />, color: '#f093fb', path: '/calendar' },
-                        { label: 'Reports', icon: <Assessment />, color: '#4facfe', path: '/reports' }
+                        { label: 'Manage Users', icon: <People />, color: '#4facfe', path: '/users' }
                       ].map((action, i) => (
                         <Grid item xs={6} key={i}>
                           <Button

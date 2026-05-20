@@ -34,13 +34,17 @@ import {
   ToggleOff,
   Delete,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../config/api';
 import { useTablePagination } from '../hooks/useTablePagination';
 
 const Institutions = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const organizationId = searchParams.get('organizationId');
+  const orgName = searchParams.get('orgName');
+
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,14 +65,19 @@ const Institutions = () => {
 
   useEffect(() => {
     fetchInstitutions();
-  }, []);
+  }, [organizationId]); // Refetch when organizationId changes
 
   const fetchInstitutions = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const params = {};
+      if (organizationId) {
+        params.organization = organizationId;
+      }
       const response = await axios.get(getApiUrl('institutions'), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        params
       });
 
       setInstitutions(response.data.data);
@@ -149,31 +158,62 @@ const Institutions = () => {
         <Paper sx={{ p: 4 }}>
           {/* Header */}
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Box>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              Institutions
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage all schools and colleges
-            </Typography>
+            <Box>
+              <Typography variant="h4" gutterBottom fontWeight="bold">
+                {organizationId ? `Campuses` : `Institutions`}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {organizationId ? `Manage campuses under ${orgName}` : `Manage all schools and colleges`}
+              </Typography>
+            </Box>
+            <Box display="flex" gap={2}>
+              {organizationId && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setSearchParams({})}
+                  sx={{
+                    borderColor: '#667eea',
+                    color: '#667eea',
+                    fontWeight: 'bold',
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    px: 3,
+                    '&:hover': {
+                      borderColor: '#764ba2',
+                      backgroundColor: 'rgba(102, 126, 234, 0.04)',
+                    }
+                  }}
+                >
+                  View All Campuses
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => navigate(organizationId ? `/institutions/new?organizationId=${organizationId}` : '/institutions/new')}
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 3,
+                }}
+              >
+                Add Campus
+              </Button>
+            </Box>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/institutions/new')}
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            }}
-          >
-            Add Institution
-          </Button>
-        </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
+          {organizationId && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Currently displaying campuses belonging to organization: <strong>{orgName}</strong>
+            </Alert>
+          )}
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
 
         {/* Search */}
         <TextField

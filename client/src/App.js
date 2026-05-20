@@ -25,7 +25,6 @@ import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import Notifications from './pages/Notifications';
 import FeeManagement from './pages/FeeManagement';
-import Reports from './pages/Reports';
 import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Performance from './pages/Performance';
@@ -87,7 +86,6 @@ const ProtectedRoute = ({ children, title, permission }) => {
       '/users': 'Users',
       '/notifications': 'Notifications',
       '/fee-management': 'Fee Management',
-      '/reports': 'Reports',
       '/calendar': 'Academic Calendar',
       '/messages': 'Messages',
       '/performance': 'Performance',
@@ -441,14 +439,6 @@ function App() {
             element={
               <ProtectedRoute permission={PERMISSIONS.FEES.VIEW}>
                 <FeeManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute permission={PERMISSIONS.REPORTS.VIEW}>
-                <Reports />
               </ProtectedRoute>
             }
           />

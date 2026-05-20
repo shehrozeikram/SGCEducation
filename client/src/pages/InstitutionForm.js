@@ -104,6 +104,12 @@ const InstitutionForm = () => {
     fetchOrganizations();
     if (isEditMode) {
       fetchInstitution();
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      const organizationId = params.get('organizationId');
+      if (organizationId) {
+        setFormData(prev => ({ ...prev, organization: organizationId }));
+      }
     }
   }, [id]);
 

@@ -313,11 +313,31 @@ const Organizations = () => {
                         />
                       </TableCell>
                       <TableCell align="center">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => navigate(`/institutions?organizationId=${org._id}&orgName=${encodeURIComponent(org.name)}`)}
+                          startIcon={<School fontSize="small" />}
+                          sx={{ 
+                            mr: 1.5, 
+                            textTransform: 'none', 
+                            borderRadius: '20px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: '600',
+                            borderWidth: '1.5px',
+                            '&:hover': {
+                              borderWidth: '1.5px'
+                            }
+                          }}
+                        >
+                          Campus Management
+                        </Button>
                         <IconButton
                           size="small"
                           color="info"
                           onClick={() => handleViewInstitutions(org)}
-                          title="View Institutions"
+                          title="Quick View"
                         >
                           <Visibility fontSize="small" />
                         </IconButton>
