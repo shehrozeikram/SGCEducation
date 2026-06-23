@@ -39,15 +39,12 @@ async function syncEnrolledStudents() {
 
       for (const val of missingStudents) {
          try {
-           // 1. Create or Find User
-           let user = null;
-           const email = val.contactInfo?.email;
-           const generatedEmail = `${val.applicationNumber.toLowerCase().replace(/[^a-z0-9]/g, '')}@no-email.system`;
-           const userEmail = email || generatedEmail;
+            // 1. Create or Find User
+            const email = val.contactInfo?.email;
+            const generatedEmail = `${val.applicationNumber.toLowerCase().replace(/[^a-z0-9]/g, '')}.${val._id.toString()}@no-email.system`;
+            const userEmail = email || generatedEmail;
 
-           if (email) {
-             user = await User.findOne({ email: email });
-           }
+            let user = await User.findOne({ email: userEmail });
            
            if (!user) {
              user = await User.create({

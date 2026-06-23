@@ -19,7 +19,6 @@ const studentSchema = new mongoose.Schema({
   // Student Identification
   enrollmentNumber: {
     type: String,
-    unique: true,
     uppercase: true,
     trim: true
   },
@@ -297,6 +296,7 @@ studentSchema.pre('save', async function() {
 
 // Indexes for better query performance
 studentSchema.index({ user: 1 }, { unique: true });
+studentSchema.index({ enrollmentNumber: 1, institution: 1 }, { unique: true });
 studentSchema.index({ institution: 1 });
 studentSchema.index({ rollNumber: 1 });
 studentSchema.index({ status: 1 });

@@ -21,8 +21,8 @@ connectDB().then(async () => {
   // === DB MIGRATION: FIX DUPLICATE INDEXES ===
   // Check for the incorrect global unique index on applicationNumber and drop it
   try {
-    const collections = await mongoose.connection.db.listCollections({ name: 'admissions' }).toArray();
-    if (collections.length > 0) {
+    const admissionsCols = await mongoose.connection.db.listCollections({ name: 'admissions' }).toArray();
+    if (admissionsCols.length > 0) {
       const indexes = await mongoose.connection.db.collection('admissions').indexes();
       const needsDrop = indexes.find(idx => idx.name === 'applicationNumber_1');
       
@@ -31,7 +31,21 @@ connectDB().then(async () => {
         await mongoose.connection.db.collection('admissions').dropIndex('applicationNumber_1');
         console.log('✅ Index dropped successfully. Application numbers act unique per institution now.');
       } else {
-        console.log('✅ Database indexes verified. No incorrectly indexed fields found.');
+        console.log('✅ Database indexes verified for admissions.');
+      }
+    }
+
+    const studentsCols = await mongoose.connection.db.listCollections({ name: 'students' }).toArray();
+    if (studentsCols.length > 0) {
+      const indexes = await mongoose.connection.db.collection('students').indexes();
+      const needsDrop = indexes.find(idx => idx.name === 'enrollmentNumber_1');
+      
+      if (needsDrop) {
+        console.log('⚠️  Found incorrect global unique index "enrollmentNumber_1" on students. Dropping it to fix cross-institution enrollments...');
+        await mongoose.connection.db.collection('students').dropIndex('enrollmentNumber_1');
+        console.log('✅ Student enrollmentNumber unique index dropped successfully.');
+      } else {
+        console.log('✅ Database indexes verified for students.');
       }
     }
   } catch (idxError) {

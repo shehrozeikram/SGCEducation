@@ -59,21 +59,21 @@ async function repairLiveData() {
     let studentCount = 0;
     for (const val of missing) {
        try {
-         // Create User if needed
-         let user = null;
-         const email = val.contactInfo?.email;
-         const generatedEmail = `${val.applicationNumber.toString().toLowerCase().replace(/[^a-z0-9]/g, '')}@no-email.system`;
-         
-         if (email) user = await User.findOne({ email });
-         if (!user) {
-            user = await User.create({
-               name: val.personalInfo?.name || 'Student',
-               email: email || generatedEmail,
-               password: Math.random().toString(36).slice(-8),
-               role: 'student',
-               institution: val.institution
-            });
-         }
+          // Create User if needed
+          const email = val.contactInfo?.email;
+          const generatedEmail = `${val.applicationNumber.toString().toLowerCase().replace(/[^a-z0-9]/g, '')}.${val._id.toString()}@no-email.system`;
+          const userEmail = email || generatedEmail;
+          
+          let user = await User.findOne({ email: userEmail });
+          if (!user) {
+             user = await User.create({
+                name: val.personalInfo?.name || 'Student',
+                email: userEmail,
+                password: Math.random().toString(36).slice(-8),
+                role: 'student',
+                institution: val.institution
+             });
+          }
          
          await Student.create({
              user: user._id,

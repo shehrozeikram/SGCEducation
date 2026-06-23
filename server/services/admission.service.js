@@ -379,26 +379,24 @@ class AdmissionService {
       return existingStudent; // Return existing student instead of throwing error
     }
 
-    // Check if user already exists with this email (only if email is provided)
-    let user = null;
-    if (admission.contactInfo.email) {
-      user = await User.findOne({ email: admission.contactInfo.email });
-    }
+    // Determine the email to check/use (generate unique placeholder if missing)
+    const studentEmail = admission.contactInfo?.email || `${admission.applicationNumber.toLowerCase().replace(/[^a-z0-9]/g, '')}.${admission._id.toString()}@no-email.system`;
+
+    // Check if user already exists with this email
+    let user = await User.findOne({ email: studentEmail });
 
     if (user) {
       // Check if student already exists for this user
       const existingStudentWithUser = await Student.findOne({ user: user._id });
       
       if (existingStudentWithUser) {
-        throw new ApiError(400, `A student with email "${admission.contactInfo.email}" already exists. Please use a different email address.`);
+        throw new ApiError(400, `A student with email "${studentEmail}" already exists. Please use a different email address.`);
       }
     }
 
     if (!user) {
       // Create user account
       const tempPassword = Math.random().toString(36).slice(-8);
-      // Use provided email or generate a placeholder if missing
-      const studentEmail = admission.contactInfo.email || `${admission.applicationNumber.toLowerCase()}@no-email.system`;
 
       user = await User.create({
         name: admission.personalInfo.name || 'Student',
@@ -406,10 +404,10 @@ class AdmissionService {
         password: tempPassword,
         role: 'student',
         institution: admission.institution._id || admission.institution,
-        phone: admission.contactInfo.phone || '',
-        dateOfBirth: admission.personalInfo.dateOfBirth,
-        gender: admission.personalInfo.gender,
-        address: admission.contactInfo.currentAddress?.street || ''
+        phone: admission.contactInfo?.phone || '',
+        dateOfBirth: admission.personalInfo?.dateOfBirth,
+        gender: admission.personalInfo?.gender,
+        address: admission.contactInfo?.currentAddress?.street || ''
       });
     }
 
@@ -418,6 +416,7 @@ class AdmissionService {
       user: user._id,
       institution: admission.institution._id || admission.institution,
       admission: admission._id,
+      enrollmentNumber: admission.applicationNumber,
       admissionDate: admission.admissionDate || Date.now(),
       academicYear: admission.academicYear,
       program: admission.program,
