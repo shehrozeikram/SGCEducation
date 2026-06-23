@@ -816,21 +816,41 @@ class FeeService {
       throw new ApiError(404, 'No active students found');
     }
 
-    // Filter out students who are struck off BEFORE the voucher month ends
+    // Filter out students who are NOT currently enrolled or whose status changed to a non-enrolled status
+    // (e.g., struck_off, rejected, cancelled, suspended, etc.) BEFORE the voucher month ends
     const voucherEndDate = new Date(year, month, 0, 23, 59, 59, 999);
     students = students.filter(student => {
-      const isStruckOff = student.status === 'struck_off' || (student.admission && student.admission.status === 'struck_off');
-      if (isStruckOff && student.admission) {
-        // Sort history by changedAt descending to get the latest struck_off record if multiple exist
-        const history = student.admission.statusHistory ? [...student.admission.statusHistory].sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt)) : [];
-        const struckOffRecord = history.find(h => h.status === 'struck_off');
-        const struckOffDate = struckOffRecord && struckOffRecord.changedAt ? new Date(struckOffRecord.changedAt) : new Date(student.admission.updatedAt || new Date());
+      // If student does not have an admission record, they are not eligible
+      if (!student.admission) {
+        return false;
+      }
+
+      // If the student's admission status is NOT 'enrolled', find when it changed
+      if (student.admission.status !== 'enrolled') {
+        const currentStatus = student.admission.status;
         
-        // If struck off before the end of the voucher month, exclude
-        if (struckOffDate <= voucherEndDate) {
+        // Find the latest history entry for this non-enrolled status
+        const history = student.admission.statusHistory ? [...student.admission.statusHistory].sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt)) : [];
+        const statusChangeRecord = history.find(h => h.status === currentStatus);
+        
+        const changeDate = statusChangeRecord && statusChangeRecord.changedAt 
+          ? new Date(statusChangeRecord.changedAt) 
+          : new Date(student.admission.updatedAt || new Date());
+        
+        // If changed to a non-enrolled status before or during the voucher month, exclude
+        if (changeDate <= voucherEndDate) {
           return false;
         }
       }
+
+      // Also check student model level status for safety (e.g. struck_off, expelled)
+      if (student.status && student.status !== 'active') {
+        const studentChangeDate = new Date(student.updatedAt || new Date());
+        if (studentChangeDate <= voucherEndDate) {
+          return false;
+        }
+      }
+
       return true;
     });
 
