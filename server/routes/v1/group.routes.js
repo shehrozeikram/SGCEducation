@@ -3,7 +3,8 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const groupController = require('../../controllers/group.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 
 /**
  * Group Routes - API v1
@@ -24,17 +25,17 @@ const validateObjectId = (req, res, next) => {
 // All routes require authentication
 router.use(authenticate);
 
-// Routes accessible by all authenticated users
-router.get('/', groupController.getGroups);
-router.get('/:id', validateObjectId, groupController.getGroupById);
+// Routes accessible by users with academic view permission
+router.get('/', hasPermission(PERMISSIONS.ACADEMIC.VIEW), groupController.getGroups);
+router.get('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.VIEW), groupController.getGroupById);
 
-// Admin only routes
-router.post('/', isAdmin, groupController.createGroup);
-router.put('/:id', validateObjectId, isAdmin, groupController.updateGroup);
-router.delete('/:id', validateObjectId, isAdmin, groupController.deleteGroup);
-router.put('/:id/toggle-status', validateObjectId, isAdmin, groupController.toggleGroupStatus);
-router.post('/:id/members', validateObjectId, isAdmin, groupController.addMember);
-router.delete('/:id/members/:userId', validateObjectId, isAdmin, groupController.removeMember);
+// Admin only routes - requiring academic manage permission
+router.post('/', hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.createGroup);
+router.put('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.updateGroup);
+router.delete('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.deleteGroup);
+router.put('/:id/toggle-status', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.toggleGroupStatus);
+router.post('/:id/members', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.addMember);
+router.delete('/:id/members/:userId', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), groupController.removeMember);
 
 module.exports = router;
 

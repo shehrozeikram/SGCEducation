@@ -78,55 +78,87 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       Admission.countDocuments(studentNewAdmissionsFilter)
     ]);
 
-    // Finance counts
+    // Finance counts - vouchers are embedded in StudentFee.vouchers[] array
     const paymentMatch = { institution: { $in: selectedInstitutionIds }, status: 'completed' };
-    const feeMatch = { institution: { $in: selectedInstitutionIds }, isActive: true };
-    
     if (hasDates) {
       paymentMatch.paymentDate = { $gte: parsedStartDate, $lte: parsedEndDate };
-      feeMatch.createdAt = { $gte: parsedStartDate, $lte: parsedEndDate };
     }
-    
-    const [receivedAgg, generatedAgg, outstandingAgg] = await Promise.all([
+
+    // Build StudentFee pipeline to find records WITH generated vouchers
+    // When date filter exists, match vouchers whose generatedAt falls within range
+    const buildStudentFeeReceivablePipeline = (instFilter) => {
+      if (hasDates) {
+        // Unwind vouchers, filter by date, then de-dup by StudentFee _id
+        return [
+          { $match: { institution: instFilter, 'vouchers.0': { $exists: true } } },
+          { $unwind: '$vouchers' },
+          { $match: { 'vouchers.generatedAt': { $gte: parsedStartDate, $lte: parsedEndDate } } },
+          { $group: { _id: '$_id', finalAmount: { $first: '$finalAmount' }, remainingAmount: { $first: '$remainingAmount' }, paidAmount: { $first: '$paidAmount' } } },
+          { $group: { _id: null, totalReceivable: { $sum: '$finalAmount' }, totalRemaining: { $sum: '$remainingAmount' }, totalPaid: { $sum: '$paidAmount' } } }
+        ];
+      } else {
+        return [
+          { $match: { institution: instFilter, 'vouchers.0': { $exists: true } } },
+          { $group: { _id: null, totalReceivable: { $sum: '$finalAmount' }, totalRemaining: { $sum: '$remainingAmount' }, totalPaid: { $sum: '$paidAmount' } } }
+        ];
+      }
+    };
+
+    // Previous Receivable & Recovery: use FeeHead lookup to identify arrears-type heads
+    const buildArrearsPipeline = (instFilter) => {
+      const matchStage = { institution: instFilter, 'vouchers.0': { $exists: true } };
+      return [
+        { $match: matchStage },
+        {
+          $lookup: {
+            from: 'feeheads',
+            localField: 'feeHead',
+            foreignField: '_id',
+            as: 'feeHeadDoc'
+          }
+        },
+        { $unwind: { path: '$feeHeadDoc', preserveNullAndEmptyArrays: true } },
+        { $match: { 'feeHeadDoc.name': { $regex: 'arrears', $options: 'i' } } },
+        {
+          $group: {
+            _id: null,
+            totalPreviousReceivable: { $sum: '$finalAmount' },
+            totalRecovery: { $sum: '$paidAmount' }
+          }
+        }
+      ];
+    };
+
+    const [receivedAgg, studentFeeStats, arrearsStats] = await Promise.all([
       FeePayment.aggregate([
         { $match: paymentMatch },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]),
-      StudentFee.aggregate([
-        { $match: feeMatch },
-        { $group: { _id: null, total: { $sum: '$finalAmount' } } }
-      ]),
-      StudentFee.aggregate([
-        { $match: feeMatch },
-        { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
-      ])
+      StudentFee.aggregate(buildStudentFeeReceivablePipeline({ $in: selectedInstitutionIds })),
+      StudentFee.aggregate(buildArrearsPipeline({ $in: selectedInstitutionIds }))
     ]);
-    
+
     const totalReceived = receivedAgg[0]?.total || 0;
-    const totalFeesGenerated = generatedAgg[0]?.total || 0;
-    const totalReceivable = outstandingAgg[0]?.total || 0;
+    const totalReceivable = studentFeeStats[0]?.totalReceivable || 0;   // sum of finalAmount from StudentFees with vouchers
+    const totalRemaining = studentFeeStats[0]?.totalRemaining || 0;      // sum of remainingAmount (unpaid portion)
+    const previousReceivableVal = arrearsStats[0]?.totalPreviousReceivable || 0;
+    const recoveryVal = arrearsStats[0]?.totalRecovery || 0;
 
     // Campus Breakdown
     const campusBreakdown = await Promise.all(institutions.map(async (inst) => {
       const instId = inst._id;
-      
       const paymentMatchInst = { institution: instId, status: 'completed' };
-      const feeGeneratedMatchInst = { institution: instId, isActive: true };
-      const feeOutstandingMatchInst = { institution: instId, isActive: true };
-      
       if (hasDates) {
         paymentMatchInst.paymentDate = { $gte: parsedStartDate, $lte: parsedEndDate };
-        feeGeneratedMatchInst.createdAt = { $gte: parsedStartDate, $lte: parsedEndDate };
-        feeOutstandingMatchInst.createdAt = { $gte: parsedStartDate, $lte: parsedEndDate };
       }
-      
+
       const [
         totalStudentsCount,
         activeStudentsCount,
         newAdmissionsCount,
         instReceivedAgg,
-        instGeneratedAgg,
-        instOutstandingAgg
+        instStudentFeeStats,
+        instArrearsStats
       ] = await Promise.all([
         Admission.countDocuments({ institution: instId, ...(parsedEndDate ? { createdAt: { $lte: parsedEndDate } } : {}) }),
         Admission.countDocuments({ institution: instId, status: 'enrolled', ...(parsedEndDate ? { createdAt: { $lte: parsedEndDate } } : {}) }),
@@ -141,14 +173,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
           { $match: paymentMatchInst },
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]),
-        StudentFee.aggregate([
-          { $match: feeGeneratedMatchInst },
-          { $group: { _id: null, total: { $sum: '$finalAmount' } } }
-        ]),
-        StudentFee.aggregate([
-          { $match: feeOutstandingMatchInst },
-          { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
-        ])
+        // Total Receivable & Remaining from StudentFee.vouchers[]
+        StudentFee.aggregate(buildStudentFeeReceivablePipeline(instId)),
+        // Previous Receivable & Recovery via arrears feeHead lookup
+        StudentFee.aggregate(buildArrearsPipeline(instId))
       ]);
       
       return {
@@ -158,11 +186,14 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         totalStudents: totalStudentsCount,
         activeStudents: activeStudentsCount,
         newAdmissions: newAdmissionsCount,
-        feesGenerated: instGeneratedAgg[0]?.total || 0,
+        feesGenerated: instStudentFeeStats[0]?.totalReceivable || 0,   // total billed (finalAmount) from StudentFee with vouchers
         feesCollected: instReceivedAgg[0]?.total || 0,
-        outstandingDues: instOutstandingAgg[0]?.total || 0
+        outstandingDues: instStudentFeeStats[0]?.totalRemaining || 0,  // unpaid remaining
+        previousReceivable: instArrearsStats[0]?.totalPreviousReceivable || 0,
+        recovery: instArrearsStats[0]?.totalRecovery || 0
       };
     }));
+
 
     // Trends calculations for charts
     const paymentTrendMatch = { institution: { $in: selectedInstitutionIds }, status: 'completed' };
@@ -213,8 +244,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         },
         finance: {
           totalReceived,
-          totalReceivable,
-          totalGenerated: totalFeesGenerated,
+          totalReceivable,          // sum of billedAmount (generated vouchers)
+          totalRemaining,            // sum of remainingAmount (unpaid)
+          previousReceivable: previousReceivableVal,
+          recovery: recoveryVal,
           currency: 'PKR'
         },
         campusBreakdown,

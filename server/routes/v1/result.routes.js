@@ -3,7 +3,8 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const resultController = require('../../controllers/result.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 
 // Middleware to validate ObjectId format
 const validateObjectId = (req, res, next) => {
@@ -25,21 +26,21 @@ const validateObjectId = (req, res, next) => {
 router.use(authenticate);
 
 // Stats route - must be before /:id to avoid route conflicts
-router.get('/stats/overview', resultController.getResultStats);
+router.get('/stats/overview', hasPermission(PERMISSIONS.RESULTS.VIEW), resultController.getResultStats);
 
 // Specific routes - must come before parameterized routes
-router.get('/student/:studentId', resultController.getResultsByStudent);
-router.get('/class/:classId', resultController.getResultsByClass);
-router.post('/bulk', resultController.bulkCreateResults);
+router.get('/student/:studentId', hasPermission(PERMISSIONS.RESULTS.VIEW), resultController.getResultsByStudent);
+router.get('/class/:classId', hasPermission(PERMISSIONS.RESULTS.VIEW), resultController.getResultsByClass);
+router.post('/bulk', hasPermission(PERMISSIONS.RESULTS.MANAGE), resultController.bulkCreateResults);
 
 // Main routes
-router.get('/', resultController.getResults);
-router.post('/', resultController.createResult);
+router.get('/', hasPermission(PERMISSIONS.RESULTS.VIEW), resultController.getResults);
+router.post('/', hasPermission(PERMISSIONS.RESULTS.MANAGE), resultController.createResult);
 
 // Parameterized routes (must come after all specific routes)
-router.get('/:id', validateObjectId, resultController.getResultById);
-router.put('/:id', validateObjectId, resultController.updateResult);
-router.delete('/:id', validateObjectId, isAdmin, resultController.deleteResult);
-router.put('/:id/publish', validateObjectId, resultController.publishResult);
+router.get('/:id', validateObjectId, hasPermission(PERMISSIONS.RESULTS.VIEW), resultController.getResultById);
+router.put('/:id', validateObjectId, hasPermission(PERMISSIONS.RESULTS.MANAGE), resultController.updateResult);
+router.delete('/:id', validateObjectId, hasPermission(PERMISSIONS.RESULTS.MANAGE), resultController.deleteResult);
+router.put('/:id/publish', validateObjectId, hasPermission(PERMISSIONS.RESULTS.MANAGE), resultController.publishResult);
 
 module.exports = router;

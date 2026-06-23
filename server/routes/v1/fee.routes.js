@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const feeController = require('../../controllers/fee.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isAdmin, hasPermission } = require('../../middleware/rbac.middleware');
+const { isAdmin, hasPermission, hasAnyPermission } = require('../../middleware/rbac.middleware');
 const { PERMISSIONS } = require('../../utils/constants');
 
 /**
@@ -14,32 +14,32 @@ const { PERMISSIONS } = require('../../utils/constants');
 router.use(authenticate);
 
 // Fee structure routes
-router.get('/structures/matrix', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getFeeStructureMatrix);
-router.get('/structures/class/:classId', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getFeeStructureByClass);
-router.post('/structures/bulk-save', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.bulkSaveFeeStructure);
-router.post('/bulk-update', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.bulkUpdateStudentFees);
+router.get('/structures/matrix', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getFeeStructureMatrix);
+router.get('/structures/class/:classId', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getFeeStructureByClass);
+router.post('/structures/bulk-save', hasAnyPermission(PERMISSIONS.FEES.MANAGE), feeController.bulkSaveFeeStructure);
+router.post('/bulk-update', hasAnyPermission(PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.EDIT_VOUCHER), feeController.bulkUpdateStudentFees);
 
 // Student fee assignment routes
-router.get('/students/without-fee-structure', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getStudentsWithoutFeeStructure);
-router.post('/assign-structure', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.assignFeeStructure);
-router.put('/update-structure', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.updateFeeStructure);
-router.get('/student-fees', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getStudentFees);
-router.post('/generate-vouchers', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.generateVouchers);
+router.get('/students/without-fee-structure', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getStudentsWithoutFeeStructure);
+router.post('/assign-structure', hasAnyPermission(PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.EDIT_VOUCHER), feeController.assignFeeStructure);
+router.put('/update-structure', hasAnyPermission(PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.EDIT_VOUCHER), feeController.updateFeeStructure);
+router.get('/student-fees', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.VIEW_VOUCHER, PERMISSIONS.FEES.PRINT_VOUCHER), feeController.getStudentFees);
+router.post('/generate-vouchers', hasAnyPermission(PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.GENERATE_VOUCHER), feeController.generateVouchers);
 
 // Payment routes
-router.post('/record-payment', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.recordPayment);
-router.get('/outstanding-balances', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getOutstandingBalances);
-router.get('/payments', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getPayments);
-router.delete('/payments/bulk', hasPermission(PERMISSIONS.FEES.DELETE), feeController.bulkReversePayments);
-router.delete('/payments/:paymentId', hasPermission(PERMISSIONS.FEES.DELETE), feeController.reversePayment);
+router.post('/record-payment', hasAnyPermission(PERMISSIONS.FEES.MANAGE, PERMISSIONS.FEES.SUBMIT_VOUCHER), feeController.recordPayment);
+router.get('/outstanding-balances', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getOutstandingBalances);
+router.get('/payments', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getPayments);
+router.delete('/payments/bulk', hasAnyPermission(PERMISSIONS.FEES.DELETE, PERMISSIONS.FEES.DELETE_VOUCHER), feeController.bulkReversePayments);
+router.delete('/payments/:paymentId', hasAnyPermission(PERMISSIONS.FEES.DELETE, PERMISSIONS.FEES.DELETE_VOUCHER), feeController.reversePayment);
 
 // Voucher routes
-router.delete('/vouchers', hasPermission(PERMISSIONS.FEES.DELETE), feeController.deleteVoucher);
+router.delete('/vouchers', hasAnyPermission(PERMISSIONS.FEES.DELETE, PERMISSIONS.FEES.DELETE_VOUCHER), feeController.deleteVoucher);
 
 // Suspense management routes
-router.get('/suspense', hasPermission(PERMISSIONS.FEES.VIEW), feeController.getSuspenseEntries);
-router.post('/suspense', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.recordSuspenseEntry);
-router.post('/suspense/reconcile', hasPermission(PERMISSIONS.FEES.MANAGE), feeController.reconcileSuspenseEntry);
-router.delete('/suspense/:id', hasPermission(PERMISSIONS.FEES.DELETE), feeController.deleteSuspenseEntry);
+router.get('/suspense', hasAnyPermission(PERMISSIONS.FEES.VIEW, PERMISSIONS.FEES.MANAGE), feeController.getSuspenseEntries);
+router.post('/suspense', hasAnyPermission(PERMISSIONS.FEES.MANAGE), feeController.recordSuspenseEntry);
+router.post('/suspense/reconcile', hasAnyPermission(PERMISSIONS.FEES.MANAGE), feeController.reconcileSuspenseEntry);
+router.delete('/suspense/:id', hasAnyPermission(PERMISSIONS.FEES.DELETE, PERMISSIONS.FEES.DELETE_VOUCHER), feeController.deleteSuspenseEntry);
 
 module.exports = router;

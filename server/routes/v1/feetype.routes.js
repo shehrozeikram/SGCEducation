@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const feeTypeController = require('../../controllers/feetype.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 
 /**
  * FeeType Routes - API v1
@@ -12,11 +13,11 @@ const { isAdmin } = require('../../middleware/rbac.middleware');
 // All routes require authentication
 router.use(authenticate);
 
-// Routes accessible by all authenticated users
-router.get('/', feeTypeController.getFeeTypes);
+// Routes accessible by users with fee view permission
+router.get('/', hasPermission(PERMISSIONS.FEES.VIEW), feeTypeController.getFeeTypes);
 
-// Admin only routes
-router.post('/', isAdmin, feeTypeController.createFeeType);
+// Admin/finance manager routes - requiring fee manage permission
+router.post('/', hasPermission(PERMISSIONS.FEES.MANAGE), feeTypeController.createFeeType);
 
 module.exports = router;
 

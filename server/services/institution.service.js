@@ -50,7 +50,11 @@ class InstitutionService {
     }
 
     // Check access permissions
-    if (currentUser.role !== 'super_admin' && institution._id.toString() !== currentUser.institution?.toString()) {
+    const userInstitutionId = currentUser.institution?._id
+      ? currentUser.institution._id.toString()
+      : currentUser.institution?.toString();
+
+    if (currentUser.role !== 'super_admin' && institution._id.toString() !== userInstitutionId) {
       throw new ApiError(403, 'Access denied to this institution');
     }
 
@@ -221,7 +225,11 @@ class InstitutionService {
    */
   async getInstitutionStats(institutionId, currentUser) {
     // Check access
-    if (currentUser.role !== 'super_admin' && institutionId !== currentUser.institution?.toString()) {
+    const userInstitutionId = currentUser.institution?._id
+      ? currentUser.institution._id.toString()
+      : currentUser.institution?.toString();
+
+    if (currentUser.role !== 'super_admin' && institutionId !== userInstitutionId) {
       throw new ApiError(403, 'Access denied to this institution');
     }
 

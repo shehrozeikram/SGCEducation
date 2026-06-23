@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const systemSettingController = require('../../controllers/systemSetting.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isSuperAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 
 router.use(authenticate);
 
@@ -11,11 +12,11 @@ router.get('/', systemSettingController.getAllSettings);
 router.get('/by-category', systemSettingController.getSettingsByCategory);
 router.get('/:key', systemSettingController.getSetting);
 
-// Super Admin only routes
-router.post('/', isSuperAdmin, systemSettingController.createSetting);
-router.put('/:key', isSuperAdmin, systemSettingController.updateSetting);
-router.put('/', isSuperAdmin, systemSettingController.updateMultipleSettings);
-router.delete('/:key', isSuperAdmin, systemSettingController.deleteSetting);
-router.post('/initialize', isSuperAdmin, systemSettingController.initializeDefaults);
+// Super Admin / System manage routes
+router.post('/', hasPermission(PERMISSIONS.SYSTEM.MANAGE), systemSettingController.createSetting);
+router.put('/:key', hasPermission(PERMISSIONS.SYSTEM.MANAGE), systemSettingController.updateSetting);
+router.put('/', hasPermission(PERMISSIONS.SYSTEM.MANAGE), systemSettingController.updateMultipleSettings);
+router.delete('/:key', hasPermission(PERMISSIONS.SYSTEM.MANAGE), systemSettingController.deleteSetting);
+router.post('/initialize', hasPermission(PERMISSIONS.SYSTEM.MANAGE), systemSettingController.initializeDefaults);
 
 module.exports = router;

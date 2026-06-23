@@ -15,6 +15,11 @@ const FeeVoucher = require('../models/FeeVoucher');
 const FeePayment = require('../models/FeePayment');
 const Result = require('../models/Result');
 
+const getInstitutionId = (user) => {
+  if (!user || !user.institution) return null;
+  return user.institution._id ? user.institution._id.toString() : user.institution.toString();
+};
+
 /**
  * Admission Service - Handles admission-related business logic
  */
@@ -139,7 +144,7 @@ class AdmissionService {
 
     // Check access permissions
     if (currentUser.role !== 'super_admin' &&
-        admission.institution._id.toString() !== currentUser.institution?.toString()) {
+        admission.institution._id.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'Access denied to this admission');
     }
 
@@ -201,7 +206,7 @@ class AdmissionService {
 
     // Check permissions
     if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
+        admission.institution.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'You can only update admissions in your institution');
     }
 
@@ -288,7 +293,7 @@ class AdmissionService {
     }
 
     if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
+        admission.institution.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'You can only update admissions in your institution');
     }
 
@@ -309,7 +314,16 @@ class AdmissionService {
     await admission.save();
   
     // Handle status-specific actions
-    if (status === 'struck_off' && admission.studentId) {
+    if (status === 'enrolled' && (oldStatus !== 'enrolled' || !admission.studentId)) {
+      try {
+        await admission.populate('institution');
+        const student = await this._createStudentFromAdmission(admission, currentUser);
+        admission.studentId = student._id;
+        await admission.save();
+      } catch (err) {
+        console.error('Error creating student during manual status update:', err);
+      }
+    } else if (status === 'struck_off' && admission.studentId) {
       await Student.findByIdAndUpdate(admission.studentId, {
         status: 'struck_off',
         remarks: remarks || 'Struck off from admission register'
@@ -446,7 +460,7 @@ class AdmissionService {
     }
 
     if (currentUser.role !== 'super_admin' &&
-        admission.institution._id.toString() !== currentUser.institution?.toString()) {
+        admission.institution._id.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'Access denied');
     }
 
@@ -503,7 +517,7 @@ class AdmissionService {
 
     // Check permissions
     if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
+        admission.institution.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'You can only delete admissions in your institution');
     }
 
@@ -540,7 +554,7 @@ class AdmissionService {
 
     // Check permissions
     if (currentUser.role !== 'super_admin' &&
-        admission.institution.toString() !== currentUser.institution?.toString()) {
+        admission.institution.toString() !== getInstitutionId(currentUser)) {
       throw new ApiError(403, 'You can only delete admissions in your institution');
     }
 
@@ -2215,7 +2229,7 @@ class AdmissionService {
 
         // Check permissions for non-super admins
         if (currentUser.role !== 'super_admin' &&
-            admission.institution.toString() !== currentUser.institution?.toString()) {
+            admission.institution.toString() !== getInstitutionId(currentUser)) {
           results.errors.push({
             admissionId,
             error: 'Access denied to this admission'
@@ -2284,7 +2298,7 @@ class AdmissionService {
 
         // Check permissions for non-super admins
         if (currentUser.role !== 'super_admin' &&
-            admission.institution.toString() !== currentUser.institution?.toString()) {
+            admission.institution.toString() !== getInstitutionId(currentUser)) {
           results.errors.push({
             admissionId,
             error: 'Access denied to this admission'
@@ -2357,7 +2371,7 @@ class AdmissionService {
 
         // Check permissions for non-super admins
         if (currentUser.role !== 'super_admin' &&
-            admission.institution.toString() !== currentUser.institution?.toString()) {
+            admission.institution.toString() !== getInstitutionId(currentUser)) {
           results.errors.push({
             admissionId,
             error: 'Access denied to this admission'
@@ -2391,7 +2405,8 @@ class AdmissionService {
         }
         
         // If enrolling (status changed to 'enrolled'), create Student record
-        if (status === 'enrolled' && oldStatus !== 'enrolled') {
+        // Also create it if it was already marked as enrolled but is missing a studentId
+        if (status === 'enrolled' && (oldStatus !== 'enrolled' || !admission.studentId)) {
           try {
             // Populate institution for student creation
             await admission.populate('institution');

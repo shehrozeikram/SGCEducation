@@ -87,7 +87,7 @@ class FeeHeadService {
     // Check access permissions
     if (currentUser.role !== 'super_admin') {
       if (feeHead.institution && 
-          feeHead.institution._id.toString() !== currentUser.institution?.toString()) {
+          feeHead.institution._id.toString() !== getInstitutionId(currentUser)?.toString()) {
         throw new ApiError(403, 'Access denied to this fee head');
       }
     }
@@ -149,7 +149,7 @@ class FeeHeadService {
     // Check permissions
     if (currentUser.role !== 'super_admin') {
       if (feeHead.institution && 
-          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+          feeHead.institution.toString() !== getInstitutionId(currentUser)?.toString()) {
         throw new ApiError(403, 'You can only update fee heads in your institution');
       }
     }
@@ -195,7 +195,7 @@ class FeeHeadService {
     // Check permissions
     if (currentUser.role !== 'super_admin') {
       if (feeHead.institution && 
-          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+          feeHead.institution.toString() !== getInstitutionId(currentUser)?.toString()) {
         throw new ApiError(403, 'You can only delete fee heads in your institution');
       }
     }
@@ -220,7 +220,7 @@ class FeeHeadService {
     // Check permissions
     if (currentUser.role !== 'super_admin') {
       if (feeHead.institution && 
-          feeHead.institution.toString() !== currentUser.institution?.toString()) {
+          feeHead.institution.toString() !== getInstitutionId(currentUser)?.toString()) {
         throw new ApiError(403, 'You can only reactivate fee heads in your institution');
       }
     }

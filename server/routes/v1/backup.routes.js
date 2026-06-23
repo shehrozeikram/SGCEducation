@@ -2,20 +2,21 @@ const express = require('express');
 const router = express.Router();
 const backupController = require('../../controllers/backup.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isSuperAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 const multer = require('multer');
 
 /**
  * Backup Routes - API v1
  * Base path: /api/v1/backups
- * All routes require Super Admin access
+ * All routes require System Manage access
  */
 
 // Use memory storage for backup restore
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(authenticate);
-router.use(isSuperAdmin);
+router.use(hasPermission(PERMISSIONS.SYSTEM.MANAGE));
 
 // Download backup as ZIP
 router.post('/download', backupController.downloadBackup);

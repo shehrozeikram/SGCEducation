@@ -3,7 +3,8 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const sectionController = require('../../controllers/section.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
-const { isAdmin } = require('../../middleware/rbac.middleware');
+const { hasPermission } = require('../../middleware/rbac.middleware');
+const { PERMISSIONS } = require('../../utils/constants');
 
 /**
  * Section Routes - API v1
@@ -24,15 +25,15 @@ const validateObjectId = (req, res, next) => {
 // All routes require authentication
 router.use(authenticate);
 
-// Routes accessible by all authenticated users
-router.get('/', sectionController.getSections);
-router.get('/:id', validateObjectId, sectionController.getSectionById);
+// Routes accessible by users with academic view permission
+router.get('/', hasPermission(PERMISSIONS.ACADEMIC.VIEW), sectionController.getSections);
+router.get('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.VIEW), sectionController.getSectionById);
 
-// Admin only routes
-router.post('/', isAdmin, sectionController.createSection);
-router.put('/:id', validateObjectId, isAdmin, sectionController.updateSection);
-router.delete('/:id', validateObjectId, isAdmin, sectionController.deleteSection);
-router.put('/:id/toggle-status', validateObjectId, isAdmin, sectionController.toggleSectionStatus);
+// Admin only routes - requiring academic manage permission
+router.post('/', hasPermission(PERMISSIONS.ACADEMIC.MANAGE), sectionController.createSection);
+router.put('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), sectionController.updateSection);
+router.delete('/:id', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), sectionController.deleteSection);
+router.put('/:id/toggle-status', validateObjectId, hasPermission(PERMISSIONS.ACADEMIC.MANAGE), sectionController.toggleSectionStatus);
 
 module.exports = router;
 

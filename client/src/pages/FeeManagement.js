@@ -2062,7 +2062,7 @@ const FeeManagement = () => {
       fees = fees.filter(fee => {
         const calculated = (fee.finalAmount || 0) - (fee.paidAmount || 0);
         const remaining = calculated > 0 ? calculated : 0;
-        return remaining > 0.01 && fee.status !== 'paid';
+        return remaining > 0.01;
       });
       
       // Determine the reference month/year from the selected voucher.
@@ -2175,26 +2175,16 @@ const FeeManagement = () => {
     }
     
     setSelectedManualDepositStudent(student);
-    // Get student ID from admission
-    // Use originalAdmissionId if available (for voucher rows), otherwise use _id
-    const admissionId = student.originalAdmissionId || student._id;
-    if (admissionId) {
-      // Try to get actual student ID from admission
-      try {
-        const admissionResponse = await axios.get(`${API_URL}/admissions/${admissionId}`, createAxiosConfig());
-        const admission = admissionResponse.data.data;
-        const studentId = admission?.studentId?._id || admission?.studentId;
-        if (studentId) {
-          // If a specific voucher is selected (not from search), use that voucher number
-          // Otherwise, if voucher number was used in search, pass it to filter fees
-          const voucherNumber = student.lastVoucher && student.lastVoucher !== 'N/A' 
-            ? student.lastVoucher 
-            : (manualDepositSearch.voucherNumber || null);
-          await fetchOutstandingFees(studentId, voucherNumber);
-        }
-      } catch (err) {
-        console.error('Error fetching student ID:', err);
-      }
+    
+    const studentId = student.studentId;
+    if (studentId) {
+      const voucherNumber = student.lastVoucher && student.lastVoucher !== 'N/A' 
+        ? student.lastVoucher 
+        : (manualDepositSearch.voucherNumber || null);
+      await fetchOutstandingFees(studentId, voucherNumber);
+    } else {
+      console.error('No studentId found on selected student:', student);
+      notifyError('Could not find student record associated with this admission.');
     }
   };
 
