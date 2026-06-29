@@ -19,7 +19,8 @@ import {
   CircularProgress,
   Switch,
   FormControlLabel,
-  Tooltip
+  Tooltip,
+  MenuItem
 } from '@mui/material';
 import { Add, Edit, Delete } from '@mui/icons-material';
 import axios from 'axios';
@@ -31,11 +32,13 @@ const API_URL = getApiBaseUrl();
 
 const BankAccounts = () => {
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
   const [formData, setFormData] = useState({
+    institutions: [],
     bankName: '',
     accountNumber: '',
     accountTitle: '',
@@ -47,7 +50,17 @@ const BankAccounts = () => {
 
   useEffect(() => {
     fetchBankAccounts();
+    fetchInstitutions();
   }, []);
+
+  const fetchInstitutions = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/institutions`, createAxiosConfig());
+      setInstitutions(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching institutions:', error);
+    }
+  };
 
   const fetchBankAccounts = async () => {
     try {
@@ -68,6 +81,7 @@ const BankAccounts = () => {
     if (account) {
       setEditingId(account._id);
       setFormData({
+        institutions: account.institutions?.map(inst => typeof inst === 'object' ? inst._id : inst) || [],
         bankName: account.bankName,
         accountNumber: account.accountNumber,
         accountTitle: account.accountTitle,
@@ -77,6 +91,7 @@ const BankAccounts = () => {
     } else {
       setEditingId(null);
       setFormData({
+        institutions: [],
         bankName: '',
         accountNumber: '',
         accountTitle: '',
@@ -157,6 +172,7 @@ const BankAccounts = () => {
           <TableHead>
             <TableRow sx={{ bgcolor: '#f5f5f5' }}>
               <TableCell sx={{ fontWeight: 'bold' }}>Bank Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Campuses</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Account Title</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Account Number</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Branch Code</TableCell>
@@ -167,13 +183,13 @@ const BankAccounts = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : bankAccounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                   <Typography color="textSecondary">No bank accounts found</Typography>
                 </TableCell>
               </TableRow>
@@ -181,6 +197,14 @@ const BankAccounts = () => {
               bankAccounts.map((account) => (
                 <TableRow key={account._id} hover>
                   <TableCell>{account.bankName}</TableCell>
+                  <TableCell>
+                    {(account.institutions || []).map((inst, index) => (
+                      <Typography key={index} variant="body2" sx={{ display: 'inline-block', mr: 1, bgcolor: '#e2e8f0', px: 1, borderRadius: 1, fontSize: '0.75rem' }}>
+                        {inst.name || inst.code || 'Campus'}
+                      </Typography>
+                    ))}
+                    {(!account.institutions || account.institutions.length === 0) && '-'}
+                  </TableCell>
                   <TableCell>{account.accountTitle}</TableCell>
                   <TableCell>{account.accountNumber}</TableCell>
                   <TableCell>{account.branchCode || '-'}</TableCell>
@@ -221,6 +245,27 @@ const BankAccounts = () => {
             {editingId ? 'Edit Bank Account' : 'Add New Bank Account'}
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
+            <TextField
+              select
+              SelectProps={{ multiple: true }}
+              margin="dense"
+              name="institutions"
+              label="Assigned Campuses"
+              fullWidth
+              value={formData.institutions}
+              onChange={handleChange}
+              sx={{ mb: 2 }}
+              SelectProps={{
+                multiple: true,
+                renderValue: (selected) => selected.map(id => institutions.find(i => i._id === id)?.name || id).join(', ')
+              }}
+            >
+              {institutions.map((inst) => (
+                <MenuItem key={inst._id} value={inst._id}>
+                  {inst.name}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               margin="dense"
               name="bankName"

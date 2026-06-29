@@ -512,7 +512,12 @@ const FeeManagement = () => {
   // Fetch bank accounts
   const fetchBankAccounts = async () => {
     try {
-      const response = await axios.get(`${API_URL}/bank-accounts`, createAxiosConfig());
+      const institutionId = getInstitutionIdUtil(user, isSuperAdmin);
+      const params = {};
+      if (institutionId) {
+        params.institution = institutionId;
+      }
+      const response = await axios.get(`${API_URL}/bank-accounts`, createAxiosConfig({ params }));
       setBankAccounts(response.data.data || []);
     } catch (err) {
       console.error('Error fetching bank accounts:', err);

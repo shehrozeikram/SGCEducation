@@ -20,10 +20,10 @@ const bankAccountSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  institution: {
+  institutions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Institution'
-  },
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -38,6 +38,6 @@ const bankAccountSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
-bankAccountSchema.index({ institution: 1, isActive: 1 });
+bankAccountSchema.index({ institutions: 1, isActive: 1 });
 
 module.exports = mongoose.model('BankAccount', bankAccountSchema);

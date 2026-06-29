@@ -14,9 +14,9 @@ exports.getBankAccounts = async (req, res, next) => {
     // Build query based on user role and filters
     const query = {};
     if (req.user.role !== 'super_admin' && institutionId) {
-      query.institution = institutionId;
+      query.institutions = institutionId;
     } else if (req.query.institution) {
-      query.institution = req.query.institution;
+      query.institutions = req.query.institution;
     }
 
     if (req.query.isActive !== undefined) {
@@ -27,7 +27,7 @@ exports.getBankAccounts = async (req, res, next) => {
     }
 
     const bankAccounts = await BankAccount.find(query)
-      .populate('institution', 'name code')
+      .populate('institutions', 'name code')
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
@@ -49,7 +49,7 @@ exports.getBankAccounts = async (req, res, next) => {
 exports.getBankAccount = async (req, res, next) => {
   try {
     const bankAccount = await BankAccount.findById(req.params.id)
-      .populate('institution', 'name code')
+      .populate('institutions', 'name code')
       .populate('createdBy', 'name email');
 
     if (!bankAccount) {
@@ -76,7 +76,15 @@ exports.createBankAccount = async (req, res, next) => {
     if (req.user.role !== 'super_admin') {
       const institutionId = getInstitutionId(req.user);
       if (institutionId) {
-        req.body.institution = institutionId;
+        // Only override if the user didn't specify or if they are not allowed to set multiple
+        req.body.institutions = [institutionId];
+      }
+    } else {
+      // Ensure institutions is an array
+      if (req.body.institutions && !Array.isArray(req.body.institutions)) {
+        req.body.institutions = [req.body.institutions];
+      } else if (!req.body.institutions) {
+        req.body.institutions = [];
       }
     }
 
@@ -105,6 +113,19 @@ exports.updateBankAccount = async (req, res, next) => {
 
     if (!bankAccount) {
       throw new ApiError(404, `Bank account not found with id of ${req.params.id}`);
+    }
+
+    // If not super admin, ensure they can't change the institutions array to ones they don't own
+    if (req.user.role !== 'super_admin') {
+      const institutionId = getInstitutionId(req.user);
+      if (institutionId && req.body.institutions) {
+         req.body.institutions = [institutionId];
+      }
+    } else {
+      // Ensure institutions is an array
+      if (req.body.institutions && !Array.isArray(req.body.institutions)) {
+        req.body.institutions = [req.body.institutions];
+      }
     }
 
     bankAccount = await BankAccount.findByIdAndUpdate(req.params.id, req.body, {

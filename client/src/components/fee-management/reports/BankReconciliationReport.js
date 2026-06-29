@@ -46,7 +46,16 @@ const BankReconciliationReport = ({ onBack }) => {
   useEffect(() => {
     const fetchBankAccounts = async () => {
       try {
-        const response = await axios.get(`${API_URL}/bank-accounts`, createAxiosConfig());
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isSuperAdmin = savedUser?.role === 'super_admin';
+        const institutionId = getInstitutionId(savedUser, isSuperAdmin);
+        
+        const params = {};
+        if (institutionId) {
+          params.institution = institutionId;
+        }
+
+        const response = await axios.get(`${API_URL}/bank-accounts`, createAxiosConfig({ params }));
         setBankAccounts(response.data.data || []);
       } catch (err) {
         console.error('Error fetching bank accounts:', err);
