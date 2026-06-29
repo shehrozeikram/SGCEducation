@@ -7197,79 +7197,162 @@ const FeeManagement = () => {
                             <Typography sx={{ fontSize: '0.7rem' }}>{data.institution?.address?.city || 'City'}</Typography>
                           </Box>
                           
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Box sx={{ border: '1px solid #000', px: 1, fontWeight: 'bold' }}>
-                              Due Date: {data.dueDate ? new Date(data.dueDate).toLocaleDateString('en-GB') : 'N/A'}
-                            </Box>
-                            <Box sx={{ border: '1px solid #000', px: 1, fontWeight: 'bold' }}>
-                              Expiry Date: {data.expiryDate ? new Date(data.expiryDate).toLocaleDateString('en-GB') : 'N/A'}
-                            </Box>
-                          </Box>
-                          
-                          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '0.7rem' }}>
+                          {/* Voucher Details Table */}
+                          <table style={{ width: '100%', border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '0.65rem' }}>
                             <tbody>
                               <tr>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '30%' }}>Student Name:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.studentName}</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '20%' }}>Roll No:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.rollNumber}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '35%' }}>Voucher No:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.voucherNo}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '25%' }}>Roll No:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.rollNo}</td>
                               </tr>
                               <tr>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Father Name:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.fatherName}</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Adm No:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.admissionNumber}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Fee Month:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.feeMonth}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Valid Date:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.validDate}</td>
+                              </tr>
+                              <tr>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Issue Date:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.issueDate}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Due Date:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.dueDate}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+
+                          {/* Student Details Table */}
+                          <table style={{ width: '100%', border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '0.65rem' }}>
+                            <tbody>
+                              <tr>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '35%' }}>Student Id:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }} colSpan={3}>{data.studentId}</td>
+                              </tr>
+                              <tr>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Adm/Reg #:</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }} colSpan={3}>{data.admissionNo}</td>
+                              </tr>
+                              <tr>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }} colSpan={4}>
+                                  {data.name}
+                                </td>
                               </tr>
                               <tr>
                                 <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Class:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.className}</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Section:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{data.sectionName}</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px' }} colSpan={3}>{data.class}</td>
                               </tr>
                             </tbody>
                           </table>
-                          
-                          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '0.7rem' }}>
+
+                          {/* Fee Breakdown Table */}
+                          <table style={{ width: '100%', border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '0.65rem' }}>
                             <thead>
                               <tr style={{ backgroundColor: '#f0f0f0' }}>
-                                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left' }}>S#</th>
-                                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left' }}>Fee Description</th>
-                                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right' }}>Amount</th>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', width: '10%' }}>Sr No.</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Head Name</td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right', width: '25%' }}>Amount</td>
                               </tr>
                             </thead>
                             <tbody>
-                              {(data.feeHeads || []).map((head, headIndex) => (
-                                <tr key={headIndex}>
-                                  <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{headIndex + 1}</td>
+                              {data.feeHeads
+                                .filter(h => h.amount > 0)
+                                .map((head, idx) => (
+                                <tr key={idx}>
+                                  <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{idx + 1}</td>
                                   <td style={{ border: '1px solid #000', padding: '2px 4px' }}>{head.name}</td>
-                                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right' }}>{head.amount.toLocaleString()}</td>
+                                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right' }}>
+                                    {head.amount.toLocaleString()}
+                                  </td>
                                 </tr>
                               ))}
                               <tr>
-                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Arrears:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>{(data.arrears || 0).toLocaleString()}</td>
-                              </tr>
-                              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Total Payable (within due date):</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>{(data.totalPayable || 0).toLocaleString()}</td>
-                              </tr>
-                              <tr>
-                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Late Fee Fine:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>{(data.lateFeeFine || 0).toLocaleString()}</td>
+                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                                  Arrears:
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                                  {(data.arrears || 0).toLocaleString()}
+                                </td>
                               </tr>
                               <tr>
-                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>Payable after due date:</td>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>{(data.payableAfterDueDate || 0).toLocaleString()}</td>
+                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                                  Payable within due date:
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                                  {data.payableWithinDueDate.toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                                  Late fee fine:
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                                  {(data.lateFeeFine || 0).toLocaleString()}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                                  Absent Fine:
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                                  0
+                                </td>
+                              </tr>
+                              <tr>
+                                <td colSpan={2} style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
+                                  Payable after due date:
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', textAlign: 'right' }}>
+                                  {data.payableAfterDueDate.toLocaleString()}
+                                </td>
                               </tr>
                             </tbody>
                           </table>
-                          
-                          <Box sx={{ mb: 1, fontSize: '0.55rem', lineHeight: 1.2 }}>
-                            <Typography sx={{ fontWeight: 'bold', fontSize: '0.6rem', mb: 0.1 }}>Note:</Typography>
-                            <Typography sx={{ fontSize: '0.55rem' }}>A fine of Rs. 200 will be charged if the fee is not paid by the due date. A fine of Rs. 500 will be applicable if the payment remains unpaid in the following month.</Typography>
+
+                          {/* Notes Section */}
+                          <Box sx={{ mb: 1, fontSize: '0.55rem', lineHeight: 1.3 }}>
+                            <Typography sx={{ fontWeight: 'bold', fontSize: '0.6rem', mb: 0.5 }}>Note:</Typography>
+                            <Typography sx={{ fontSize: '0.55rem', mb: 0.3 }}>Payment Terms</Typography>
+                            <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              A fine of Rs. 200 will be charged if the fee is not paid by the due date.
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              A fine of Rs. 500 will be applicable if the payment remains unpaid in the following month.
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              The fee may be deposited at any branch of Bank Islami using the prescribed challan form.
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
+                              Online payments can be made via Kuickpay. Please use the prefix 17340 followed by your challan number. (Transaction charges will apply.)
+                            </Typography>
                           </Box>
-                          <Box sx={{ mb: 1, fontSize: '0.55rem', textAlign: 'center', fontWeight: 'bold' }}>
-                            <Typography sx={{ fontSize: '0.55rem' }}>Fee Payable At Any Branch of Bank Islami Pakistan Limited-310000223490001-The Integrity Global Education System</Typography>
+
+                          {/* Bank Details */}
+                          <Box sx={{ mb: 1, fontSize: '0.6rem', textAlign: 'center', fontWeight: 'bold' }}>
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>
+                              Fee Payable At Any Branch of
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.55rem' }}>
+                              Bank Islami Pakistan Limited-310000223490001-The Integrity Global Education System
+                            </Typography>
+                          </Box>
+
+                          {/* Barcode */}
+                          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: '40px',
+                                border: '1px solid #000',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: '#fff'
+                              }}
+                            >
+                              <Typography sx={{ fontSize: '0.6rem', color: '#666', fontFamily: 'monospace' }}>
+                                |||||||||||||||||||||||||||
+                              </Typography>
+                            </Box>
                           </Box>
                         </Box>
                       ))}
