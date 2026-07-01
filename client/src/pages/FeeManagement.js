@@ -7064,21 +7064,26 @@ const FeeManagement = () => {
                           A fine of Rs. 500 will be applicable if the payment remains unpaid in the following month.
                         </Typography>
                         <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
-                          The fee may be deposited at any branch of Bank Islami using the prescribed challan form.
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
-                          Online payments can be made via Kuickpay. Please use the prefix 17340 followed by your challan number. (Transaction charges will apply.)
+                          The fee may be deposited at any branch of the designated bank(s) using the prescribed challan form.
                         </Typography>
                       </Box>
 
                       {/* Bank Details */}
                       <Box sx={{ mb: 1, fontSize: '0.6rem', textAlign: 'center', fontWeight: 'bold' }}>
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>
-                          Fee Payable At Any Branch of
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', mb: 0.5 }}>
+                          Fee Payable At {bankAccounts && bankAccounts.length > 1 ? 'Any Branch of the Following Banks' : 'Any Branch of'}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.55rem' }}>
-                          Bank Islami Pakistan Limited-310000223490001-The Integrity Global Education System
-                        </Typography>
+                        {bankAccounts && bankAccounts.length > 0 ? (
+                          bankAccounts.map((bank, index) => (
+                            <Typography key={index} sx={{ fontSize: '0.55rem' }}>
+                              {bank.bankName} - {bank.accountNumber}{bank.accountTitle ? ` - ${bank.accountTitle}` : ''}
+                            </Typography>
+                          ))
+                        ) : (
+                          <Typography sx={{ fontSize: '0.55rem' }}>
+                            Bank details not available
+                          </Typography>
+                        )}
                       </Box>
 
                       {/* Barcode */}
@@ -7340,21 +7345,26 @@ const FeeManagement = () => {
                               A fine of Rs. 500 will be applicable if the payment remains unpaid in the following month.
                             </Typography>
                             <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
-                              The fee may be deposited at any branch of Bank Islami using the prescribed challan form.
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
-                              Online payments can be made via Kuickpay. Please use the prefix 17340 followed by your challan number. (Transaction charges will apply.)
+                              The fee may be deposited at any branch of the designated bank(s) using the prescribed challan form.
                             </Typography>
                           </Box>
 
                           {/* Bank Details */}
                           <Box sx={{ mb: 1, fontSize: '0.6rem', textAlign: 'center', fontWeight: 'bold' }}>
-                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>
-                              Fee Payable At Any Branch of
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', mb: 0.5 }}>
+                              Fee Payable At {bankAccounts && bankAccounts.length > 1 ? 'Any Branch of the Following Banks' : 'Any Branch of'}
                             </Typography>
-                            <Typography sx={{ fontSize: '0.55rem' }}>
-                              Bank Islami Pakistan Limited-310000223490001-The Integrity Global Education System
-                            </Typography>
+                            {bankAccounts && bankAccounts.length > 0 ? (
+                              bankAccounts.map((bank, index) => (
+                                <Typography key={index} sx={{ fontSize: '0.55rem' }}>
+                                  {bank.bankName} - {bank.accountNumber}{bank.accountTitle ? ` - ${bank.accountTitle}` : ''}
+                                </Typography>
+                              ))
+                            ) : (
+                              <Typography sx={{ fontSize: '0.55rem' }}>
+                                Bank details not available
+                              </Typography>
+                            )}
                           </Box>
 
                           {/* Barcode */}
