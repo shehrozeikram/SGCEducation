@@ -274,7 +274,7 @@ const FeeListReport = ({ onBack }) => {
               const remainingAmount = (sf.remainingAmount !== undefined ? sf.remainingAmount : (sf.finalAmount || 0) - paidAmount);
               group.monthlyFees += (sf.finalAmount || 0);
               group.headwise[headName] = (group.headwise[headName] || 0) + (sf.finalAmount || 0);
-              group.totalDue += (sf.finalAmount || 0);
+              group.totalDue += remainingAmount;
               group.totalReceived += paidAmount;
               group.totalRemaining += remainingAmount;
             }
