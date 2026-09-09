@@ -2981,6 +2981,13 @@ const FeeManagement = () => {
         studentName = admission.studentId.user.name;
       }
 
+      const fatherName = admission.guardianInfo?.fatherName || admission.personalInfo?.fatherName || '';
+      if (fatherName && fatherName.trim() !== '' && fatherName.toUpperCase() !== 'N/A') {
+        const gender = (admission.personalInfo?.gender || admission.studentId?.gender || '').toLowerCase();
+        const prefix = (gender === 'female' || gender === 'f') ? 'D/O' : 'S/O';
+        studentName = `${studentName} ${prefix} ${fatherName}`;
+      }
+
       // Get class and section from admission or student fees
       let className = 'N/A';
       let sectionName = 'N/A';
