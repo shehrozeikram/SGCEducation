@@ -1101,6 +1101,12 @@ class FeeService {
                 latestFee.updatedBy = currentUser._id;
                 await latestFee.save();
 
+                // IMPORTANT: Use finalAmount as the new baseAmount for the cloned record.
+                // When a fee increase is applied via updateFeeStructure (discountOperation='increase'),
+                // the student's effective fee is stored in finalAmount, NOT baseAmount (which retains
+                // the original class-level fee from the global FeeStructure).
+                // Copying baseAmount here would revert the increase on every voucher clone cycle.
+                var effectiveBaseAmount = latestFee.finalAmount;
                 // Use the parsed due date object
                 feeToUpdate = new StudentFee({
                   institution: latestFee.institution,
@@ -1108,13 +1114,14 @@ class FeeService {
                   feeStructure: latestFee.feeStructure,
                   class: latestFee.class,
                   feeHead: latestFee.feeHead,
-                  baseAmount: latestFee.baseAmount,
-                  discountAmount: latestFee.discountAmount,
-                  discountType: latestFee.discountType,
+                  baseAmount: effectiveBaseAmount,
+                  discountAmount: 0,
+                  discountType: 'amount',
+                  discountOperation: 'decrease',
                   discountReason: latestFee.discountReason,
-                  finalAmount: latestFee.finalAmount,
+                  finalAmount: effectiveBaseAmount,
                   paidAmount: 0,
-                  remainingAmount: latestFee.finalAmount,
+                  remainingAmount: effectiveBaseAmount,
                   status: 'pending',
                   dueDate: dueDateObj,
                   academicYear: latestFee.academicYear,
