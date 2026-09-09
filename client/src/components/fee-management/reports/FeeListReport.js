@@ -240,10 +240,34 @@ const FeeListReport = ({ onBack }) => {
 
             if (isArrearsHead) {
               // Only count Arrears head if user explicitly checked 'Include Previous Balance'
+              // And calculate it dynamically from previous periods to prevent double-counting
               if (filters.includePreviousBalance) {
-                group.headwise[headName] = (group.headwise[headName] || 0) + (sf.finalAmount || 0);
-                group.totalDue += (sf.finalAmount || 0);
-                group.totalRemaining += (sf.remainingAmount !== undefined ? sf.remainingAmount : (sf.finalAmount || 0) - (sf.paidAmount || 0));
+                // Calculate dynamic arrears for this student: Billed Previous (non-Arrears) - Paid Previous (all)
+                const studentAllFees = filteredFees.filter(f => f.student?._id?.toString() === studentId);
+                let totalBilledPrev = 0;
+                let totalPaidPrev = 0;
+
+                studentAllFees.forEach(f => {
+                  const hasVouchers = f.vouchers && f.vouchers.length > 0;
+                  let isPrevious = false;
+                  if (hasVouchers) {
+                    isPrevious = f.vouchers.every(v => 
+                      (Number(v.year) < targetYear) || 
+                      (Number(v.year) === targetYear && Number(v.month) < targetMonth)
+                    );
+                  }
+                  if (isPrevious) {
+                    if (f.feeHead?.name?.toLowerCase() !== 'arrears') {
+                      totalBilledPrev += parseFloat(f.finalAmount || 0);
+                    }
+                    totalPaidPrev += parseFloat(f.paidAmount || 0);
+                  }
+                });
+
+                const calcArrears = Math.max(0, Math.round((totalBilledPrev - totalPaidPrev) * 100) / 100);
+                group.headwise[headName] = calcArrears;
+                group.totalDue += calcArrears;
+                group.totalRemaining += calcArrears;
               }
             } else {
               group.monthlyFees += (sf.finalAmount || 0);

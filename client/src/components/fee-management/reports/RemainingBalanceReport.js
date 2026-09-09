@@ -192,9 +192,32 @@ const RemainingBalanceReport = ({ onBack }) => {
             const isArrearsHead = headName.toLowerCase() === 'arrears';
 
             if (isArrearsHead) {
-              group.previousBalance += (sf.finalAmount || 0);
-              group.receivable += (sf.finalAmount || 0);
-              group.remaining += (sf.remainingAmount !== undefined ? sf.remainingAmount : (sf.finalAmount || 0) - (sf.paidAmount || 0));
+              // Calculate dynamic arrears: Billed Previous (non-Arrears) - Paid Previous (all)
+              const studentAllFees = filteredFees.filter(f => f.student?._id?.toString() === studentId);
+              let totalBilledPrev = 0;
+              let totalPaidPrev = 0;
+
+              studentAllFees.forEach(f => {
+                const hasVouchers = f.vouchers && f.vouchers.length > 0;
+                let isPrevious = false;
+                if (hasVouchers) {
+                  isPrevious = f.vouchers.every(v => 
+                    (Number(v.year) < targetYear) || 
+                    (Number(v.year) === targetYear && Number(v.month) < targetMonth)
+                  );
+                }
+                if (isPrevious) {
+                  if (f.feeHead?.name?.toLowerCase() !== 'arrears') {
+                    totalBilledPrev += parseFloat(f.finalAmount || 0);
+                  }
+                  totalPaidPrev += parseFloat(f.paidAmount || 0);
+                }
+              });
+
+              const calcArrears = Math.max(0, Math.round((totalBilledPrev - totalPaidPrev) * 100) / 100);
+              group.previousBalance = calcArrears;
+              group.receivable += calcArrears;
+              group.remaining += calcArrears;
             } else {
               group.currentBalance += (sf.finalAmount || 0);
               group.receivable += (sf.finalAmount || 0);
