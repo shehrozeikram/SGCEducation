@@ -7059,7 +7059,7 @@ const FeeManagement = () => {
                             <td style={{ border: '1px solid #000', padding: '2px 4px' }} colSpan={3}>{voucherData.admissionNo}</td>
                           </tr>
                           <tr>
-                            <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }} colSpan={4}>
+                            <td style={{ border: '1px solid #000', padding: '4px', fontWeight: 'bold', textAlign: 'center', fontSize: '0.75rem' }} colSpan={4}>
                               {voucherData.name}
                             </td>
                           </tr>
@@ -7395,7 +7395,7 @@ const FeeManagement = () => {
                                 <td style={{ border: '1px solid #000', padding: '2px 4px' }} colSpan={3}>{data.admissionNo}</td>
                               </tr>
                               <tr>
-                                <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }} colSpan={4}>
+                                <td style={{ border: '1px solid #000', padding: '4px', fontWeight: 'bold', textAlign: 'center', fontSize: '0.75rem' }} colSpan={4}>
                                   {data.name}
                                 </td>
                               </tr>

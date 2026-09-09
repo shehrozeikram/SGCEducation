@@ -111,8 +111,38 @@ const BankVouchersReport = ({ onBack }) => {
         // Take properties from the first voucher in the group
         const firstVoucher = studentData.vouchers[0];
         
-        // Sum the amounts
-        const totalAmount = studentData.vouchers.reduce((sum, v) => sum + (v.amount || 0), 0);
+        // Calculate current month net payable amount for non-arrears heads (finalAmount - paidAmount)
+        const currentMonthAmount = studentData.vouchers
+          .filter(v => v.feeHead?.name?.toLowerCase() !== 'arrears')
+          .reduce((sum, v) => {
+            const netAmount = Math.max(0, (v.amount || 0) - (v.paidAmount || 0));
+            return sum + netAmount;
+          }, 0);
+
+        // Dynamically compute previous period arrears for this student: Billed Previous (non-Arrears) - Paid Previous (all)
+        const studentAllFees = allStudentFees.filter(sf => sf.student?._id?.toString() === studentData.student?._id?.toString());
+        let totalBilledPrev = 0;
+        let totalPaidPrev = 0;
+
+        studentAllFees.forEach(f => {
+          const hasVouchers = f.vouchers && f.vouchers.length > 0;
+          let isPrevious = false;
+          if (hasVouchers) {
+            isPrevious = f.vouchers.every(v => 
+              (Number(v.year) < targetYear) || 
+              (Number(v.year) === targetYear && Number(v.month) < targetMonth)
+            );
+          }
+          if (isPrevious) {
+            if (f.feeHead?.name?.toLowerCase() !== 'arrears') {
+              totalBilledPrev += parseFloat(f.finalAmount || 0);
+            }
+            totalPaidPrev += parseFloat(f.paidAmount || 0);
+          }
+        });
+
+        const previousArrears = Math.max(0, Math.round((totalBilledPrev - totalPaidPrev) * 100) / 100);
+        const totalAmount = currentMonthAmount + previousArrears;
         
         // Late fee is usually handled dynamically, but if it's on the voucher we can use it.
         // Assuming no late fee logic is explicitly stored in voucher amount unless fine is there.

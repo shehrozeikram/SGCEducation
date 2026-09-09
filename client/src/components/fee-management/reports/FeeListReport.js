@@ -270,11 +270,13 @@ const FeeListReport = ({ onBack }) => {
                 group.totalRemaining += calcArrears;
               }
             } else {
+              const paidAmount = sf.paidAmount || 0;
+              const remainingAmount = (sf.remainingAmount !== undefined ? sf.remainingAmount : (sf.finalAmount || 0) - paidAmount);
               group.monthlyFees += (sf.finalAmount || 0);
               group.headwise[headName] = (group.headwise[headName] || 0) + (sf.finalAmount || 0);
               group.totalDue += (sf.finalAmount || 0);
-              group.totalReceived += (sf.paidAmount || 0);
-              group.totalRemaining += (sf.remainingAmount !== undefined ? sf.remainingAmount : (sf.finalAmount || 0) - (sf.paidAmount || 0));
+              group.totalReceived += paidAmount;
+              group.totalRemaining += remainingAmount;
             }
           }
         }
