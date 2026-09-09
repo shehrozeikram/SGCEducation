@@ -98,7 +98,8 @@ const BankVouchersReport = ({ onBack }) => {
             studentData.vouchers.push({
               ...v,
               feeHead: sf.feeHead,
-              amount: sf.finalAmount
+              amount: sf.finalAmount,
+              paidAmount: sf.paidAmount
             });
           });
         }

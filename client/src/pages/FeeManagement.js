@@ -271,6 +271,7 @@ const FeeManagement = () => {
   const [printVoucherFilters, setPrintVoucherFilters] = useState({
     monthYear: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, // Format: YYYY-MM for month input
     voucherNumber: '',
+    generatedDate: '',
     searchTerm: '',
     class: '',
     voucherStatus: searchParams.get('status') || ''
@@ -1650,9 +1651,51 @@ const FeeManagement = () => {
         return false;
       }
 
+      return true;
+    });
+  };
+
+  // Filter print vouchers based on search criteria
+  const getFilteredPrintVoucherStudents = () => {
+    return printVoucherStudents.filter(student => {
+      // Search term filter
+      if (printVoucherFilters.searchTerm) {
+        const query = printVoucherFilters.searchTerm.toLowerCase();
+        const matchesName = student.name?.toLowerCase().includes(query);
+        const matchesId = student.id?.toString().toLowerCase().includes(query);
+        const matchesRoll = student.rollNumber?.toString().toLowerCase().includes(query);
+        const matchesAdmission = student.admissionNo?.toString().toLowerCase().includes(query);
+        const matchesFather = student.fatherName?.toLowerCase().includes(query);
+        if (!matchesName && !matchesId && !matchesRoll && !matchesAdmission && !matchesFather) {
+          return false;
+        }
+      }
+
+      // Voucher Number filter
+      if (printVoucherFilters.voucherNumber) {
+        const query = printVoucherFilters.voucherNumber.toLowerCase().trim();
+        const matchesVoucher = student.voucherNumber?.toString().toLowerCase().includes(query) ||
+                               student.lastVoucher?.toString().toLowerCase().includes(query);
+        if (!matchesVoucher) return false;
+      }
+
+      // Generated Date filter (matches YYYY-MM-DD)
+      if (printVoucherFilters.generatedDate && student.generatedAt) {
+        const genDate = new Date(student.generatedAt).toISOString().split('T')[0];
+        if (genDate !== printVoucherFilters.generatedDate) {
+          return false;
+        }
+      } else if (printVoucherFilters.generatedDate && !student.generatedAt) {
+        return false;
+      }
+
+      // Class filter
+      if (printVoucherFilters.class && student.class !== printVoucherFilters.class) {
+        return false;
+      }
+
       // Voucher Status filter
-      if (generateVoucherFilters.voucherStatus &&
-          student.voucherStatus !== generateVoucherFilters.voucherStatus) {
+      if (printVoucherFilters.voucherStatus && student.voucherStatus !== printVoucherFilters.voucherStatus) {
         return false;
       }
 
@@ -1929,6 +1972,7 @@ const FeeManagement = () => {
               voucherMap.forEach((voucherInfo) => {
                 // Calculate voucher amount and status for this specific voucher
                 let voucherAmount = 0;
+                let voucherGeneratedDate = null;
                 const feesWithVoucher = [];
                 
                 fees.forEach(studentFee => {
@@ -1958,7 +2002,6 @@ const FeeManagement = () => {
                 let voucherStatus = 'Unpaid';
                 if (feesWithVoucher.length > 0) {
                   // Get the voucher's generated date
-                  let voucherGeneratedDate = null;
                   fees.forEach(studentFee => {
                     if (studentFee.vouchers && Array.isArray(studentFee.vouchers)) {
                       const voucher = studentFee.vouchers.find(v => 
@@ -2069,6 +2112,7 @@ const FeeManagement = () => {
                   paidAmount: displayPaidAmount,
                   remainingAmount: displayedRemaining,
                   arrears: calculatedArrears,
+                  generatedAt: voucherGeneratedDate ? voucherGeneratedDate.toISOString() : null,
                   originalAdmissionId: student._id, // Store original admission ID
                   _id: `${student._id}-${voucherInfo.voucherNumber}-${voucherInfo.month}-${voucherInfo.year}` // Unique key for each voucher row
                 });
@@ -3121,34 +3165,7 @@ const FeeManagement = () => {
     });
   };
 
-  // Filter print voucher students based on search criteria
-  const getFilteredPrintVoucherStudents = () => {
-    return printVoucherStudents.filter(student => {
-      // Search term filter (name, id, rollNumber, fatherName)
-      if (printVoucherFilters.searchTerm) {
-        const query = printVoucherFilters.searchTerm.toLowerCase();
-        const matchesName = student.name?.toLowerCase().includes(query);
-        const matchesId = student.id?.toString().toLowerCase().includes(query);
-        const matchesRoll = student.rollNumber?.toString().toLowerCase().includes(query);
-        const matchesFather = student.fatherName?.toLowerCase().includes(query);
-        if (!matchesName && !matchesId && !matchesRoll && !matchesFather) {
-          return false;
-        }
-      }
 
-      // Voucher Status filter
-      if (printVoucherFilters.voucherStatus && student.voucherStatus !== printVoucherFilters.voucherStatus) {
-        return false;
-      }
-
-      // Class filter
-      if (printVoucherFilters.class && student.class !== printVoucherFilters.class) {
-        return false;
-      }
-
-      return true;
-    });
-  };
 
   // Fetch available classes for assignment
   const fetchAvailableClasses = async () => {
@@ -4830,6 +4847,19 @@ const FeeManagement = () => {
                       placeholder="Search by voucher #"
                     />
                   </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Generated Date"
+                      type="date"
+                      value={printVoucherFilters.generatedDate}
+                      onChange={(e) => {
+                        setPrintVoucherFilters({ ...printVoucherFilters, generatedDate: e.target.value });
+                      }}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
                   
                   <Grid item xs={12} sm={12} md={9}>
                     <TextField
@@ -4881,6 +4911,7 @@ const FeeManagement = () => {
                       onClick={() => setPrintVoucherFilters({
                         monthYear: printVoucherFilters.monthYear,
                         voucherNumber: '',
+                        generatedDate: '',
                         searchTerm: '',
                         class: '',
                         voucherStatus: ''
@@ -4958,6 +4989,7 @@ const FeeManagement = () => {
                     </TableCell>
                     <TableCell>Voucher Status</TableCell>
                     <TableCell>Voucher Number</TableCell>
+                    <TableCell>Generated Date</TableCell>
                     <TableCell align="right">Voucher Amount</TableCell>
                     <TableCell align="right">Arrears</TableCell>
                     <TableCell align="right">Paid Amount</TableCell>
@@ -5014,6 +5046,7 @@ const FeeManagement = () => {
                           )}
                         </TableCell>
                         <TableCell>{student.voucherNumber || 'N/A'}</TableCell>
+                        <TableCell>{student.generatedAt ? new Date(student.generatedAt).toLocaleDateString('en-GB') : 'N/A'}</TableCell>
                         <TableCell align="right">Rs. {(student.voucherAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell align="right" sx={{ color: (student.arrears || 0) > 0 ? 'error.main' : 'inherit', fontWeight: (student.arrears || 0) > 0 ? 'bold' : 'normal' }}>
                           Rs. {(student.arrears || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
