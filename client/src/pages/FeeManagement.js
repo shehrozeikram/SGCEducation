@@ -3245,14 +3245,49 @@ const FeeManagement = () => {
     setFeeStructureDialogMode('assign');
     setSelectedStudentForAssignment(student);
     setSelectedClassFeeStructure(null);
+    
+    // Fetch available classes to map the student's class to an ID
+    let fetchedClasses = [];
+    try {
+      const institutionId = getInstitutionId();
+      const params = { institution: institutionId, isActive: true };
+      const response = await axios.get(`${API_URL}/classes`, createAxiosConfig({ params }));
+      fetchedClasses = response.data.data || [];
+      setAvailableClasses(fetchedClasses);
+    } catch (err) {
+      console.error('Error fetching classes:', err);
+    }
+
+    let defaultClassId = '';
+    if (student) {
+      if (typeof student.class === 'object' && student.class !== null) {
+        defaultClassId = student.class._id || student.class.id || '';
+      } else if (typeof student.class === 'string' && student.class.match(/^[0-9a-fA-F]{24}$/)) {
+        defaultClassId = student.class;
+      } else if (typeof student.class === 'string') {
+        const match = fetchedClasses.find(c => 
+          c.name?.toLowerCase() === student.class.toLowerCase() || 
+          c.code?.toLowerCase() === student.class.toLowerCase()
+        );
+        if (match) defaultClassId = match._id;
+      }
+      
+      if (!defaultClassId && student.classId) defaultClassId = student.classId;
+      if (!defaultClassId && student.class_id) defaultClassId = student.class_id;
+    }
+
     setAssignFeeStructureForm({
-      classId: '',
+      classId: defaultClassId,
       discount: 0,
       discountType: 'amount',
       discountReason: '',
       feeHeadDiscounts: {}
     });
-    await fetchAvailableClasses();
+
+    if (defaultClassId) {
+      await fetchFeeStructureByClass(defaultClassId);
+    }
+
     setAssignFeeStructureDialog(true);
   };
 
