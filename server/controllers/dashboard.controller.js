@@ -30,7 +30,15 @@ const activeStudentLookupStages = [
 ];
 
 // Helper: compute dynamic voucher stats matching FeeManagement Print Voucher logic exactly
-const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
+const toLocalDay = (d) => {
+  if (!d) return '';
+  const dateObj = new Date(d);
+  if (isNaN(dateObj)) return '';
+  return dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+};
+
+// Helper: compute dynamic voucher stats matching FeeManagement Print Voucher logic exactly
+const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null, paymentRange = null) => {
   // Query all student fees and completed payments for the matched institutions
   const [allStudentFees, allPayments] = await Promise.all([
     StudentFee.find(matchQuery)
@@ -40,19 +48,46 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
     FeePayment.find({
       ...(matchQuery.institution ? { institution: matchQuery.institution } : {}),
       status: { $in: ['completed', 'success'] }
-    }).select('voucherNumber amount studentFee status').lean()
+    }).select('voucherNumber amount studentFee status paymentDate').lean()
   ]);
 
   // Index payments by voucherNumber (clean trailing number)
   const paymentsByVoucher = new Map();
+  const unvoucheredPaymentsByFee = new Map();
   allPayments.forEach(p => {
     if (p.voucherNumber && p.voucherNumber.toString().trim()) {
       let vNo = p.voucherNumber.toString().trim();
       if (vNo.includes('-')) vNo = vNo.split('-').pop();
       if (!paymentsByVoucher.has(vNo)) paymentsByVoucher.set(vNo, []);
       paymentsByVoucher.get(vNo).push(p);
+    } else {
+      const sfId = p.studentFee?._id?.toString() || p.studentFee?.toString();
+      if (sfId) {
+        if (!unvoucheredPaymentsByFee.has(sfId)) unvoucheredPaymentsByFee.set(sfId, []);
+        unvoucheredPaymentsByFee.get(sfId).push(p);
+      }
     }
   });
+
+  const isPaymentInRange = (p) => {
+    if (!p.paymentDate) return false;
+    const d = new Date(p.paymentDate);
+    if (isNaN(d)) return false;
+    const day = toLocalDay(d);
+    if (paymentRange.startDate && day < paymentRange.startDate) return false;
+    if (paymentRange.endDate && day > paymentRange.endDate) return false;
+    return true;
+  };
+
+  const getHomeVoucherNumber = (sf) => {
+    const vs = (sf.vouchers || []).filter(v => v && v.voucherNumber);
+    if (vs.length === 0) return null;
+    vs.sort((a, b) => (Number(a.year) - Number(b.year)) || (Number(a.month) - Number(b.month)));
+    const vNo = vs[0].voucherNumber.toString().trim();
+    return vNo.includes('-') ? vNo.split('-').pop() : vNo;
+  };
+
+  const isPaymentRangeMode = Boolean(paymentRange && (paymentRange.startDate || paymentRange.endDate));
 
   // Filter out fees of inactive students
   const activeStudentFees = allStudentFees.filter(sf => sf.student && sf.student.isActive !== false);
@@ -69,6 +104,8 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
 
   // Collect all voucher keys: `${month}-${year}`
   const monthlyMap = new Map(); // key -> { month, year, vouchers: [] }
+  const rangeVouchersList = [];
+  const rangeStudentIds = new Set();
 
   feesByStudent.forEach((studentFees, studentId) => {
     // Find all unique (month, year) vouchers for this student
@@ -169,6 +206,12 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
       const arrearsPaymentsOnVoucher = arrearsFee ? parseFloat(arrearsFee.paidAmount || 0) : 0;
       const paidArrearsOnThisVoucher = Math.max(paidArrearsViaVoucherNumber, arrearsPaymentsOnVoucher);
 
+      let voucherPaymentDate = null;
+      voucherPayments.forEach(p => {
+        const d = p.paymentDate ? new Date(p.paymentDate) : null;
+        if (d && !isNaN(d) && (!voucherPaymentDate || d > voucherPaymentDate)) voucherPaymentDate = d;
+      });
+
       // Previous Balance (P.Bal):
       // Exact Print Voucher calculation: live arrears capped by snapshot if present
       let previousBalance = 0;
@@ -197,17 +240,62 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
         voucherStatus = 'unpaid';
       }
 
+      let displayedPaidAmount = totalPaidForVoucher;
+      let displayedPaymentDate = (totalPaidForVoucher > 0 && voucherPaymentDate) ? voucherPaymentDate.toISOString() : null;
+
+      if (isPaymentRangeMode) {
+        const rangePayments = voucherPayments.filter(isPaymentInRange);
+        if (voucherNumber !== 'N/A') {
+          feesWithVoucher.forEach(f => {
+            if (getHomeVoucherNumber(f) !== voucherNumber) return;
+            (unvoucheredPaymentsByFee.get(f._id?.toString()) || []).forEach(p => {
+              if (isPaymentInRange(p)) rangePayments.push(p);
+            });
+          });
+        }
+        displayedPaidAmount = Math.round(rangePayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) * 100) / 100;
+        let latest = null;
+        rangePayments.forEach(p => {
+          const d = new Date(p.paymentDate);
+          if (!isNaN(d) && (!latest || d > latest)) latest = d;
+        });
+        displayedPaymentDate = (displayedPaidAmount > 0 && latest) ? latest.toISOString() : null;
+      }
+
+      let paidArrears = 0;
+      let unpaidArrears = 0;
+      const effectivePaidForArrears = isPaymentRangeMode ? displayedPaidAmount : totalPaidForVoucher;
+      if (voucherStatus === 'paid' || (!isPaymentRangeMode && displayedRemaining <= 0.01)) {
+        paidArrears = previousBalance;
+        unpaidArrears = 0;
+      } else if (effectivePaidForArrears <= 0) {
+        paidArrears = 0;
+        unpaidArrears = previousBalance;
+      } else {
+        if (paidArrearsOnThisVoucher > 0) {
+          paidArrears = Math.min(previousBalance, paidArrearsOnThisVoucher);
+        } else {
+          const paymentBeyondCurrent = Math.max(0, effectivePaidForArrears - voucherAmount);
+          paidArrears = Math.min(previousBalance, paymentBeyondCurrent);
+        }
+        unpaidArrears = Math.max(0, Math.round((previousBalance - paidArrears) * 100) / 100);
+      }
+
       const voucherData = {
         studentId,
+        voucherNumber,
         month,
         year,
         voucherAmount,
         arrears: previousBalance, // Billed arrears matching Report P.Bal
         displayedBilled,          // Total billed matching Report Receivable
-        totalPaid: totalPaidForVoucher, // Total collected matching Report Received
-        displayedRemaining,       // Total outstanding matching Report Remaining
+        totalPaid: displayedPaidAmount, // Range-filtered paid amount in range mode
+        displayedRemaining: Math.max(0, Math.round((displayedBilled - displayedPaidAmount) * 100) / 100),
         regularRemaining,
+        paidArrears,
+        unpaidArrears,
         calculatedArrears: currentRemainingArrears,
+        paymentDate: displayedPaymentDate,
         voucherStatus
       };
 
@@ -215,6 +303,20 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
         monthlyMap.set(key, { month, year, vouchers: [] });
       }
       monthlyMap.get(key).vouchers.push(voucherData);
+
+      // In payment range mode, match Print Voucher filter: only include vouchers with paymentDate inside range
+      if (isPaymentRangeMode) {
+        if (displayedPaymentDate) {
+          const pd = new Date(displayedPaymentDate);
+          const payDay = toLocalDay(pd);
+          const inRange = (!paymentRange.startDate || payDay >= paymentRange.startDate) &&
+                          (!paymentRange.endDate || payDay <= paymentRange.endDate);
+          if (inRange) {
+            rangeVouchersList.push(voucherData);
+            rangeStudentIds.add(studentId);
+          }
+        }
+      }
     });
   });
 
@@ -283,10 +385,15 @@ const fetchDynamicVoucherStats = async (matchQuery, dateFilter = null) => {
   });
 
   const allTime = aggregateVoucherList(allTimeVouchers);
+  const rangeStats = isPaymentRangeMode ? {
+    ...aggregateVoucherList(rangeVouchersList),
+    uniqueStudentsCount: rangeStudentIds.size
+  } : null;
 
   return {
     allTime,
-    monthlyBreakdown
+    monthlyBreakdown,
+    rangeStats
   };
 };
 
@@ -364,6 +471,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       parsedPaymentEndDate.setHours(23, 59, 59, 999);
     }
 
+    const paymentRangeObj = (effectivePaymentStartDate || effectivePaymentEndDate) ? {
+      startDate: effectivePaymentStartDate || '',
+      endDate: effectivePaymentEndDate || ''
+    } : null;
+
     let selectedInstitutionIds = institutionIds;
     if (institution && institution !== 'all') {
       const requestedInstId = extractInstitutionId(institution);
@@ -406,11 +518,13 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       Admission.countDocuments(studentNewAdmissionsFilter),
       Student.countDocuments(studentStruckOffFilter),
       Student.countDocuments(studentPendingFilter),
-      fetchDynamicVoucherStats({ institution: { $in: selectedInstitutionIds }, 'vouchers.0': { $exists: true } })
+      fetchDynamicVoucherStats({ institution: { $in: selectedInstitutionIds }, 'vouchers.0': { $exists: true } }, null, paymentRangeObj)
     ]);
 
     let overallFinStats = finVoucherStats.allTime;
-    if (targetYear && targetMonth) {
+    if (paymentRangeObj && finVoucherStats.rangeStats) {
+      overallFinStats = finVoucherStats.rangeStats;
+    } else if (targetYear && targetMonth) {
       const mStat = finVoucherStats.monthlyBreakdown?.find(
         m => Number(m._id?.year) === targetYear && Number(m._id?.month) === targetMonth
       );
@@ -538,11 +652,13 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         }),
         Student.countDocuments({ institution: instId, status: { $regex: /struck.*off/i }, ...(endDate ? { createdAt: { $lte: parsedEndDate } } : {}) }),
         Student.countDocuments({ institution: instId, status: { $regex: /^pending$/i }, ...(endDate ? { createdAt: { $lte: parsedEndDate } } : {}) }),
-        fetchDynamicVoucherStats({ institution: instId, 'vouchers.0': { $exists: true } })
+        fetchDynamicVoucherStats({ institution: instId, 'vouchers.0': { $exists: true } }, null, paymentRangeObj)
       ]);
       
       let instFinStats = instVoucherStats.allTime;
-      if (targetYear && targetMonth) {
+      if (paymentRangeObj && instVoucherStats.rangeStats) {
+        instFinStats = instVoucherStats.rangeStats;
+      } else if (targetYear && targetMonth) {
         const mStat = instVoucherStats.monthlyBreakdown?.find(
           m => Number(m._id?.year) === targetYear && Number(m._id?.month) === targetMonth
         );
@@ -577,16 +693,19 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       }
       const instOutstanding = Math.max(0, totalBilled - instCollected);
       const currentVouchers = Math.max(0, totalBilled - totalArrears);
+      const displayedStudentCount = (paymentRangeObj && instFinStats.total !== undefined)
+        ? (instFinStats.total || 0)
+        : activeStudentsCount;
 
       return {
         _id: instId,
         name: inst.name,
         code: inst.code,
-        totalStudents: totalStudentsCount,
+        totalStudents: displayedStudentCount,
         totalAdmissions: totalStudentsCount,
-        activeStudents: activeStudentsCount,
-        enrolledStudents: activeStudentsCount,
-        enrolled: activeStudentsCount,
+        activeStudents: displayedStudentCount,
+        enrolledStudents: displayedStudentCount,
+        enrolled: displayedStudentCount,
         struckOffStudents: struckOffCount,
         struckoff: struckOffCount,
         pendingStudents: resolvedPending,
