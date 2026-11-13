@@ -244,6 +244,10 @@ const FeeManagement = () => {
     date.setDate(20);
     return date.toISOString().split('T')[0];
   };
+  const getDefaultGeneratedDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+  const [voucherGeneratedDate, setVoucherGeneratedDate] = useState(getDefaultGeneratedDate()); // Default generated date for newly generated vouchers
   const [voucherDueDate, setVoucherDueDate] = useState(getDefaultDueDate()); // Default for newly generated vouchers
   const [feeHeadAmounts, setFeeHeadAmounts] = useState({}); // { feeHeadId: amount }
   const [loadingFeeHeadAmounts, setLoadingFeeHeadAmounts] = useState(false);
@@ -291,6 +295,7 @@ const FeeManagement = () => {
   // Voucher Date Update states
   const [voucherDateDialogOpen, setVoucherDateDialogOpen] = useState(false);
   const [voucherDateTarget, setVoucherDateTarget] = useState(null); // null = batch/selected, object = single student
+  const [editVoucherGeneratedDate, setEditVoucherGeneratedDate] = useState('');
   const [editVoucherDueDate, setEditVoucherDueDate] = useState('');
   const [editVoucherValidityDate, setEditVoucherValidityDate] = useState('');
   const [updatingVoucherDates, setUpdatingVoucherDates] = useState(false);
@@ -1738,6 +1743,7 @@ const FeeManagement = () => {
     setFeeHeadSelectionDialogOpen(false);
     setSelectedFeeHeadIds([]);
     setFeeHeadAmounts({});
+    setVoucherGeneratedDate(getDefaultGeneratedDate()); // Reset to default for next time
     setVoucherDueDate(getDefaultDueDate()); // Reset to default for next time
   };
 
@@ -1796,7 +1802,8 @@ const FeeManagement = () => {
           year: year,
           feeHeadIds: selectedFeeHeadIds,
           dueDay: dueDay, // Send custom due day from date picker
-          dueDate: voucherDueDate // Send full due date as well for backend use
+          dueDate: voucherDueDate, // Send full due date as well for backend use
+          generatedDate: voucherGeneratedDate // Send custom editable generated date
         },
         createAxiosConfig()
       );
@@ -2686,6 +2693,20 @@ const FeeManagement = () => {
     if (!manualDepositForm.transactionId || manualDepositForm.transactionId.trim() === '') {
       notifyError('Please enter a transaction ID');
       return;
+    }
+
+    // Validate paymentDate against voucher generated date
+    if (manualDepositForm.paymentDate && selectedManualDepositStudent?.generatedAt) {
+      const pDate = new Date(manualDepositForm.paymentDate);
+      const gDate = new Date(selectedManualDepositStudent.generatedAt);
+      if (!isNaN(pDate.getTime()) && !isNaN(gDate.getTime())) {
+        const pDay = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;
+        const gDay = `${gDate.getFullYear()}-${String(gDate.getMonth() + 1).padStart(2, '0')}-${String(gDate.getDate()).padStart(2, '0')}`;
+        if (pDay < gDay) {
+          notifyError(`Payment Date (${pDay}) cannot be earlier than Voucher Generated Date (${gDay})`);
+          return;
+        }
+      }
     }
 
     try {
@@ -3946,6 +3967,8 @@ const FeeManagement = () => {
   const handleOpenVoucherDateDialog = (student = null) => {
     setVoucherDateTarget(student);
     if (student) {
+      const gDay = student.generatedAt ? student.generatedAt.split('T')[0] : '';
+      setEditVoucherGeneratedDate(gDay);
       setEditVoucherDueDate(student.dueDate || '');
       setEditVoucherValidityDate(student.validityDate || '');
     } else {
@@ -3954,6 +3977,7 @@ const FeeManagement = () => {
       const defaultDue = new Date(year, month - 1, 20);
       const defaultValid = new Date(year, month - 1, 25);
       const toIsoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setEditVoucherGeneratedDate(toIsoDay(new Date()));
       setEditVoucherDueDate(toIsoDay(defaultDue));
       setEditVoucherValidityDate(toIsoDay(defaultValid));
     }
@@ -3961,8 +3985,8 @@ const FeeManagement = () => {
   };
 
   const handleSaveVoucherDates = async () => {
-    if (!editVoucherDueDate && !editVoucherValidityDate) {
-      notifyError('Please enter at least one date (Due Date or Validity Date)');
+    if (!editVoucherGeneratedDate && !editVoucherDueDate && !editVoucherValidityDate) {
+      notifyError('Please enter at least one date (Generated Date, Due Date, or Validity Date)');
       return;
     }
 
@@ -3973,6 +3997,7 @@ const FeeManagement = () => {
 
       let payload = {
         institution: institutionId,
+        generatedDate: editVoucherGeneratedDate || null,
         dueDate: editVoucherDueDate || null,
         validityDate: editVoucherValidityDate || null
       };
@@ -8510,6 +8535,17 @@ const FeeManagement = () => {
               <TextField
                 fullWidth
                 size="small"
+                label="Generated Date (Issue Date)"
+                type="date"
+                value={editVoucherGeneratedDate}
+                onChange={(e) => setEditVoucherGeneratedDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                helperText="Issue / creation date of the voucher"
+              />
+
+              <TextField
+                fullWidth
+                size="small"
                 label="Due Date"
                 type="date"
                 value={editVoucherDueDate}
@@ -9068,18 +9104,32 @@ const FeeManagement = () => {
               </Typography>
             </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <TextField
-                fullWidth
-                label="Due Date"
-                type="date"
-                value={voucherDueDate}
-                onChange={(e) => setVoucherDueDate(e.target.value)}
-                helperText="Select the due date for voucher payment (month, year, and day)"
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Box>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Generated Date (Issue Date)"
+                  type="date"
+                  value={voucherGeneratedDate}
+                  onChange={(e) => setVoucherGeneratedDate(e.target.value)}
+                  helperText="Select the issue / generated date for the voucher"
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Due Date"
+                  type="date"
+                  value={voucherDueDate}
+                  onChange={(e) => setVoucherDueDate(e.target.value)}
+                  helperText="Select the due date for voucher payment (month, year, and day)"
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </Grid>
 
             <Divider sx={{ my: 2 }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

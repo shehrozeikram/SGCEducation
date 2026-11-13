@@ -1080,7 +1080,7 @@ class FeeService {
    * feeHeadIds (optional): Array of fee head IDs to filter by. If provided, only vouchers for these fee heads will be generated.
    */
   async generateVouchers(voucherData, currentUser) {
-    const { studentIds, month, year, feeHeadIds: rawFeeHeadIds, dueDay = 20, dueDate } = voucherData;
+    const { studentIds, month, year, feeHeadIds: rawFeeHeadIds, dueDay = 20, dueDate, generatedDate } = voucherData;
     // Normalize feeHeadIds to strings to ensure consistent comparison with ObjectId.toString()
     const feeHeadIds = rawFeeHeadIds && Array.isArray(rawFeeHeadIds) && rawFeeHeadIds.length > 0
       ? rawFeeHeadIds.map(id => id.toString())
@@ -1097,6 +1097,15 @@ class FeeService {
 
     if (!year || year < 2000) {
       throw new ApiError(400, 'Valid year is required');
+    }
+
+    // Parse generated date: use custom generatedDate if provided, otherwise default to current timestamp
+    let generatedDateObj = new Date();
+    if (generatedDate) {
+      const parsedGenDate = new Date(generatedDate);
+      if (!isNaN(parsedGenDate.getTime())) {
+        generatedDateObj = parsedGenDate;
+      }
     }
 
     // Parse due date: use full dueDate if provided, otherwise construct from dueDay
@@ -1490,7 +1499,7 @@ class FeeService {
              feeToUpdate.dueDate = dueDateObj;
              feeToUpdate.validityDate = validityDateObj;
              feeToUpdate.vouchers.push({
-               month, year, generatedAt: new Date(), generatedBy: currentUser._id, voucherNumber,
+               month, year, generatedAt: generatedDateObj, generatedBy: currentUser._id, voucherNumber,
                dueDate: dueDateObj,
                validityDate: validityDateObj
              });
@@ -1511,7 +1520,7 @@ class FeeService {
                fee.dueDate = dueDateObj;
                fee.validityDate = validityDateObj;
                fee.vouchers.push({
-                 month, year, generatedAt: new Date(), generatedBy: currentUser._id, voucherNumber,
+                 month, year, generatedAt: generatedDateObj, generatedBy: currentUser._id, voucherNumber,
                  dueDate: dueDateObj,
                  validityDate: validityDateObj
                });
@@ -1589,6 +1598,35 @@ class FeeService {
     // Check if payment exceeds remaining amount
     if (amount > remainingAmount + 0.01) {
       throw new ApiError(400, `Payment amount (${amount}) exceeds remaining amount (${remainingAmount})`);
+    }
+
+    // Validate that paymentDate is not earlier than the voucher generatedDate
+    if (paymentDate) {
+      const pDate = new Date(paymentDate);
+      if (!isNaN(pDate.getTime())) {
+        // Find matching voucher for voucherNumber if passed, or latest voucher in studentFee
+        let matchedVoucher = null;
+        if (voucherNumber && Array.isArray(studentFee.vouchers)) {
+          const vNoClean = voucherNumber.toString().trim();
+          matchedVoucher = studentFee.vouchers.find(v => v.voucherNumber && (v.voucherNumber.toString().trim() === vNoClean || vNoClean.endsWith(v.voucherNumber.toString().trim())));
+        }
+        if (!matchedVoucher && Array.isArray(studentFee.vouchers) && studentFee.vouchers.length > 0) {
+          // Use latest voucher
+          matchedVoucher = studentFee.vouchers[studentFee.vouchers.length - 1];
+        }
+
+        const genDate = matchedVoucher?.generatedAt || studentFee.createdAt;
+        if (genDate) {
+          const genDateObj = new Date(genDate);
+          if (!isNaN(genDateObj.getTime())) {
+            const pDayStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;
+            const genDayStr = `${genDateObj.getFullYear()}-${String(genDateObj.getMonth() + 1).padStart(2, '0')}-${String(genDateObj.getDate()).padStart(2, '0')}`;
+            if (pDayStr < genDayStr) {
+              throw new ApiError(400, `Payment date (${pDayStr}) cannot be before the voucher generated date (${genDayStr}).`);
+            }
+          }
+        }
+      }
     }
 
     // Validate transactionId uniqueness across system if provided
@@ -2945,11 +2983,12 @@ class FeeService {
       month,
       year,
       dueDate,
-      validityDate
+      validityDate,
+      generatedDate
     } = data;
 
-    if (!dueDate && !validityDate) {
-      throw new ApiError(400, 'At least one date (due date or validity date) must be provided');
+    if (!dueDate && !validityDate && !generatedDate) {
+      throw new ApiError(400, 'At least one date (generated date, due date or validity date) must be provided');
     }
 
     const institutionId = currentUser.role === 'super_admin' && data.institution
@@ -2958,12 +2997,16 @@ class FeeService {
 
     const parsedDueDate = dueDate ? new Date(dueDate) : null;
     const parsedValidityDate = validityDate ? new Date(validityDate) : null;
+    const parsedGeneratedDate = generatedDate ? new Date(generatedDate) : null;
 
     if (parsedDueDate && isNaN(parsedDueDate.getTime())) {
       throw new ApiError(400, 'Invalid Due Date');
     }
     if (parsedValidityDate && isNaN(parsedValidityDate.getTime())) {
       throw new ApiError(400, 'Invalid Validity Date');
+    }
+    if (parsedGeneratedDate && isNaN(parsedGeneratedDate.getTime())) {
+      throw new ApiError(400, 'Invalid Generated Date');
     }
 
     // Build filter for FeeVoucher records
@@ -2986,6 +3029,7 @@ class FeeService {
     const voucherUpdate = {};
     if (parsedDueDate) voucherUpdate.dueDate = parsedDueDate;
     if (parsedValidityDate) voucherUpdate.validityDate = parsedValidityDate;
+    if (parsedGeneratedDate) voucherUpdate.generatedAt = parsedGeneratedDate;
 
     let updatedVouchersCount = 0;
     if (Object.keys(voucherFilter).length > 0) {
@@ -3034,6 +3078,7 @@ class FeeService {
           if (match) {
             if (parsedDueDate) v.dueDate = parsedDueDate;
             if (parsedValidityDate) v.validityDate = parsedValidityDate;
+            if (parsedGeneratedDate) v.generatedAt = parsedGeneratedDate;
             modified = true;
           }
         });
@@ -3052,7 +3097,8 @@ class FeeService {
       updatedVouchers: updatedVouchersCount,
       updatedStudentFees: updatedStudentFeesCount,
       dueDate: parsedDueDate,
-      validityDate: parsedValidityDate
+      validityDate: parsedValidityDate,
+      generatedDate: parsedGeneratedDate
     };
   }
 }
