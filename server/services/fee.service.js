@@ -3042,10 +3042,21 @@ class FeeService {
     if (institutionId) {
       studentFeeFilter.institution = institutionId;
     }
+
+    // Prepare regex/exact matching for voucher numbers if provided (accounting for prefixes like VCH-YYYY-MM-XXXXX)
+    let voucherRegexes = null;
+    if (voucherNumbers && Array.isArray(voucherNumbers) && voucherNumbers.length > 0) {
+      voucherRegexes = voucherNumbers.map(v => {
+        const clean = v.toString().trim();
+        const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|-)${escaped}$`, 'i');
+      });
+    }
+
     if (studentIds && Array.isArray(studentIds) && studentIds.length > 0) {
       studentFeeFilter.student = { $in: studentIds };
-    } else if (voucherNumbers && Array.isArray(voucherNumbers) && voucherNumbers.length > 0) {
-      studentFeeFilter['vouchers.voucherNumber'] = { $in: voucherNumbers.map(v => v.toString().trim()) };
+    } else if (voucherRegexes) {
+      studentFeeFilter['vouchers.voucherNumber'] = { $in: voucherRegexes };
     } else if (month && year) {
       studentFeeFilter['vouchers'] = {
         $elemMatch: {
@@ -3070,7 +3081,11 @@ class FeeService {
           if (year && Number(v.year) !== Number(year)) match = false;
           if (voucherNumbers && Array.isArray(voucherNumbers) && voucherNumbers.length > 0) {
             const vNo = v.voucherNumber ? v.voucherNumber.toString().trim() : '';
-            if (!voucherNumbers.map(x => x.toString().trim()).includes(vNo)) {
+            const matched = voucherNumbers.some(targetV => {
+              const targetClean = targetV.toString().trim();
+              return vNo === targetClean || vNo.endsWith(`-${targetClean}`) || targetClean.endsWith(`-${vNo}`);
+            });
+            if (!matched) {
               match = false;
             }
           }
@@ -3088,6 +3103,7 @@ class FeeService {
       if (modified) {
         if (parsedDueDate) sf.dueDate = parsedDueDate;
         if (parsedValidityDate) sf.validityDate = parsedValidityDate;
+        sf.markModified('vouchers');
         await sf.save();
         updatedStudentFeesCount++;
       }
